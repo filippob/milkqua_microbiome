@@ -7,3 +7,9 @@ Initially, the following tools will be explored and used for training:
 - Singularity
 - Nextflow
 
+## how do Qiime 2 steps relate to Qiime 1.9 steps?
+
+Qiime 2 steps include:
+
+1. import data
+2. 
