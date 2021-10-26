@@ -19,4 +19,12 @@ From Qiime 1.9:
 Qiime 2 steps include:
 
 1. import data
-2. 
+2. Demultiplexing sequences
+3. Merging reads
+4. Removing non-biological sequences
+5. Grouping similar sequences
+6. Denoising
+7. OTU Clustering
+8. Assigning taxonomy
+
+(source: https://docs.qiime2.org/2019.4/tutorials/qiime2-for-experienced-microbiome-researchers/#data-processing-steps)
