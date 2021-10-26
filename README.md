@@ -9,6 +9,13 @@ Initially, the following tools will be explored and used for training:
 
 ## how do Qiime 2 steps relate to Qiime 1.9 steps?
 
+From Qiime 1.9:
+
+1. extract barcodes
+2. join paried-end reads
+3. assemble a single Fasta file with all clean/filtered sequences (mutliple_split_library.py)
+4. OTU picking (usually closed OTU picking)
+
 Qiime 2 steps include:
 
 1. import data
