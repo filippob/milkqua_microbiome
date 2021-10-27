@@ -1,0 +1,30 @@
+Pipeline test 1
+
+1) dowloaded my files from the server to a local folder, using scp command
+
+scp chiara.gini@login.indaco.unimi.it:/home/users/chiara.gini/MILKQUA/data/210902_M04028_0139_000000000-JRGYP/30_S30_L001_R2_001.fastq.gz ~/milkqua_project/30_S30_L001_R2_001.fastq.gz
+
+2) activated qiime on my local
+
+conda activate qiime2-2021.8
+
+3) converted my files (they were fastq.gz files) in qiime 2 artifacts. I used Casava 1.8 paired-end demultiplexed fastq instructions, on Qiime2 website, because starting files looked like mines.
+
+qiime tools import \
+  --type 'SampleData[PairedEndSequencesWithQuality]' \
+  --input-path casava-18-paired-end-demultiplexed \
+  --input-format CasavaOneEightSingleLanePerSampleDirFmt \
+  --output-path demux-paired-end.qza
+
+Obtained demux-paired-end.qza
+
+4) After importing the demultiplex sequence data into an artifact, we will generate a summary 
+
+qiime demux summarize \
+--i-data demux-paired-end.qza \
+--o-visualization demux-paired-end.qzv
+
+Visualize results with qiime tools view demux-paired-end.qzv
+
+5) In theory, our barcodes are still in the sequences, so we need to use the functions from the cutadapt plugin.
+
