@@ -22,11 +22,11 @@ library("gghighlight")
 library("data.table")
 ```
 
-## Alpha diversity
+## Alpha diversity of milk samples
 
-From 16S rRNA-gene sequencing of cow milk and udder skin microbiome samples:
+From 16S rRNA-gene sequencing of cow milk microbiome samples:
 
-- two treatments for skin samples: before and after oil application
+<!-- - two treatments for skin samples: before and after oil application -->
 - 4 timepoints for milk samples and two treatments (oil, treated/untreated)
 
 Main alpha diversity indexes per group. 
@@ -44,19 +44,22 @@ mAlpha <- reshape2::melt(alpha, id.vars = "sample", variable.name = "metric", va
 mAlpha$type <- metadata$sample_type[match(mAlpha$sample,metadata$sample)]
 mAlpha$timepoint <- metadata$timepoint[match(mAlpha$sample,metadata$sample)]
 mAlpha$treatment <- metadata$treatment[match(mAlpha$sample,metadata$sample)]
-mAlpha <- filter(mAlpha, type == "milk") %>% select(-c(type,treatment))
+mAlpha <- filter(mAlpha, type == "milk") %>% select(-c(type))
 ```
 
 ## Averages and plots
 
 ```{r pressure, echo=FALSE}
+mAlpha$timepoint <- factor(mAlpha$timepoint, levels = c("0","8","21","28"))
 D <- mAlpha %>%
-  group_by(metric,treatment,type, timepoint) %>%
+  group_by(metric,treatment, timepoint) %>%
   summarize(N=n(),avg=round(mean(value),3)) %>%
   spread(key = metric, value = avg)
 
+D$timepoint <- factor(D$timepoint, levels = c("0","8","21","28"))
+
 d_alpha <- D %>%
-  gather(key = "metric", value = "value", -c(treatment,type,timepoint,N)) %>%
+  gather(key = "metric", value = "value", -c(treatment,timepoint,N)) %>%
   spread(key = "treatment", value = "value")
 
 kable(D)
@@ -66,14 +69,14 @@ kable(D)
 
 #### Treatment by region
 
-```{r, echo=FALSE, fig.height=12, fig.width=6}
+```{r, echo=FALSE, fig.height=12, fig.width=12}
 mAlpha <- mAlpha %>% group_by(metric) %>%
   mutate(scaled_value = rescale(value, to = c(0,100)))
   
-p <- ggplot(mAlpha, aes(x=type,y=scaled_value)) 
-p <- p + geom_boxplot(aes(fill=type))
+p <- ggplot(mAlpha, aes(x=timepoint,y=scaled_value)) 
+p <- p + geom_boxplot(aes(fill=treatment))
 p <- p + scale_fill_manual(values=c("#56B4E9", "#E69F00"))
-p <- p + facet_grid(metric~timepoint, scales = "free", space = "free")
+p <- p + facet_wrap(~metric, scales = "free")
 p <- p + xlab("sampke type")
 print(p)  
 ```
@@ -86,12 +89,11 @@ print(p)
 ### Original alpha-diversity index-values - effect of timepoint in milk samples
 
 ```{r test_alpha, echo=FALSE}
-milk <- filter(mAlpha, type == "milk")
 # within(mAlpha, treatment <- relevel(treatment, ref = "carn"))
 
-D <- milk %>%
-  group_by(metric) %>%
-  do(tidy(lm(value ~ timepoint, data = .))) %>%
+D <- mAlpha %>%
+  group_by(metric, timepoint) %>%
+  do(tidy(lm(value ~ treatment, data = .))) %>%
   filter(term != "(Intercept)")
 
 datatable(D, options = list(pageLength=100)) %>% 
@@ -100,7 +102,7 @@ datatable(D, options = list(pageLength=100)) %>%
 ```
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-p <- ggplot(D, aes(x=term, y=p.value))
+p <- ggplot(D, aes(x=timepoint, y=p.value))
 p <- p + geom_jitter(aes(group=metric, colour=metric), width = 0.2)
 p <- p + gghighlight(p.value < 0.10)
 p <- p + xlab("timepoint")
