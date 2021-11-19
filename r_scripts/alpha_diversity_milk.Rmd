@@ -44,6 +44,7 @@ mAlpha <- reshape2::melt(alpha, id.vars = "sample", variable.name = "metric", va
 mAlpha$type <- metadata$sample_type[match(mAlpha$sample,metadata$sample)]
 mAlpha$timepoint <- metadata$timepoint[match(mAlpha$sample,metadata$sample)]
 mAlpha$treatment <- metadata$treatment[match(mAlpha$sample,metadata$sample)]
+mAlpha <- filter(mAlpha, type == "milk") %>% select(-c(type,treatment))
 ```
 
 ## Averages and plots
