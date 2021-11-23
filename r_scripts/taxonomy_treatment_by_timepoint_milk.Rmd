@@ -219,13 +219,11 @@ kable(D)
 
 Same results, but in wide-format (treatments on the horizontal axis): relative abundances (no standard deviations):
 
-**RUMEN**
 
 ```{r, echo=FALSE}
 D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus"))
 
 D0 <- D %>%
-  filter(type == "RUMINAL") %>%
   select(-c(std)) %>%
   spread(treatment,avg_abund)
 
@@ -244,8 +242,8 @@ bg.picker <- function(z) {
 library("formattable")
 formattable(D0, list(
   
-  `carn` = color_tile("white","green"),
-  `cntrl` = color_tile("white","deepskyblue")
+  `Control` = color_tile("white","green"),
+  `Treated` = color_tile("white","deepskyblue")
   # `3 PR` = color_tile("white","yellow"),
   # `4 PR` = color_tile("white","pink"),
   # `5 PR` = color_tile("white","yellow"),
@@ -259,15 +257,14 @@ formattable(D0, list(
 
 ```
 
-**ILEUM**
+**timepoint**
 
 ```{r, echo=FALSE}
 D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus"))
 
 D0 <- D %>%
-  filter(type != "RUMINAL") %>%
   select(-c(std)) %>%
-  spread(treatment,avg_abund)
+  spread(timepoint,avg_abund)
 
 # D0[is.na(D0)] <- ""
 
@@ -284,10 +281,10 @@ bg.picker <- function(z) {
 library("formattable")
 formattable(D0, list(
   
-  `carn` = color_tile("white","yellow"),
-  `cntrl` = color_tile("white","pink")
-  # `3 PR` = color_tile("white","yellow"),
-  # `4 PR` = color_tile("white","pink"),
+  `0` = color_tile("white","yellow"),
+  `8` = color_tile("white","pink"),
+  `21` = color_tile("white","yellow"),
+  `28` = color_tile("white","pink")
   # `5 PR` = color_tile("white","yellow"),
   # `6 PR` = formatter("span",
   #                 style = x ~ style(
@@ -303,7 +300,7 @@ Finally,a bubble chart to visualize relative abundances per taxa and treatment:
 
 ```{r, echo=FALSE, fig.height = 14, fig.width = 10}
 taxa <- D %>%
-  group_by(level,new_taxa,type) %>%
+  group_by(level,new_taxa,timepoint) %>%
   summarize("s"=sum(avg_abund)) %>%
   arrange(desc(level,s)) %>%
   select(level,new_taxa,s)
@@ -319,7 +316,7 @@ taxa <- taxa %>%
 
 p <- ggplot(D, aes(x = treatment, y = new_taxa))
 p <- p + geom_point(aes(size = avg_abund, colour = treatment), alpha = 0.4)
-p <- p + facet_grid(level~type, scales = "free", space = "free")
+p <- p + facet_grid(level~timepoint, scales = "free", space = "free")
 p <- p + scale_color_manual(values = c("#00AFBB", "#E7B800", "#FC4E07"))
 p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1))
 p <- p + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
@@ -333,7 +330,7 @@ p
 The significance of differences between treatments (milk vs waste-milk) was evaluated using a linear model (ANOVA) that included the effect of region (rumen, ileum) and treatments:
 
 $$
-counts_{ikj} = \mu + region_k + treatment_j + e_{ikj}
+counts_{ikj} = \mu + timepoint_k + treatment_j + e_{ikj}
 $$
 
 this way, the variability due to region is removed when assessing the effect of treatments.
@@ -345,7 +342,7 @@ m1 <- mO %>%
 
 D <- m1 %>%
   group_by(level, new_taxa) %>%
-  do(tidy(anova(lm(counts ~ type+treatment, data = .)))) %>%
+  do(tidy(anova(lm(counts ~ timepoint+treatment, data = .)))) %>%
   filter(term == "treatment")
 
 D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus"))
