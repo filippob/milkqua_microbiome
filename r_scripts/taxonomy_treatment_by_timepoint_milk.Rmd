@@ -325,7 +325,7 @@ p <- p + theme_bw()
 p
 ```
 
-### Significance of treatments and sample type (rumen vs ileum)
+### Significance of treatments (+ timepoint)
 
 The significance of differences between treatments (milk vs waste-milk) was evaluated using a linear model (ANOVA) that included the effect of region (rumen, ileum) and treatments:
 
@@ -355,7 +355,7 @@ datatable(D, options = list(pageLength=100)) %>%
 ```
 
 
-### Significance of treatments - RUMEN
+### Significance of treatments (per timepoint)
 
 The significance of differences between treatments (milk vs waste-milk) was evaluated using a linear model (ANOVA) that included the effect of region (rumen, ileum) and treatments:
 
@@ -367,19 +367,18 @@ this way, the variability due to region is removed when assessing the effect of 
 
 ```{r lm, echo=FALSE}
 m1 <- mO %>%
-  filter(!is.na(level), type == "RUMINAL") %>%
   arrange(level,treatment)
 
 dd_counts <- mO %>%
-  group_by(level, new_taxa,type,treatment) %>%
+  group_by(level, new_taxa,timepoint,treatment) %>%
   # summarise(avg = mean(counts)) %>%
   summarise(avg = mean(rel_abundance)) %>%
   spread(key = "treatment", value = "avg")
 
-group_by(dd_counts, level) %>% summarise(tot = sum(carn))
+group_by(dd_counts, level) %>% summarise(tot = sum(Treated))
 
 D <- m1 %>%
-  group_by(level, new_taxa) %>%
+  group_by(level, new_taxa, timepoint) %>%
   do(tidy(anova(lm(counts ~ treatment, data = .)))) %>%
   filter(term == "treatment")
 
@@ -390,35 +389,13 @@ D <- D %>%
 datatable(D, options = list(pageLength=100)) %>% 
   formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
 
-dd_rumen <- D %>% filter(p.value <= 0.05) %>% select(level, new_taxa,p.value) %>% mutate(type = "rumen")
 ```
 
-### Significance of treatments - ILEUM
-
-```{r lm, echo=FALSE}
-m1 <- mO %>%
-  filter(!is.na(level), type == "ILEAL") %>%
-  arrange(level,treatment)
-
-D <- m1 %>%
-  group_by(level, new_taxa) %>%
-  do(tidy(anova(lm(counts ~ treatment, data = .)))) %>%
-  filter(term == "treatment")
-
-D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus"))
-D <- D %>%
-  arrange(level,new_taxa)
-
-datatable(D, options = list(pageLength=100)) %>% 
-  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
-
-dd_ileal <- D %>% filter(p.value <= 0.05) %>% select(level, new_taxa,p.value) %>% mutate(type = "ileum")
-```
 
 ```{r}
-dd_counts$type <- c("ileum","rumen")[match(dd_counts$type,unique(dd_counts$type))]
-dd <- bind_rows(dd_rumen, dd_ileal)
-dd <- dd_counts %>% inner_join(dd, by = c("level" = "level", "new_taxa" = "new_taxa", "type" = "type"))
-dd %>% fwrite("significant_otus_relabund.csv", sep=",")
+# dd_counts$type <- c("ileum","rumen")[match(dd_counts$type,unique(dd_counts$type))]
+# dd <- bind_rows(dd_rumen, dd_ileal)
+# dd <- dd_counts %>% inner_join(dd, by = c("level" = "level", "new_taxa" = "new_taxa", "type" = "type"))
+# dd %>% fwrite("significant_otus_relabund.csv", sep=",")
 ```
 
