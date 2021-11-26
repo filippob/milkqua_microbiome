@@ -1,0 +1,255 @@
+---
+title: "F:B ratio"
+author: "Filippo"
+date: "14 November 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library("knitr")
+library("dplyr")
+library("tidyr")
+library("broom")
+library("vegan")
+library("ggpubr")
+library("ggplot2")
+library("reshape2")
+library("data.table")
+```
+
+### Reading the data
+
+```{r data, echo=FALSE}
+metadata <- fread("mapping_file.csv")
+names(metadata)[1] <- "sample"
+metadata = filter(metadata, sample_type == "milk")
+```
+
+```{r, echo=FALSE}
+otu <- fread("results/taxa_summary_abs/mapping_file_L6.txt",header=TRUE)
+names(otu)[1] <- "sample"
+
+otu <- otu %>%
+  select(-c(index,index2,I7_Index_ID,I5_Index_ID,extraction_serial)) %>%
+  filter(sample_type == "milk")
+
+otu$treatment = metadata$treatment[match(otu$Sample_ID,metadata$Sample_ID)]
+otu$timepoint = metadata$timepoint[match(otu$Sample_ID,metadata$Sample_ID)]
+otu$timepoint = factor(otu$timepoint, levels = c("0","8","21","28"))
+```
+
+```{r, echo=FALSE}
+metadata_cols = names(otu)[1:7]
+mO <- reshape2::melt(otu,id.vars = metadata_cols, value.name = "counts", variable.name = "taxa")
+mO$level <- sapply(mO$taxa, function(x) length(strsplit(as.character(x),";")[[1]]) ) 
+
+get_taxa <- function(x,n) {
+  
+  z <- strsplit(x, split = ";")
+  res = lapply(z, function(x) x[n])
+  return(unlist(res))
+}
+
+new_taxa <- c(NULL)
+for (i in seq_along(mO$counts)) {
+  
+  arg1 = as.character(mO$taxa[i])
+  arg2 = ifelse(mO$level[i] <= 6, mO$level[i], 6)
+  
+  rr = get_taxa(arg1,arg2)
+  new_taxa <- c(new_taxa,rr)
+}
+
+mO$new_taxa <- new_taxa
+
+table(mO$level)
+neues <- c("phylum","class","order","family","genus")
+altes <- seq(2,6)
+mO$level <- neues[match(mO$level,altes)]
+
+## relative abundances
+mO <- mO %>%
+  group_by(level,sample) %>%
+  mutate(tot = sum(counts), rel_abundance = counts/tot)
+```
+
+
+## F:B ratio
+
+```{r, echo=FALSE}
+mm <- filter(mO, level == "phylum")
+mm <- select(mm, c(sample,cow,ref,timepoint,treatment,counts,new_taxa))
+### ratio
+dd <- reshape2::dcast(mm,sample+cow+ref+timepoint+treatment+level~new_taxa, value.var = "counts")
+
+D <- dd %>%
+  select(sample, cow, ref, timepoint, treatment, Bacteroidetes, Firmicutes) %>%
+  group_by(timepoint,treatment) %>%
+  mutate(ratio=Firmicutes/Bacteroidetes) %>%
+  summarize("F/B_avg"=mean(ratio),"B_avg"=mean(Bacteroidetes),"F_avg"=mean(Firmicutes),
+            "F/B_med"=median(ratio),"B_med"=median(Bacteroidetes),"F_med"=median(Firmicutes))
+
+kable(D)
+```
+
+```{r,echo=FALSE}
+temp <- dd %>%
+  select(sample, cow, timepoint, treatment, Bacteroidetes, Firmicutes) %>%
+  mutate(ratio=Firmicutes/Bacteroidetes) 
+
+
+p <- ggplot(temp, aes(x=treatment,y=ratio)) + geom_boxplot(aes(fill=treatment)) + facet_grid(~timepoint, scales = "free", space = "free")
+p
+
+ggsave(filename = "figures/fb_ratio.png", plot = p, device = "png")
+ggsave(filename = "figures/fb_ratio.pdf", plot = p, device = "pdf")
+```
+
+### Overall model
+
+```{r, echo=FALSE}
+dd %>%
+  select(sample, cow, timepoint, treatment, Bacteroidetes, Firmicutes) %>%
+  mutate(ratio=Firmicutes/Bacteroidetes) %>%
+  do(glance(lm(ratio ~ timepoint + treatment, .)))
+```
+
+### Individual contrasts
+
+```{r, echo=FALSE}
+dd %>%
+  select(sample, cow, timepoint, treatment, Bacteroidetes, Firmicutes) %>%
+  mutate(ratio=Firmicutes/Bacteroidetes) %>%
+  # summarize("F/B"=mean(ratio),"B"=mean(Bacteroidetes),"F"=mean(Firmicutes)) %>%
+  do(tidy(lm(ratio ~ timepoint+treatment, .)))
+```
+
+### Bootstrapping
+
+```{r, echo=FALSE, results='hide', label='bootstrapping'}
+dx <- dd %>% 
+  select(sample, cow, timepoint, treatment, Bacteroidetes, Firmicutes)
+
+medBoot <- function(x) {
+  
+  names(x) <- c("sample","group","Bacteroidetes","Firmicutes")
+  labels <- unique(x$group)
+  
+  ind <- sample(nrow(x),nrow(x),replace = TRUE)
+  x <- x[ind,]
+  x$ratio <- x$Firmicutes/x$Bacteroidetes
+  meds <- tapply(x$ratio, x$group, median)
+  naam <- labels[!(labels %in% names(meds))]
+  
+  ## fill in voids (zero-sized groups due to bootstrapping)
+  if(length(naam)>0) {
+    z <- rep(NA, length(naam))
+    names(z) <- naam
+    meds <- c(meds,z)
+  }
+  
+  meds <- meds[order(names(meds))]
+  return(meds)
+}
+```
+
+#### Timepoint 0
+
+```{r, echo=FALSE, results='hide'}
+dx1 <- dx %>% filter(timepoint=="0") %>% select(-c(cow,timepoint))
+
+medBoot(dx1)
+# res <- replicate(10,medBoot(dx1),simplify = TRUE)
+
+n <- 1000
+res <- replicate(n,medBoot(dx1),simplify = FALSE)
+res <- matrix(unlist(res), ncol = n, byrow = FALSE)
+res <- t(res)
+res <- as.data.frame(res)
+names(res) <- c("Control","Treated")
+save(res,file = "res_t0.RData")
+```
+
+#### Timepoint 8
+
+```{r, echo=FALSE, results='hide'}
+dx1 <- dx %>% filter(timepoint=="8") %>% select(-c(cow,timepoint))
+
+medBoot(dx1)
+# res_1 <- replicate(10,medBoot(dx1),simplify = TRUE)
+
+res_1 <- replicate(n,medBoot(dx1),simplify = FALSE)
+res_1 <- matrix(unlist(res_1), ncol = n, byrow = FALSE)
+res_1 <- t(res_1)
+res_1 <- as.data.frame(res_1)
+names(res_1) <- c("Control","Treated")
+save(res_1,file = "res_t8.RData")
+```
+
+#### Timepoint 21
+
+```{r, echo=FALSE, results='hide'}
+dx1 <- dx %>% filter(timepoint=="21") %>% select(-c(cow,timepoint))
+
+medBoot(dx1)
+# res_1 <- replicate(10,medBoot(dx1),simplify = TRUE)
+
+res_2 <- replicate(n,medBoot(dx1),simplify = FALSE)
+res_2 <- matrix(unlist(res_2), ncol = n, byrow = FALSE)
+res_2 <- t(res_2)
+res_2 <- as.data.frame(res_2)
+names(res_2) <- c("Control","Treated")
+save(res_2,file = "res_t21.RData")
+```
+#### Timepoint 28
+
+```{r, echo=FALSE, results='hide'}
+dx1 <- dx %>% filter(timepoint=="28") %>% select(-c(cow,timepoint))
+
+medBoot(dx1)
+res_3 <- replicate(10,medBoot(dx1),simplify = TRUE)
+
+res_3 <- replicate(n,medBoot(dx1),simplify = FALSE)
+res_3 <- matrix(unlist(res_3), ncol = n, byrow = FALSE)
+res_3 <- t(res_3)
+res_3 <- as.data.frame(res_3)
+names(res_3) <- c("Control","Treated")
+save(res_3,file = "res_t28.RData")
+```
+
+**RESULTS**
+
+```{r, echo=FALSE}
+res$timepoint = "0"
+res_1$timepoint = "8"
+res_2$timepoint = "21"
+res_3$timepoint = "28"
+
+res <- res %>% bind_rows(res_1,res_2,res_3)
+
+res$timepoint <- factor(res$timepoint, levels = c("0","8","21","28"))
+
+mR <- reshape2::melt(res, id.vars = "timepoint", variable.name = "treatment", value.name = "ratio")
+
+D <- mR %>%
+  group_by(timepoint,treatment) %>%
+  summarise(med=median(ratio,na.rm=TRUE))
+
+kable(D)
+fwrite(D, file = "fb_ratio.csv")
+```
+
+```{r, echo=FALSE, fig.height=14, fig.width=12}
+p <- ggplot(mR, aes(x=ratio, fill=treatment))
+p <- p + geom_density(alpha=0.25)
+p <- p + facet_wrap(~timepoint, scales = "free")
+p
+
+to_save = list(temp,mR)
+save(to_save, file = "fb.RData")
+# ggsave(filename = "figures/fb_ratio_bootstrap.png", plot = p, device = "png")
+```
+
+
