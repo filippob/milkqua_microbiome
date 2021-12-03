@@ -375,11 +375,11 @@ D <- to_save[[1]]
 DX <- to_save[[2]]
 D0 <- to_save[[3]]
 
-D0 <- spread(D0, key = treatment, value = avg_counts)
+D0 <- mutate(D0, avg_counts = avg_counts+1) %>% spread(key = treatment, value = avg_counts)
 
 D1 <- DX %>%
   inner_join(D0, by = c("level" = "level", "new_taxa" = "new_taxa", "timepoint" = "timepoint")) %>%
-  mutate(p.value = -log10(p.value), Control = ifelse(log(Control) < 1,0,log10(Control)), Treated = ifelse(log(Treated) < 1, 0, log10(Treated))) %>%
+  mutate(p.value = -log10(p.value), Control = ifelse(log(Control) < 0,0,log10(Control)), Treated = ifelse(log(Treated) < 0, 0, log10(Treated))) %>%
   gather(key = "treatment", value = "counts", -c(level,new_taxa,timepoint,p.value))
 
 D1$level <- factor(D1$level, levels = c("phylum","class","order","family","genus"))
@@ -396,7 +396,7 @@ p <- p + theme(strip.text.y = element_text(size = 5),
 p <- p + guides(fill=FALSE) + theme(axis.title.y = element_blank(),
                                     axis.text.y = element_blank(),
                                     axis.ticks.y = element_blank())
-p
+# p
 dd <- filter(D1, treatment == "Control") %>% mutate(variable = "p-value")
 
 q <- ggplot(dd, aes(x = factor(1), y = new_taxa, group=level))
@@ -416,7 +416,7 @@ q <- q + guides(fill=FALSE) + theme(
   axis.text.x = element_text(size = 6)
 )
 q <- q + xlab("") 
-q
+# q
 
 figure_final <- ggarrange(q, p, widths=c(0.25, 0.75), 
                           labels=c("A", "B"))
