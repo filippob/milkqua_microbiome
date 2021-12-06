@@ -415,5 +415,6 @@ D0 <- to_save[[3]]
 
 dd <- spread(D0, key = treatment, value = avg_counts)
 temp <- inner_join(DX,dd, by = c("level" = "level", "new_taxa" = "new_taxa", "timepoint" = "timepoint"))
+fwrite(temp, file = "significant_otus.csv", col.names = TRUE, sep = ",")
 ```
 
