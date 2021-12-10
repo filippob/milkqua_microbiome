@@ -13,8 +13,14 @@ project_home="$HOME/MILKQUA"
 data_folder="210902_M04028_0139_000000000-JRGYP"
 
 echo "project folder is $project_home"
-echo " - running qiime to import data"
 
+## exporting conda to PATH then activating the Qiime2 Conda env
+echo " - activating conda env"
+module load python3/intel/2020
+source activate qiime2-2019.10
+
+## importing data
+echo " - running qiime to import data"
 
 ## CASAVA foramt
 #qiime tools import  --type 'SampleData[PairedEndSequencesWithQuality]' \
@@ -28,3 +34,6 @@ qiime tools import \
   --input-path $project_home/Config/manifest.csv \
   --output-path $project_home/Analysis/$data_folder.qza \
   --input-format PairedEndFastqManifestPhred33V2
+
+echo "DONE!"
+

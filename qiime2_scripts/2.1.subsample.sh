@@ -9,11 +9,17 @@ project_home="$HOME/MILKQUA"
 data_folder="210902_M04028_0139_000000000-JRGYP"
 
 echo "project folder is $project_home"
+
+## exporting conda to PATH then activating the Qiime2 Conda env
+echo " - activating conda env"
+module load python3/intel/2020
+source activate qiime2-2019.10
+
 echo " - running qiime for subsampling"
-qiime demux subsample-paired --i-sequences $project_home/Analysis/$data_folder.qza --p-fraction 0.1 --o-subsampled-sequences $project_home/Analysis/${data_folder}_subsample.qza
+qiime demux subsample-paired --i-sequences $project_home/Analysis/$data_folder.qza --p-fraction 0.3 --verbose --o-subsampled-sequences $project_home/Analysis/${data_folder}_subsample.qza
 
 echo " - running qiime for summary"
-qiime demux summarize --i-data $project_home/Analysis/${data_folder}_subsample.qza --o-visualization $project_home/Analysis/${data_folder}_subsample.qzvi
+qiime demux summarize --i-data $project_home/Analysis/${data_folder}_subsample.qza --o-visualization $project_home/Analysis/${data_folder}_subsample.qzv
 
 echo "DONE!"
 
