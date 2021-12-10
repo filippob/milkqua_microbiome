@@ -121,6 +121,8 @@ p
 # inner_join(x = d_alpha, y = select(D, c(type, metric, p.value)), by = c("type" = "type","metric" = "metric")) %>% fwrite(file = "alpha_table.csv", sep=",")
 ```
 
+## Correction for baseline
+
 ```{r}
 ## Correction for baseline
 bl_medie <- mAlpha %>%
@@ -175,7 +177,29 @@ p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1))
 p  
 ```
 
+```{r test_alpha_bl, echo=FALSE}
+# within(mAlpha, treatment <- relevel(treatment, ref = "carn"))
+
+D <- M %>%
+  filter(timepoint != 0) %>%
+  group_by(metric, timepoint) %>%
+  do(tidy(lm(value ~ treatment, data = .))) %>%
+  filter(term != "(Intercept)")
+
+datatable(D, options = list(pageLength=100)) %>% 
+  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
+
+```
 
 
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+p <- ggplot(D, aes(x=timepoint, y=p.value))
+p <- p + geom_jitter(aes(group=metric, colour=metric), width = 0.2)
+p <- p + gghighlight(p.value < 0.10)
+p <- p + xlab("timepoint")
+p
+
+# ggsave(filename = "alpha_significance.png", plot = p, device = "png")
+```
 
 

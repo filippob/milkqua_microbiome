@@ -27,6 +27,10 @@ library("data.table")
 metadata <- fread("mapping_file.csv")
 names(metadata)[1] <- "sample"
 metadata = filter(metadata, sample_type == "milk")
+metadata %>%
+  group_by(timepoint,treatment,cow) %>%
+  dplyr::summarise(N=n()) %>%
+  spread(key = "timepoint", value = N)
 ```
 
 ```{r taxonomy, echo=FALSE}
@@ -86,13 +90,13 @@ First, let's look at phyla:
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 D <- m1 %>%
   group_by(phylum,treatment,timepoint) %>%
-  summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
+  dplyr::summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
   filter(avg_abund>0.005) %>%
   arrange(phylum,avg_abund)
 
 phylum <- D %>%
   group_by(phylum) %>%
-  summarize("s"=sum(avg_abund)) %>%
+  dplyr::summarize("s"=sum(avg_abund)) %>%
   arrange(desc(s)) %>%
   select(phylum,s)
 
@@ -104,7 +108,7 @@ kable(D)
 ```
 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.height=8, fig.width=12}
 p <- ggplot(mO, aes(x=phylum,y=as.factor(cow),fill=counts))
 p <- p + geom_tile()
 p <- p + facet_grid(treatment~timepoint, scales = "free")
@@ -146,7 +150,7 @@ D <- D %>%
 
 phylum <- D %>%
   group_by(phylum) %>%
-  summarize("s"=sum(avg_abund)) %>%
+  dplyr::summarize("s"=sum(avg_abund)) %>%
   arrange(desc(s)) %>%
   select(phylum,s)
 
@@ -196,22 +200,21 @@ mO$level <- neues[match(mO$level,altes)]
 
 ## relative abundances
 mO <- mO %>%
-  group_by(level,sample) %>%
-  mutate(tot = sum(counts), rel_abundance = counts/tot)
+  dplyr::group_by(level,sample) %>%
+  dplyr::mutate(tot = sum(counts), rel_abundance = counts/tot)
 
 
 D <- mO %>%
-  group_by(level,new_taxa,treatment,timepoint) %>%
-  summarise(avg_abund = round(mean(rel_abundance),4), std = round(sd(rel_abundance),3))
+  dplyr::group_by(level,new_taxa,treatment,timepoint) %>%
+  dplyr::summarise(avg_abund = round(mean(rel_abundance),4), std = round(sd(rel_abundance),3))
 ```
 
 A table of relative abundances (and standard deviations) per taxa and treatment:
 
 ```{r, tab2, echo=FALSE}
-D <- na.omit(D)
 D <- D %>%
-  group_by(new_taxa,timepoint,treatment) %>%
-  filter(avg_abund > 0.01) %>%
+  dplyr::group_by(new_taxa,timepoint,treatment) %>%
+  dplyr::filter(avg_abund > 0.01) %>%
   arrange(level,desc(avg_abund))
 
 kable(D)
@@ -300,13 +303,13 @@ Finally,a bubble chart to visualize relative abundances per taxa and treatment:
 
 ```{r, echo=FALSE, fig.height = 14, fig.width = 10}
 taxa <- D %>%
-  group_by(level,new_taxa,timepoint) %>%
-  summarize("s"=sum(avg_abund)) %>%
-  arrange(desc(level,s)) %>%
+  dplyr::group_by(level,new_taxa,timepoint) %>%
+  dplyr::summarize("s"=sum(avg_abund)) %>%
+  arrange(desc(level),s) %>%
   select(level,new_taxa,s)
 
 taxa <- taxa %>%
-  group_by(level) %>%
+  dplyr::group_by(level) %>%
   arrange(level,s)
 
 # D$taxa <- factor(D$taxa, levels = rev(taxa$taxa[order(taxa$s)]))
@@ -341,7 +344,7 @@ m1 <- mO %>%
   arrange(level,treatment)
 
 D <- m1 %>%
-  group_by(level, new_taxa) %>%
+  dplyr::group_by(level, new_taxa) %>%
   do(tidy(anova(lm(counts ~ timepoint+treatment, data = .)))) %>%
   filter(term == "treatment")
 
@@ -365,20 +368,20 @@ $$
 
 this way, the variability due to region is removed when assessing the effect of treatments.
 
-```{r lm, echo=FALSE}
+```{r lm_2, echo=FALSE}
 m1 <- mO %>%
   arrange(level,treatment)
 
 dd_counts <- mO %>%
-  group_by(level, new_taxa,timepoint,treatment) %>%
+  dplyr::group_by(level,new_taxa,timepoint,treatment) %>%
   # summarise(avg = mean(counts)) %>%
-  summarise(avg = mean(rel_abundance)) %>%
+  dplyr::summarise(avg = mean(rel_abundance)) %>%
   spread(key = "treatment", value = "avg")
 
 group_by(dd_counts, level) %>% summarise(tot = sum(Treated))
 
 D <- m1 %>%
-  group_by(level, new_taxa, timepoint) %>%
+  dplyr::group_by(level, new_taxa, timepoint) %>%
   do(tidy(anova(lm(counts ~ treatment, data = .)))) %>%
   filter(term == "treatment")
 
@@ -393,9 +396,25 @@ datatable(D, options = list(pageLength=100)) %>%
 
 
 ```{r}
-# dd_counts$type <- c("ileum","rumen")[match(dd_counts$type,unique(dd_counts$type))]
-# dd <- bind_rows(dd_rumen, dd_ileal)
-# dd <- dd_counts %>% inner_join(dd, by = c("level" = "level", "new_taxa" = "new_taxa", "type" = "type"))
-# dd %>% fwrite("significant_otus_relabund.csv", sep=",")
+DX <- D %>%
+  filter(`p.value` <= 0.05) %>%
+  select(c(level,new_taxa,timepoint,`p.value`)) %>%
+  arrange(level,`p.value`)
+
+D0 <- mO %>%
+  dplyr::group_by(level,new_taxa,timepoint,treatment) %>%
+  dplyr::summarise(avg_counts = mean(counts))
+
+to_save = list(D,DX,D0)
+save(to_save, file = "taxonomy_timepoint.RData")
+
+load("taxonomy_timepoint.RData")
+D <- to_save[[1]]
+DX <- to_save[[2]]
+D0 <- to_save[[3]]
+
+dd <- spread(D0, key = treatment, value = avg_counts)
+temp <- inner_join(DX,dd, by = c("level" = "level", "new_taxa" = "new_taxa", "timepoint" = "timepoint"))
+fwrite(temp, file = "significant_otus.csv", col.names = TRUE, sep = ",")
 ```
 
