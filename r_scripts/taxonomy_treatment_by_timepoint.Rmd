@@ -57,7 +57,7 @@ M <- bind_cols(otu[,metadata_cols],M)
 metadata_cols = names(otu)[1:7]
 mO <- reshape2::melt(otu,id.vars = metadata_cols, value.name = "counts", variable.name = "phylum")
 mO$phylum <- gsub("^.*\\.","",mO$phylum)
-
+mO[mO$phylum == "2","phylum"] <- "WPS.2"
 mO$sample <- factor(mO$sample)
 mO <- mO %>%
   arrange(treatment)
@@ -66,7 +66,7 @@ mO <- mO %>%
 ```{r, echo=FALSE, fig.height=12, fig.width=12}
 m1 <- reshape2::melt(M,id.vars = metadata_cols, value.name = "counts", variable.name = "phylum")
 m1$phylum <- gsub("^.*\\.","",m1$phylum)
-
+m1[m1$phylum == "2","phylum"] <- "WPS.2"
 m1$sample <- factor(m1$sample)
 m1 <- m1 %>%
   arrange(treatment)
