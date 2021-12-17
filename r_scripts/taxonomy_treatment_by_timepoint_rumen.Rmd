@@ -85,7 +85,7 @@ First, let's look at phyla:
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 D <- m1 %>%
-  group_by(phylum,treatment,timepoint) %>%
+  group_by(phylum,treatment,inoculation) %>%
   dplyr::summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
   filter(avg_abund>0.005) %>%
   arrange(phylum,avg_abund)
@@ -105,21 +105,22 @@ kable(D)
 
 
 ```{r, echo=FALSE, fig.height=8, fig.width=12}
-p <- ggplot(mO, aes(x=phylum,y=as.factor(cow),fill=counts))
+p <- ggplot(mO, aes(x=phylum,y=as.factor(inoculation),fill=counts))
 p <- p + geom_tile()
-p <- p + facet_grid(treatment~timepoint, scales = "free")
+p <- p + facet_wrap(~treatment, ncol = 1, scales = "free_y")
 p <- p + ylab("sample")
 p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1),axis.text.y = element_text(size=9))
 p <- p + scale_fill_gradient2(low="ivory",high = "red")
 p
 ```
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.height=11, fig.width=9}
 my_palette = get_palette(c("#00AFBB", "#E7B800", "#FC4E07","darkgrey","beige"), length(unique(D$phylum)))
 
-p <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=phylum)) + geom_bar(width=1,stat="identity")
-p <- p + facet_grid(timepoint~treatment)
-p <- p + coord_polar(theta='y')
+p <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=phylum)) 
+p <- p + geom_bar(width=1,stat="identity", colour = "black", size = 0.1)
+p <- p + facet_grid(inoculation~treatment)
+# p <- p + coord_polar(theta='y')
 p <- p + xlab("relative abundances") + ylab("")
 p <- p + scale_fill_manual(values = my_palette)
 p <- p + theme(text = element_text(size=15),
@@ -132,7 +133,7 @@ p <- p + theme(text = element_text(size=15),
                legend.title=element_text(size=10))
 
 print(p)
-ggsave(filename = "figures/phylum_piechart.png", plot = p, device = "png")
+# ggsave(filename = "figures/phylum_piechart.png", plot = p, device = "png")
 ```
 
 
