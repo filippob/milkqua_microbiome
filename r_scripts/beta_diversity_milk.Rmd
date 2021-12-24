@@ -28,7 +28,7 @@ Between-sample variability from 16S rRna-gene sequencing data.
 
 ```{r beta, echo=FALSE}
 metadata <- fread("mapping_file.csv")
-names(metadata)[1] <- "sample"
+names(metadata)[2] <- "sample"
 ```
 
 ## Clustering
@@ -78,25 +78,16 @@ p2
 ```{r, echo=FALSE, results='hide'}
 udder.mds= metaMDS(matx0, k=3) #function metaMDS in Vegan
 
-hull_f <- function(df) {
-
-  temp <- data.frame(NULL)
-  for (ll in unique(df$group)) {
-
-    nn <- df[df$group == ll,][chull(df[df$group == ll, c("NMDS1","NMDS2","NMDS3")]),]
-    temp <- rbind.data.frame(temp,nn)
-  }
-  return(temp)
-}
-
 udder.scores <- as.data.frame(scores(udder.mds))  #Using the scores function from vegan to extract the site scores and convert to a data.frame
 udder.scores$group <- mat_milk_1$treatment #  add the grp variable created earlier
 
-hull.data <- hull_f(udder.scores)
+hull_treatment <- udder.scores %>%
+  group_by(group) %>%
+  slice(chull(NMDS1, NMDS2))
 
 g <- ggplot(data=udder.scores, aes(x=NMDS1,y=NMDS2))
 g <- g + coord_equal()
-g = g + geom_polygon(data=hull.data,aes(x=NMDS1,y=NMDS2,fill=group,group=group),alpha=0.30)
+g = g + geom_polygon(data=hull_treatment,aes(x=NMDS1,y=NMDS2,fill=group,group=group),alpha=0.30)
 g = g + geom_point(data=udder.scores,aes(x=NMDS1,y=NMDS2,shape=group,colour=group),size=4)
 g = g + theme_bw() + theme(plot.margin=grid::unit(c(0,0,0,0), "mm"))
 g <- g + ggtitle("Treatment")
@@ -110,25 +101,16 @@ print(g)
 ```{r, echo=FALSE, results='hide'}
 udder.mds= metaMDS(matx, k=3) #function metaMDS in Vegan
 
-hull_f <- function(df) {
-
-  temp <- data.frame(NULL)
-  for (ll in unique(df$group)) {
-
-    nn <- df[df$group == ll,][chull(df[df$group == ll, c("NMDS1","NMDS2","NMDS3")]),]
-    temp <- rbind.data.frame(temp,nn)
-  }
-  return(temp)
-}
-
 udder.scores <- as.data.frame(scores(udder.mds))  #Using the scores function from vegan to extract the site scores and convert to a data.frame
 udder.scores$group <- mat_milk$timepoint #  add the grp variable created earlier
 
-hull.data <- hull_f(udder.scores)
+hull_time <- udder.scores %>%
+  group_by(group) %>%
+  slice(chull(NMDS1, NMDS2))
 
 g <- ggplot(data=udder.scores, aes(x=NMDS1,y=NMDS2))
 g <- g + coord_equal()
-g = g + geom_polygon(data=hull.data,aes(x=NMDS1,y=NMDS2,fill=group,group=group),alpha=0.30)
+g = g + geom_polygon(data=hull_time,aes(x=NMDS1,y=NMDS2,fill=group,group=group),alpha=0.30)
 g = g + geom_point(data=udder.scores,aes(x=NMDS1,y=NMDS2,shape=group,colour=group),size=4)
 g = g + scale_fill_manual(values = c("green", "#E7B800","red","yellow"))
 g = g + scale_color_manual(values = c("green", "#E7B800","red","yellow"))
@@ -142,9 +124,13 @@ print(g)
 Clustering by type (MDS): **NMDS1 vs NMDS3**
 
 ```{r, echo=FALSE, results='hide'}
+hull_time <- udder.scores %>%
+  group_by(group) %>%
+  slice(chull(NMDS1, NMDS3))
+
 g <- ggplot(data=udder.scores, aes(x=NMDS1,y=NMDS3))
 g <- g + coord_equal()
-g = g + geom_polygon(data=hull.data,aes(x=NMDS1,y=NMDS3,fill=group,group=group),alpha=0.30)
+g = g + geom_polygon(data=hull_time,aes(x=NMDS1,y=NMDS3,fill=group,group=group),alpha=0.30)
 g = g + geom_point(data=udder.scores,aes(x=NMDS1,y=NMDS3,shape=group,colour=group),size=4)
 g = g + theme_bw() + theme(plot.margin=grid::unit(c(0,0,0,0), "mm"))
 g <- g + ggtitle("Source ")
@@ -154,9 +140,13 @@ print(g)
 Clustering by type (MDS): **NMDS2 vs NMDS3**
 
 ```{r, echo=FALSE, results='hide'}
+hull_time <- udder.scores %>%
+  group_by(group) %>%
+  slice(chull(NMDS2, NMDS3))
+
 g <- ggplot(data=udder.scores, aes(x=NMDS2,y=NMDS3))
 g <- g + coord_equal()
-g = g + geom_polygon(data=hull.data,aes(x=NMDS2,y=NMDS3,fill=group,group=group),alpha=0.30)
+g = g + geom_polygon(data=hull_time,aes(x=NMDS2,y=NMDS3,fill=group,group=group),alpha=0.30)
 g = g + geom_point(data=udder.scores,aes(x=NMDS2,y=NMDS3,shape=group,colour=group),size=4)
 g = g + theme_bw() + theme(plot.margin=grid::unit(c(0,0,0,0), "mm"))
 g <- g + ggtitle("Source")
@@ -173,24 +163,14 @@ udder.scores <- as.data.frame(scores(udder.mds))  #Using the scores function fro
 udder.scores$timepoint <- mat_milk$timepoint #  add the grp variable created earlier
 udder.scores$treatment <- mat_milk$treatment
 
-
-hull_f <- function(df) {
-  
-  temp <- data.frame(NULL)
-  for (ll in unique(df$timepoint)) {
-    
-    nn <- df[df$timepoint == ll,][chull(df[df$timepoint == ll, c("NMDS1","NMDS2")]),]
-    temp <- rbind.data.frame(temp,nn)
-  }
-  return(temp)
-}
-
-hull.data <- hull_f(udder.scores)
+hull_data <- udder.scores %>%
+  group_by(timepoint,treatment) %>%
+  slice(chull(NMDS1, NMDS2))
 
 g= ggplot(data=udder.scores, aes(x=NMDS1,y=NMDS2))
 # g <- g + geom_point(aes(shape=group,colour=group),size=3)
 # g= g + coord_equal() 
-g= g + geom_polygon(data=hull.data,aes(x=NMDS1,y=NMDS2,fill=treatment,group=treatment),alpha=0.30) 
+g= g + geom_polygon(data=hull_data,aes(x=NMDS1,y=NMDS2,fill=treatment,group=treatment),alpha=0.30) 
 g= g + geom_point(data=udder.scores,aes(x=NMDS1,y=NMDS2,shape=treatment,colour=treatment),size=4)
 g= g + theme_bw() + theme(plot.margin=grid::unit(c(0,0,0,0), "mm"))
 g= g + facet_wrap(~timepoint, scales = "free")
