@@ -1,0 +1,2 @@
+temp_dir     /tmp/$USER
+working_dir  /tmp/$USER

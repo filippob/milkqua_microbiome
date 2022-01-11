@@ -1,0 +1,188 @@
+---
+title: "Alpha_diversity_rumen"
+author: "Chiara Gini"
+date: "December 14, 2021"
+output:
+  html_document:
+    df_print: paged
+  ioslides_presentation: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("DT")
+library("knitr")
+library("dplyr")
+library("tidyr")
+library("broom")
+library("vegan")
+library("scales")
+library("ggplot2")
+library("ggpubr")
+# library("madbito")
+library("reshape2")
+library("gghighlight")
+library("data.table")
+```
+
+## Alpha diversity of ruumen samples
+
+From 16S rRNA-gene sequencing of cow rumen microbiome samples:
+
+- 6 treatments for rumen samples + blank + ("Aditivo0","AE1","AE sintético 1","Carvacrol", "p-cymene", "γ-terpinene", "blank")
+
+Main alpha diversity indexes per group. 
+
+```{r alpha, echo=FALSE}
+metadata <- fread("/home/mycelium/milkqua_project/Rumen/mapping_file_rumen.csv")
+names(metadata)[1] <- "sample"
+
+subset <- data.frame(metadata$sample)
+subset <- subset %>%
+  mutate(metadata.sample2=metadata.sample)
+subset$Concatenated <- paste(subset$metadata.sample, subset$metadata.sample2, sep = '')
+
+metadata <- cbind(metadata,subset[3])
+
+names(metadata)[2] <- "treatment"
+names(metadata)[4] <- "timepoint"
+names(metadata)[8] <- "sample2"
+alpha <- read.table("/home/mycelium/milkqua_project/Rumen/results/alpha_diversity/alpha.txt", header = TRUE)
+alpha$sample <- row.names(alpha)
+alpha$observed_species <- NULL
+
+mAlpha <- reshape2::melt(alpha, id.vars = "sample", variable.name = "metric", value.name = "value")
+
+#mAlpha$type <- metadata$sample_type[match(mAlpha$sample,metadata$sample)]
+mAlpha$timepoint <- metadata$timepoint[match(mAlpha$sample,metadata$sample2)]
+mAlpha$treatment <- metadata$treatment[match(mAlpha$sample,metadata$sample2)]
+```
+
+## Averages and plots
+
+```{r, echo=FALSE}
+mAlpha$timepoint <- factor(mAlpha$timepoint, levels = c("0","AE1","AE sintético 1","Carvacrol", "p-cymene", "γ-terpinene", ""))
+D <- mAlpha %>%
+  group_by(metric,treatment, timepoint) %>%
+  summarize(N=n(),avg=round(mean(value),3)) %>%
+  spread(key = metric, value = avg)
+
+D$timepoint <- factor(D$timepoint, levels = c("0","AE1","AE sintético 1","Carvacrol", "p-cymene", "γ-terpinene", ""))
+
+d_alpha <- D %>%
+  gather(key = "metric", value = "value", -c(treatment,timepoint,N)) %>%
+  spread(key = "treatment", value = "value")
+
+kable(D)
+```
+
+### Boxplots of alpha diversity indexes
+
+#### Treatment by region
+
+```{r, echo=FALSE, fig.height=12, fig.width=12}
+mAlpha <- mAlpha %>% group_by(metric) %>%
+  mutate(scaled_value = rescale(value, to = c(0,100)))
+  
+p <- ggplot(mAlpha, aes(x=timepoint,y=scaled_value)) 
+p <- p + geom_boxplot(aes(fill=timepoint))
+p <- p + scale_fill_manual(values=c("#56B4E9", "#E69F00","deeppink", "darkorange", "forestgreen", "darkturquoise", "cornflowerblue"))
+p <- p + facet_wrap(~metric, scales = "free")
+p <- p + xlab("sample type")
+p = p + theme(strip.text = element_text(size = 12),
+              axis.text.x = element_text(size = 8))
+p
+
+ggsave(filename = "boxplot_alpha_significance_rumen.png",height = 16, width = 16, plot = p, device = "png")
+```
+
+
+
+
+## Testing for significance
+
+### Original alpha-diversity index-values - effect of timepoint in rumen samples
+
+```{r test_alpha, echo=FALSE}
+D <- mAlpha %>%
+  group_by(metric) %>%
+  do(tidy(lm(value ~ timepoint, data = .))) %>%
+  filter(term != "(Intercept)")
+
+datatable(D, options = list(pageLength=100)) %>% 
+  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
+
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+p <- ggplot(D, aes(x=term, y=p.value))
+p <- p + geom_jitter(aes(group=metric, colour=metric), width = 0.2)
+p <- p + gghighlight(p.value < 0.10)
+p <- p + xlab("Treatment")
+p <- p + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.2)
+p <- p + scale_x_discrete(labels=c("timepointAE sintético 1" = "AE sintético 1", "timepointAE1" = "AE1", "timepointCarvacrol" = "Carvacrol", "timepointp-cymene"="p-cymene", "timepointγ-terpinene"="γ-terpinene", "timepoint0"="0", "timepoint"=""))
+p
+
+ggsave(filename = "alpha_significance_rumen.png", height = 5, width = 8, plot = p, device = "png")
+```
+
+```{r}
+# inner_join(x = d_alpha, y = select(D, c(type, metric, p.value)), by = c("type" = "type","metric" = "metric")) %>% fwrite(file = "alpha_table.csv", sep=",")
+```
+
+```{r}
+## Correction for baseline
+bl_medie <- mAlpha %>%
+  filter(timepoint=="0") %>%
+  group_by(metric,treatment) %>%
+  summarize(media_bl=mean(value))
+  
+bl_counts <- mAlpha %>%
+  group_by(metric,treatment) %>%
+  filter(timepoint=="0") %>%
+  arrange(metric) %>%
+  rename(value.bl = value)
+
+M <- merge(mAlpha,bl_counts[,c(1,2,3)],by=c("metric","sample"),all.x = TRUE)
+M1 <- M%>%
+  filter(!is.na(M$value.bl))
+
+
+M2 <- M %>%
+  filter(is.na(value.bl)) %>%
+  mutate(value.bl=replace(value.bl,is.na(value.bl),right_join(bl_medie, ., by =c("metric","treatment"))$media_bl))
+
+M <- rbind.data.frame(M1,M2)  
+
+M <- M %>%
+  mutate(corrected_counts=value-value.bl) %>%
+  filter(value!=0) %>%
+  arrange(sample)
+
+M <- M %>%
+  group_by(metric) %>%
+  mutate(scaled_counts=scales::rescale(corrected_counts,c(0,100)))
+```
+
+```{r, echo=FALSE}
+D <- M %>%
+  group_by(metric,treatment,timepoint) %>%
+  summarize(avg=mean(corrected_counts)) %>%
+  spread(key = metric, value = avg)
+
+kable(D)
+```
+
+
+```{r, echo=FALSE}
+mD <- melt(D, id.vars = c("timepoint","treatment"), variable.name = "metric")
+
+p <- ggplot(mD, aes(x=timepoint,y=value, group=treatment)) + geom_point(aes(colour=treatment))
+p <- p + geom_line(aes(colour=treatment))
+p <- p + facet_wrap(~metric, scales = "free_y")
+p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+p  
+
+ggsave (p, height = 6, width = 8, filename = "alpha_diversity_indeces_rumen.png")
+```

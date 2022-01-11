@@ -1,0 +1,418 @@
+---
+title: "taxonomy per treatment and timepoint: rumen samples"
+author: "Filippo Biscarini"
+date: "December 19, 2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("DT")
+library("knitr")
+library("dplyr")
+library("tidyr")
+library("broom")
+library("vegan")
+library("ggpubr")
+library("ggplot2")
+library("reshape2")
+library("data.table")
+```
+
+## 16S sequencing data - cow milk samples
+
+```{r data, echo=FALSE}
+metadata <- fread("../mapping_file.csv")
+names(metadata)[1] <- "sample"
+metadata$treatment = c("treatment_0","AE1","AE_synthetic_1","Carvacrol","p_cymene","gamma_terpinene","no_treatment")[match(metadata$treatment,unique(metadata$treatment))]
+metadata %>%
+  group_by(treatment,inoculation) %>%
+  dplyr::summarise(N=n()) %>%
+  spread(key = "inoculation", value = N)
+```
+
+```{r taxonomy, echo=FALSE}
+otu <- fread("results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
+otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
+
+otu$treatment = metadata$treatment[match(otu$sample,metadata$sample)]
+otu$inoculation = metadata$inoculation[match(otu$sample,metadata$sample)]
+
+otu <- relocate(otu, treatment, inoculation, .after = sample)
+
+## relative abundances
+metadata_cols = names(metadata)[c(1,5,7)]
+M <- select(otu,-all_of(metadata_cols))
+M <- M/rowSums(M)
+M <- bind_cols(select(otu, all_of(metadata_cols)),M)
+```
+
+
+```{r, echo=FALSE, fig.height=12, fig.width=12}
+metadata_cols = names(otu)[seq(1,3)]
+mO <- reshape2::melt(otu,id.vars = metadata_cols, value.name = "counts", variable.name = "phylum")
+mO$phylum <- gsub("^.*\\.","",mO$phylum)
+
+mO$sample <- factor(mO$sample)
+mO <- mO %>%
+  arrange(treatment)
+```
+
+```{r, echo=FALSE, fig.height=12, fig.width=12}
+m1 <- reshape2::melt(M,id.vars = metadata_cols, value.name = "counts", variable.name = "phylum")
+m1$phylum <- gsub("^.*\\.","",m1$phylum)
+
+m1$sample <- factor(m1$sample)
+m1 <- m1 %>%
+  arrange(treatment)
+
+# m1$sample <- paste(as.character(m1$sample),as.character(m1$timepoint),sep="-")
+ordered_samples <- metadata %>%
+  arrange(treatment) %>%
+  select(treatment,sample)
+
+m1$sample <- factor(m1$sample, levels = ordered_samples$sample)
+
+m1$treatment <- factor(m1$treatment)
+m1$inoculation <- factor(m1$inoculation)
+```
+
+
+### Treatments and timepoints
+
+First, let's look at phyla:
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+D <- m1 %>%
+  group_by(phylum,treatment,inoculation) %>%
+  dplyr::summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
+  filter(avg_abund>0.005) %>%
+  arrange(phylum,avg_abund)
+
+phylum <- D %>%
+  group_by(phylum) %>%
+  dplyr::summarize("s"=sum(avg_abund)) %>%
+  arrange(desc(s)) %>%
+  select(phylum,s)
+
+D$phylum <- factor(D$phylum, levels = rev(phylum$phylum[order(phylum$s)]))
+D <- D %>%
+  arrange(treatment,phylum)
+
+kable(D)
+```
+
+
+```{r, echo=FALSE, fig.height=8, fig.width=12}
+p <- ggplot(mO, aes(x=phylum,y=as.factor(inoculation),fill=counts))
+p <- p + geom_tile()
+p <- p + facet_wrap(~treatment, ncol = 1, scales = "free_y")
+p <- p + ylab("sample")
+p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1),axis.text.y = element_text(size=9))
+p <- p + scale_fill_gradient2(low="ivory",high = "red")
+p
+```
+
+```{r, echo=FALSE, fig.height=11, fig.width=9}
+my_palette = get_palette(c("#00AFBB", "#E7B800", "#FC4E07","darkgrey","beige"), length(unique(D$phylum)))
+
+p <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=phylum)) 
+p <- p + geom_bar(width=1,stat="identity", colour = "black", size = 0.1)
+p <- p + facet_grid(inoculation~treatment)
+# p <- p + coord_polar(theta='y')
+p <- p + xlab("relative abundances") + ylab("")
+p <- p + scale_fill_manual(values = my_palette)
+p <- p + theme(text = element_text(size=15),
+               axis.text.x = element_text(size=11),
+               # axis.text.y = element_text(size=12),
+               strip.text = element_text(size = 16),
+               axis.text.y = element_blank(),
+               axis.ticks.y = element_blank(),
+               legend.text=element_text(size=10),
+               legend.title=element_text(size=10))
+
+print(p)
+# ggsave(filename = "figures/phylum_piechart.png", plot = p, device = "png")
+```
+
+
+### Treatments, all taxonomic levels
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+D <- D %>%
+  group_by(treatment) %>%
+  filter(avg_abund > 0.01) %>%
+  arrange(desc(avg_abund))
+
+phylum <- D %>%
+  group_by(phylum) %>%
+  dplyr::summarize("s"=sum(avg_abund)) %>%
+  arrange(desc(s)) %>%
+  select(phylum,s)
+
+D$phylum <- factor(D$phylum, levels = rev(phylum$phylum[order(phylum$s)]))
+D <- D %>%
+  arrange(phylum)
+
+D$taxa_level = rep("phylum", nrow(D))
+```
+
+```{r, echo=FALSE}
+otu <- fread("results/taxa_summary_abs/CSS_normalized_otu_table_L6.txt",header=TRUE)
+otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
+
+otu$treatment = metadata$treatment[match(otu$sample,metadata$sample)]
+otu$inoculation = metadata$inoculation[match(otu$sample,metadata$sample)]
+otu <- relocate(otu, treatment, inoculation, .after = sample)
+
+mO <- reshape2::melt(otu,id.vars = metadata_cols, value.name = "counts", variable.name = "taxa")
+mO$level <- sapply(mO$taxa, function(x) length(strsplit(as.character(x),";")[[1]]) ) 
+
+get_taxa <- function(x,n) {
+  
+  z <- strsplit(x, split = ";")
+  res = lapply(z, function(x) x[n])
+  return(unlist(res))
+}
+
+new_taxa <- c(NULL)
+for (i in seq_along(mO$counts)) {
+  
+  arg1 = as.character(mO$taxa[i])
+  arg2 = ifelse(mO$level[i] <= 6, mO$level[i], 6)
+  
+  rr = get_taxa(arg1,arg2)
+  new_taxa <- c(new_taxa,rr)
+}
+
+mO$new_taxa <- new_taxa
+
+table(mO$level)
+neues <- c("phylum","class","order","family","genus")
+altes <- seq(2,6)
+mO$level <- neues[match(mO$level,altes)]
+
+## relative abundances
+mO <- mO %>%
+  dplyr::group_by(level,sample) %>%
+  dplyr::mutate(tot = sum(counts), rel_abundance = counts/tot)
+
+D <- mO %>%
+  dplyr::group_by(level,new_taxa,treatment,inoculation) %>%
+  dplyr::summarise(avg_abund = round(mean(rel_abundance),4), std = round(sd(rel_abundance),3))
+```
+
+A table of relative abundances (and standard deviations) per taxa and treatment:
+
+```{r, tab2, echo=FALSE}
+D <- D %>%
+  dplyr::group_by(new_taxa,inoculation,treatment) %>%
+  dplyr::filter(avg_abund > 0.01) %>%
+  arrange(level,desc(avg_abund))
+
+kable(D)
+```
+
+Same results, but in wide-format (treatments on the horizontal axis): relative abundances (no standard deviations):
+
+
+```{r, echo=FALSE}
+D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus"))
+
+D0 <- D %>%
+  select(-c(std)) %>%
+  spread(treatment,avg_abund)
+
+# D0[is.na(D0)] <- ""
+
+bg.picker <- function(z) {
+  
+  if(is.na(z)) {return(NULL)}
+  if(is.numeric(z)) {
+    
+    if(z > 0.05 & z <= 0.10) {return("pink")}
+    if(z > 0.10) {return("yellow")}
+  }
+}
+
+library("formattable")
+formattable(D0, list(
+  
+  `treatment_0` = color_tile("white","green"),
+  `AE1` = color_tile("white","deepskyblue"),
+  `AE_synthetic_1` = color_tile("white","yellow"),
+  `Carvacrol` = color_tile("white","pink"),
+  `p_cymene` = color_tile("white","red"),
+  `gamma_terpinene` = color_tile("white","maroon"),
+  `no_treatment` = color_tile("white","grey")
+  # `6 PR` = formatter("span",
+  #                 style = x ~ style(
+  #                   "border-radius" = "4px",
+  #                   "padding-right" = "4px",
+  #                   "background-color" = sapply(x, bg.picker))
+  #                 )
+))
+
+```
+
+**inoculation**
+
+```{r, echo=FALSE}
+D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus"))
+
+D0 <- D %>%
+  select(-c(std)) %>%
+  spread(inoculation,avg_abund)
+
+# D0[is.na(D0)] <- ""
+
+bg.picker <- function(z) {
+  
+  if(is.na(z)) {return(NULL)}
+  if(is.numeric(z)) {
+    
+    if(z > 0.05 & z <= 0.10) {return("pink")}
+    if(z > 0.10) {return("yellow")}
+  }
+}
+
+library("formattable")
+formattable(D0, list(
+  
+  `1` = color_tile("white","yellow"),
+  `2` = color_tile("white","pink"),
+  `3` = color_tile("white","yellow"),
+  `4` = color_tile("white","pink")
+  # `5 PR` = color_tile("white","yellow"),
+  # `6 PR` = formatter("span",
+  #                 style = x ~ style(
+  #                   "border-radius" = "4px",
+  #                   "padding-right" = "4px",
+  #                   "background-color" = sapply(x, bg.picker))
+  #                 )
+))
+
+```
+
+Finally,a bubble chart to visualize relative abundances per taxa and treatment:
+
+```{r, echo=FALSE, fig.height = 14, fig.width = 10}
+taxa <- D %>%
+  dplyr::group_by(level,new_taxa,inoculation) %>%
+  dplyr::summarize("s"=sum(avg_abund)) %>%
+  arrange(desc(level),s) %>%
+  select(level,new_taxa,s)
+
+taxa <- taxa %>%
+  dplyr::group_by(level) %>%
+  arrange(level,s)
+
+# D$taxa <- factor(D$taxa, levels = rev(taxa$taxa[order(taxa$s)]))
+# 
+# D <- D %>%
+#   arrange(level,taxa)
+
+p <- ggplot(D, aes(x = treatment, y = new_taxa))
+p <- p + geom_point(aes(size = avg_abund, colour = treatment), alpha = 0.4)
+p <- p + facet_grid(level~inoculation, scales = "free", space = "free")
+# p <- p + scale_color_manual(values = c("#00AFBB", "#E7B800", "#FC4E07"))
+p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+p <- p + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+p <- p + theme(axis.text.x = element_text(size=8))
+p <- p + theme_bw()
+p
+```
+
+### Significance of treatments (+ timepoint)
+
+The significance of differences between treatments (milk vs waste-milk) was evaluated using a linear model (ANOVA) that included the effect of region (rumen, ileum) and treatments:
+
+$$
+counts_{ikj} = \mu + inoculation_k + treatment_j + e_{ikj}
+$$
+
+this way, the variability due to region is removed when assessing the effect of treatments.
+
+```{r lm, echo=FALSE}
+m1 <- mO %>%
+  filter(!is.na(level)) %>%
+  arrange(level,treatment)
+
+D <- m1 %>%
+  dplyr::group_by(level, new_taxa) %>%
+  do(tidy(anova(lm(counts ~ inoculation+treatment, data = .)))) %>%
+  filter(term == "treatment")
+
+D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus"))
+D <- D %>%
+  arrange(level,new_taxa)
+
+datatable(D, options = list(pageLength=100)) %>% 
+  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
+
+```
+
+
+### Significance of treatments (per timepoint)
+
+The significance of differences between treatments (milk vs waste-milk) was evaluated using a linear model (ANOVA) that included the effect of region (rumen, ileum) and treatments:
+
+$$
+counts_{ij} = \mu + treatment_j + e_{ij}
+$$
+
+this way, the variability due to region is removed when assessing the effect of treatments.
+
+```{r lm_2, echo=FALSE}
+m1 <- mO %>%
+  arrange(level,treatment)
+
+dd_counts <- mO %>%
+  dplyr::group_by(level,new_taxa,inoculation,treatment) %>%
+  # summarise(avg = mean(counts)) %>%
+  dplyr::summarise(avg = mean(rel_abundance)) %>%
+  spread(key = "treatment", value = "avg")
+
+# group_by(dd_counts, level) %>% summarise(tot = sum(Treated))
+
+D <- m1 %>%
+  filter(treatment != "no_treatment") %>%
+  dplyr::group_by(level, new_taxa, inoculation) %>%
+  do(tidy(anova(lm(counts ~ treatment, data = .)))) %>%
+  filter(term == "treatment")
+
+D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus"))
+D <- D %>%
+  arrange(level,new_taxa)
+
+datatable(D, options = list(pageLength=100)) %>% 
+  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
+
+```
+
+
+```{r}
+DX <- D %>%
+  filter(`p.value` <= 0.05) %>%
+  select(c(level,new_taxa,inoculation,`p.value`)) %>%
+  arrange(level,`p.value`)
+
+D0 <- mO %>%
+  dplyr::group_by(level,new_taxa,inoculation,treatment) %>%
+  dplyr::summarise(avg_counts = mean(counts))
+
+to_save = list(D,DX,D0)
+save(to_save, file = "taxonomy.RData")
+
+load("taxonomy.RData")
+D <- to_save[[1]]
+DX <- to_save[[2]]
+D0 <- to_save[[3]]
+
+dd <- spread(D0, key = treatment, value = avg_counts)
+temp <- inner_join(DX,dd, by = c("level" = "level", "new_taxa" = "new_taxa", "inoculation" = "inoculation"))
+fwrite(temp, file = "significant_otus.csv", col.names = TRUE, sep = ",")
+```
+
