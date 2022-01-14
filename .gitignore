@@ -131,3 +131,6 @@ dmypy.json
 # nextflow internal dir
 nextflow_scripts/work/*
 nextflow_scripts/.nextflow/*
+
+# html files
+*/*.html
