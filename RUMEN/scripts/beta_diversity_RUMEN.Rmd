@@ -137,7 +137,7 @@ X = \mu + treatment +  + treatment*type + e
 $$
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-source("pairwise_adonis.r")
+source("../../r_scripts/pairwise_adonis.r")
 
 obj <- adonis(matx ~ matrice$treatment)
 
