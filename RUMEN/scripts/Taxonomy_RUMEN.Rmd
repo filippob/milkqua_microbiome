@@ -4,7 +4,7 @@ author: "Chiara Gini"
 date: "27/12/2021"
 output: html_document
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
 ```{r setup, include=FALSE}
@@ -24,7 +24,7 @@ library("ggrepel")
 ## 16S sequencing data - cow rumen samples
 
 ```{r data, echo=FALSE}
-metadata <- fread("mapping_file.csv")
+metadata <- fread("../../../rumen/mapping_file.csv")
 names(metadata)[1] <- "sample"
 
 meta_subset <- filter(metadata, treatment !="ruminal liquid")
@@ -35,7 +35,7 @@ meta_subset %>%
 ```
 
 ```{r taxonomy, echo=FALSE}
-otu <- fread("qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
+otu <- fread("../../../rumen/qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
 otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
 otu$treatment = metadata$treatment[match(otu$sample,metadata$sample)]
 otu <- filter(otu, sample %in% meta_subset$sample)
@@ -56,7 +56,7 @@ metadata_cols = names(otu)[c(1,2)]
 otu <- subset(otu, treatment !="ruminal liquid")
 
 mO <- reshape2::melt(otu,id.vars = metadata_cols, value.name = "counts", variable.name = "phylum")
-mO$phylum <- gsub("^.*\\.","",mO$phylum)
+mO$phylum <- gsub("^.*;","",mO$phylum)
 mO[mO$phylum == "2","phylum"] <- "WPS.2"
 mO$sample <- factor(mO$sample)
 mO <- mO %>%
@@ -66,7 +66,7 @@ mO <- mO %>%
 
 ```{r, echo=FALSE, fig.height=12, fig.width=12}
 m1 <- reshape2::melt(M,id.vars = metadata_cols, value.name = "counts", variable.name = "phylum")
-m1$phylum <- gsub("^.*\\.","",m1$phylum)
+m1$phylum <- gsub("^.*;","",m1$phylum)
 m1[m1$phylum == "2","phylum"] <- "WPS.2"
 m1$sample <- factor(m1$sample)
 m1 <- m1 %>%
@@ -109,7 +109,7 @@ kable(D)
 ```{r, echo=FALSE}
 p <- ggplot(mO, aes(x=phylum,y=as.factor(sample),fill=counts))
 p <- p + geom_tile()
-p <- p + facet_grid(treatment~phylum, scales = "free")
+p <- p + facet_wrap(~treatment, scales = "free_y")
 p <- p + ylab("sample")
 p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1),axis.text.y = element_text(size=9))
 p <- p + scale_fill_gradient2(low="red",high = "blue")
@@ -165,14 +165,20 @@ D <- D %>%
 
 D$taxa_level = rep("phylum", nrow(D))
 
-otu <- fread("/home/oem/milkqua_microbiome/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L6.txt", header = TRUE, skip = 1)
-#names(otu)[1] <- "sample"
+otu2 <- fread("../../../rumen/qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
+otu3 <- fread("../../../rumen/qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L3.txt", header = TRUE, skip = 1)
+otu4 <- fread("../../../rumen/qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L4.txt", header = TRUE, skip = 1)
+otu5 <- fread("../../../rumen/qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L5.txt", header = TRUE, skip = 1)
+otu6 <- fread("../../../rumen/qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L6.txt", header = TRUE, skip = 1)
+otu <- bind_rows(otu2,otu3,otu4,otu5,otu6)
 
 otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
 
 otu$treatment = metadata$treatment[match(otu$sample,metadata$sample)]
+otu <- filter(otu, sample %in% meta_subset$sample)
 
 mO <- reshape2::melt(otu,id.vars = metadata_cols, value.name = "counts", variable.name = "taxa")
+
 mO$level <- sapply(mO$taxa, function(x) length(strsplit(as.character(x),";")[[1]]) ) 
 
 get_taxa <- function(x,n) {
@@ -384,72 +390,36 @@ p
 #ggsave (p, height = 13, width = 8, filename = "taxonomy_bubbleplot_rumen.png")
 ```
 
-# ### Significance of treatments
-# 
-# The significance of differences between treatments (Control vs Treated with Essential Oil) was evaluated using a linear model (ANOVA) that included the effect of  s:
-# 
-# $$
-# counts_{ikj} = \mu +  _k + treatment_j + e_{ikj}
-# $$
-# 
-# This way, the variability due to region is removed when assessing the effect of treatments.
-# 
-# ```{r, echo=FALSE}
-# m1 <- mO %>%
-#   filter(!is.na(level)) %>%
-#   arrange(level,treatment)
-# 
-# D <- m1 %>%
-#   group_by(level, new_taxa) %>%
-#   do(tidy(anova(lm(counts ~  +treatment, data = .)))) %>%
-#   filter(term == "treatment")
-# 
-# D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus"))
-# D <- D %>%
-#   arrange(level,new_taxa)
-# 
-# datatable(D, options = list(pageLength=100)) %>% 
-#   formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
-```
-
-## Significance of treatments (per timepoints)
-
+### Significance of treatments
+ 
 The significance of differences between treatments (Control vs Treated with Essential Oil) was evaluated using a linear model (ANOVA) that included the effect of  s:
-
+ 
 $$
-counts_{ij} = \mu + treatment_j + e_{ij}
+counts_{ikj} = \mu +  _k + treatment_j + e_{ikj}
 $$
-
-this way, the variability due to region is removed when assessing the effect of treatments.
-
+# 
+This way, the variability due to region is removed when assessing the effect of treatments.
+ 
 ```{r, echo=FALSE}
 m1 <- mO %>%
+  filter(!is.na(level)) %>%
   arrange(level,treatment)
 
-dd_counts <- mO %>%
-  group_by(level, new_taxa, treatment) %>%
-  # summarise(avg = mean(counts)) %>%
-  summarise(avg = mean(rel_abundance)) %>%
-  spread(key = "treatment", value = "avg")
-
-group_by(dd_counts, level) %>% summarise(tot = sum(Treated))
-
 D <- m1 %>%
-  group_by(level, new_taxa,  ) %>%
-  do(tidy(anova(lm(counts ~ treatment, data = .)))) %>%
+  group_by(level, new_taxa) %>%
+  do(tidy(anova(lm(counts ~  +treatment, data = .)))) %>%
   filter(term == "treatment")
 
 D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus"))
 D <- D %>%
   arrange(level,new_taxa)
 
-datatable(D, options = list(pageLength=100)) %>% 
+datatable(D, options = list(pageLength=100)) %>%
   formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
-
 ```
 
 
-```{r}
+```{r, echo=FALSE}
 DX <- D %>%
   filter(`p.value` <= 0.05) %>%
   select(c(level,new_taxa, `p.value`)) %>%
@@ -468,12 +438,12 @@ DX <- to_save[[2]]
 D0 <- to_save[[3]]
 
 dd <- spread(D0, key = treatment, value = avg_counts)
-temp <- inner_join(DX,dd, by = c("level" = "level", "new_taxa" = "new_taxa", " " = " "))
-fwrite(temp, file = "significant_otus.csv", col.names = TRUE, sep = ",")
+temp <- inner_join(DX,dd, by = c("level" = "level", "new_taxa" = "new_taxa"))
+fwrite(temp, file = "../../../results/rumen_significant_otus.csv", col.names = TRUE, sep = ",")
 print (dd)
 ```
 
-```{r}
+```{r, echo=FALSE, warning=FALSE}
 load("taxonomy_ .RData")
 D <- to_save[[1]]
 DX <- to_save[[2]]
@@ -482,26 +452,29 @@ D0 <- to_save[[3]]
 D0 <- mutate(D0, avg_counts = avg_counts+1) %>% spread(key = treatment, value = avg_counts)
 
 D1 <- DX %>%
-  inner_join(D0, by = c("level" = "level", "new_taxa" = "new_taxa", " " = " ")) %>%
-  mutate(p.value = -log10(p.value), Control = ifelse(log(Control) < 0,0,log10(Control)), Treated = ifelse(log(Treated) < 0, 0, log10(Treated))) %>%
-  gather(key = "treatment", value = "counts", -c(level,new_taxa, ,p.value))
+  inner_join(D0, by = c("level" = "level", "new_taxa" = "new_taxa")) %>%
+  mutate(p.value = -log10(p.value)) %>%
+  gather(key = "treatment", value = "counts", -c(level,new_taxa, p.value))
 
 D1$level <- factor(D1$level, levels = c("phylum","class","order","family","genus"))
 
-p <- ggplot(D1, aes(x = treatment, y = new_taxa, group=level))
-p <- p + geom_tile(aes(fill = counts), colour = "white")
-p <- p + facet_grid(level~ , space="free", scales = "free_y")
+D1 <- D1 %>% group_by(level) %>% mutate(tot = sum(counts), relab = counts/tot)
+
+p <- ggplot(D1, aes(x = treatment, y = new_taxa))
+p <- p + geom_tile(aes(fill = relab), colour = "white")
+p <- p + facet_grid(level~treatment, scales = "free")
 p <- p + scale_fill_gradient(low = "orange", high = "blue")
 p <- p + theme(strip.text.y = element_text(size = 5), 
                strip.text.x = element_text(size = 6),
                # axis.text.y = element_text(size = 4),
                axis.text.x = element_text(size = 6),
                axis.title = element_text(size = 6))
-p <- p + guides(fill=FALSE) + theme(axis.title.y = element_blank(),
+p <- p + guides(fill="none") + theme(axis.title.y = element_blank(),
                                     axis.text.y = element_blank(),
                                     axis.ticks.y = element_blank())
 # p
-dd <- filter(D1, treatment == "Control") %>% mutate(variable = "p-value")
+
+dd <- filter(D1, treatment == "AE1") %>% mutate(variable = "p-value")
 
 q <- ggplot(dd, aes(x = factor(1), y = new_taxa, group=level))
 q <- q + geom_tile(aes(fill = p.value), colour = "white")
