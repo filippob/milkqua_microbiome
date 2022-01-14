@@ -10,13 +10,13 @@ editor_options:
 ```{r setup, include=FALSE}
 library("DT")
 library("knitr")
-library("dplyr")
 library("tidyr")
 library("broom")
 library("vegan")
 library("ggpubr")
 library("ggplot2")
 library("reshape2")
+library("tidyverse")
 library("data.table")
 library("ggrepel")
 ```
@@ -24,24 +24,24 @@ library("ggrepel")
 ## 16S sequencing data - cow rumen samples
 
 ```{r data, echo=FALSE}
-metadata <- fread("/home/oem/milkqua_microbiome/Rumen/mapping_file.csv")
+metadata <- fread("mapping_file.csv")
 names(metadata)[1] <- "sample"
 
-metadata <- subset(metadata, treatment !="ruminal liquid")
+meta_subset <- filter(metadata, treatment !="ruminal liquid")
 
-metadata %>%
-  group_by(sample,treatment) %>%
-  dplyr::summarise(N=n()) %>%
-  spread(key = "treatment", value = N)
+meta_subset %>%
+  group_by(treatment) %>%
+  dplyr::summarise(N=n())
 ```
 
 ```{r taxonomy, echo=FALSE}
-otu <- fread("/home/oem/milkqua_microbiome/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
+otu <- fread("qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
 otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
 otu$treatment = metadata$treatment[match(otu$sample,metadata$sample)]
+otu <- filter(otu, sample %in% meta_subset$sample)
 
 ## relative abundances
-metadata_cols = names(metadata)[c(1,5)]
+metadata_cols = names(meta_subset)[c(1,5)]
 M <- select(otu,-all_of(metadata_cols))
 M <- M/rowSums(M)
 M <- bind_cols(select(otu, all_of(metadata_cols)),M)
