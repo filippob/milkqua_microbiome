@@ -4,7 +4,7 @@ author: "Chiara Gini"
 date: "27/12/2021"
 output: html_document
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
 ```{r setup, include=FALSE}
@@ -32,8 +32,9 @@ From 16S rRNA-gene sequencing of cow RUMEN microbiome samples:
 Between-sample variability from 16S rRna-gene sequencing data.
 
 ```{r beta, echo=FALSE}
-metadata <- fread("/home/oem/milkqua_microbiome/Rumen/mapping_file.csv")
+metadata <- fread("../../../rumen/mapping_file.csv")
 names(metadata)[1] <- "sample"
+metadata <- mutate(metadata, cow = ifelse(treatment == "ruminal liquid", gsub("I","",vial), cow))
 ```
 
 ## Clustering
@@ -41,9 +42,9 @@ names(metadata)[1] <- "sample"
 ### PCA
 
 ```{r pressure, echo=FALSE, message=FALSE}
-matrice= read.table("/home/oem/milkqua_microbiome/RUMEN/results/alpha_diversity/alpha.txt", row.names=1, header=T)
+matrice= read.table("../../../rumen/qiime_1.9/results/beta_diversity/bray_curtis_CSS_normalized_otu_table.txt", row.names=1, header=T)
 names(matrice) <- gsub("X","",names(matrice))
-# 
+
 
 matrice$treatment <- as.character(metadata$treatment[match(row.names(matrice),metadata$sample)])
 
@@ -136,7 +137,7 @@ X = \mu + treatment +  + treatment*type + e
 $$
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-source("/home/oem/milkqua_microbiome/RUMEN/pairwise_adonis.r")
+source("pairwise_adonis.r")
 
 obj <- adonis(matx ~ matrice$treatment)
 
@@ -195,15 +196,37 @@ if(pandoc_available()) {
 }
 ```
 
-###  AE1
+###  Cows
+
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-temp <- filter(rumen.scores, treatment == "AE1")
+matrice$cow <- as.character(metadata$cow[match(row.names(matrice),metadata$sample)])
 
-p <- plot_ly(data = temp, 
+rumen.mds= metaMDS(matx, k = 3) #function metaMDS in Vegan
+
+rumen.scores <- as.data.frame(scores(rumen.mds))  #Using the scores function from vegan to extract the site scores and convert to a data.frame
+rumen.scores$cow <- matrice$cow
+
+
+hull_f <- function(df) {
+  
+  temp <- data.frame(NULL)
+  for (ll in unique(df$cow)) {
+    
+    nn <- df[df$treatment == ll,][chull(df[df$cow == ll, c("NMDS1","NMDS2","NMDS3")]),]
+    temp <- rbind.data.frame(temp,nn)
+  }
+  return(temp)
+}
+
+hull.data <- hull_f(rumen.scores)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+p <- plot_ly(data = rumen.scores, 
              x = ~NMDS1, y = ~NMDS2, z = ~NMDS3,
              type = "scatter3d",
-             color = ~treatment) %>%
+             color = ~cow) %>%
   add_markers() %>%
   layout(scene = list(xaxis = list(title = 'NMDS1'),
                       yaxis = list(title = 'NMDS1'),
@@ -211,7 +234,7 @@ p <- plot_ly(data = temp,
          annotations = list(
            x = 0.005,
            y = 0.01,
-           text = 'treatment',
+           text = 'cow',
            xref = 'paper',
            yref = 'paper',
            showarrow = FALSE
@@ -220,127 +243,3 @@ p <- plot_ly(data = temp,
 p
 ```
 
-###  AE sintético 1
-
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-temp <- filter(rumen.scores, treatment == "AE sintético 1")
-
-p <- plot_ly(data = temp, 
-             x = ~NMDS1, y = ~NMDS2, z = ~NMDS3,
-             type = "scatter3d",
-             color = ~treatment) %>%
-  add_markers() %>%
-  layout(scene = list(xaxis = list(title = 'NMDS1'),
-                      yaxis = list(title = 'NMDS1'),
-                      zaxis = list(title = 'NMDS1')),
-         annotations = list(
-           x = 0.005,
-           y = 0.01,
-           text = 'treatment',
-           xref = 'paper',
-           yref = 'paper',
-           showarrow = FALSE
-         ))
-
-p
-```
-
-###  Carvacrol
-
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-temp <- filter(rumen.scores, treatment == "Carvacrol")
-
-p <- plot_ly(data = temp, 
-             x = ~NMDS1, y = ~NMDS2, z = ~NMDS3,
-             type = "scatter3d",
-             color = ~treatment) %>%
-  add_markers() %>%
-  layout(scene = list(xaxis = list(title = 'NMDS1'),
-                      yaxis = list(title = 'NMDS1'),
-                      zaxis = list(title = 'NMDS1')),
-         annotations = list(
-           x = 0.005,
-           y = 0.01,
-           text = 'treatment',
-           xref = 'paper',
-           yref = 'paper',
-           showarrow = FALSE
-         ))
-
-p
-```
-
-###  p-cymene
-
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-temp <- filter(rumen.scores, treatment == "p-cymene")
-
-p <- plot_ly(data = temp, 
-             x = ~NMDS1, y = ~NMDS2, z = ~NMDS3,
-             type = "scatter3d",
-             color = ~treatment) %>%
-  add_markers() %>%
-  layout(scene = list(xaxis = list(title = 'NMDS1'),
-                      yaxis = list(title = 'NMDS1'),
-                      zaxis = list(title = 'NMDS1')),
-         annotations = list(
-           x = 0.005,
-           y = 0.01,
-           text = 'treatment',
-           xref = 'paper',
-           yref = 'paper',
-           showarrow = FALSE
-         ))
-
-p
-```
-
-###  γ-terpinene
-
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-temp <- filter(rumen.scores, treatment == "γ-terpinene")
-
-p <- plot_ly(data = temp, 
-             x = ~NMDS1, y = ~NMDS2, z = ~NMDS3,
-             type = "scatter3d",
-             color = ~treatment) %>%
-  add_markers() %>%
-  layout(scene = list(xaxis = list(title = 'NMDS1'),
-                      yaxis = list(title = 'NMDS1'),
-                      zaxis = list(title = 'NMDS1')),
-         annotations = list(
-           x = 0.005,
-           y = 0.01,
-           text = 'treatment',
-           xref = 'paper',
-           yref = 'paper',
-           showarrow = FALSE
-         ))
-
-p
-```
-
-###  no treatment (ruminal liquid + diet)
-
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-temp <- filter(rumen.scores, treatment == "no treatment (ruminal liquid + diet)")
-
-p <- plot_ly(data = temp, 
-             x = ~NMDS1, y = ~NMDS2, z = ~NMDS3,
-             type = "scatter3d",
-             color = ~treatment) %>%
-  add_markers() %>%
-  layout(scene = list(xaxis = list(title = 'NMDS1'),
-                      yaxis = list(title = 'NMDS1'),
-                      zaxis = list(title = 'NMDS1')),
-         annotations = list(
-           x = 0.005,
-           y = 0.01,
-           text = 'treatment',
-           xref = 'paper',
-           yref = 'paper',
-           showarrow = FALSE
-         ))
-
-p
-```
