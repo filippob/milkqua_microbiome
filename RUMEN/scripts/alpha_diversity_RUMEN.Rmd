@@ -1,0 +1,191 @@
+---
+title: "Alpha_diversity_RUMEN"
+author: "Chiara Gini"
+date: "27/12/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+library("DT")
+library("knitr")
+library("dplyr")
+library("tidyr")
+library("broom")
+library("vegan")
+library("scales")
+library("ggplot2")
+library("ggpubr")
+# library("madbito")
+library("reshape2")
+library("gghighlight")
+library("data.table")
+library("rmarkdown")
+library("ggrepel")
+library("ggplot2")
+```
+
+## Alpha diversity of RUMEN samples
+
+From 16S rRNA-gene sequencing of cow RUMEN microbiome samples:
+- 6 treatments for rumen samples + ruminal liquid (base) + ("AE1","AE sintético 1","Carvacrol", "p-cymene", "γ-terpinene", "no treatment (ruminal liquid + diet)")
+
+Main alpha diversity indexes per group. 
+
+```{r alpha, echo=FALSE}
+metadata <- fread("../../../rumen/mapping_file.csv")
+names(metadata)[1] <- "sample"
+
+alpha <- read.table("../../../rumen/qiime_1.9/results/alpha_diversity/alpha.txt", header = TRUE)
+alpha$sample <- row.names(alpha)
+alpha$observed_species <- NULL
+
+mAlpha <- reshape2::melt(alpha, id.vars = "sample", variable.name = "metric", value.name = "value")
+
+mAlpha$type <- metadata$sample_type[match(mAlpha$sample,metadata$sample)]
+#mAlpha$timepoint <- metadata$timepoint[match(mAlpha$sample,metadata$sample)]
+mAlpha$treatment <- metadata$treatment[match(mAlpha$sample,metadata$sample)]
+```
+
+## Averages and plots
+
+```{r pressure, echo=FALSE}
+mAlpha$treatment <- factor(mAlpha$treatment, levels = c("no treatment (ruminal liquid + diet)","AE1","AE sintético 1","Carvacrol", "p-cymene", "γ-terpinene", "ruminal liquid"))
+D <- mAlpha %>%
+  group_by(metric,treatment) %>%
+  summarize(N=n(),avg=round(mean(value),3)) %>%
+  spread(key = metric, value = avg)
+
+d_alpha <- D %>%
+  gather(key = "metric", value = "value", -c(treatment,N)) %>%
+  spread(key = "treatment", value = "value")
+
+kable(D)
+```
+
+### Boxplots of alpha diversity indexes
+
+#### Treatment by region
+
+```{r, echo=FALSE, fig.height=12, fig.width=12}
+mAlpha <- subset(mAlpha, treatment !="ruminal liquid")
+
+mAlpha <- mAlpha %>% group_by(metric) %>%
+  mutate(scaled_value = rescale(value, to = c(0,100)))
+  
+p <- ggplot(mAlpha, aes(x=treatment,y=scaled_value)) 
+p <- p + geom_boxplot(aes(fill=treatment))
+p <- p + scale_fill_manual(values=c("green3","blue","magenta","cyan","yellow","red"))
+p <- p + facet_wrap(~metric, scales = "free")
+p <- p + xlab("sample_type")
+p = p + theme(strip.text = element_text(size = 12),
+              axis.text.x = element_text(angle = 90, size = 8))
+p
+```
+
+## Testing for significance
+
+### Original alpha-diversity index-values - effect of timepoint in RUMEN samples
+
+```{r test_alpha, echo=FALSE}
+D <- mAlpha %>%
+  group_by(metric) %>%
+  do(tidy(lm(value ~ treatment, data = .))) %>%
+  filter(term != "(Intercept)")
+
+datatable(D, options = list(pageLength=100)) %>% 
+  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+p <- ggplot(data = D, mapping= aes(x=term, y=p.value))
+p <- p + geom_point(aes(color = metric, stroke = 1.5), position=position_jitter(h=0, w=0.25))
+p <- p + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
+p <- p + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
+p <- p + scale_y_continuous(breaks=pretty_breaks(n=20)) 
+p <- p + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = TRUE)
+p <- p + coord_trans(y="log2")
+p <- p + theme(axis.text.x = element_text(angle = 90))
+p
+#ggsave(filename = "alpha_significance_tablewithdots_RUMEN.png", width = 8, height = 8, plot = p, device = "png")
+```
+
+## Correction for baseline
+
+```{r}
+bl_medie <- mAlpha %>%
+  filter(treatment=="no treatment (ruminal liquid + diet)") %>%
+  group_by(metric) %>%
+  summarize(media_bl=mean(value))
+  
+bl_counts <- mAlpha %>%
+  group_by(metric) %>%
+  filter(treatment=="no treatment (ruminal liquid + diet)") %>%
+  arrange(metric) %>%
+  rename(value.bl = value)
+
+M <- merge(mAlpha,bl_counts[,c(1,2,3)],by=c("metric","sample"),all.x = TRUE)
+M1 <- M%>%
+  filter(!is.na(M$value.bl))
+
+M2 <- M %>%
+  filter(is.na(value.bl)) %>%
+  mutate(value.bl=replace(value.bl,is.na(value.bl),right_join(bl_medie, ., by =c("metric"))$media_bl))
+
+M <- rbind.data.frame(M1,M2)  
+
+M <- M %>%
+  mutate(corrected_counts=value-value.bl) %>%
+  filter(value!=0) %>%
+  arrange(sample)
+
+M <- M %>%
+  group_by(metric) %>%
+  mutate(scaled_counts=scales::rescale(corrected_counts,c(0,100)))
+```
+
+```{r, echo=FALSE}
+D <- M %>%
+  group_by(metric,treatment) %>%
+  summarize(avg=mean(corrected_counts)) %>%
+  spread(key = metric, value = avg)
+
+kable(D)
+```
+
+
+```{r, echo=FALSE}
+mD <- melt(D, id.vars = c("treatment"), variable.name = "metric")
+
+p <- ggplot(M, aes(x=treatment,y=corrected_counts)) + geom_jitter(aes(colour=treatment))
+p <- p + facet_wrap(~metric, scales = "free_y")
+p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+p  
+#COMMENT/WARNING: geom_path: Each group consists of only one observation. Do you need to adjust the group aesthetic?
+```
+
+```{r test_alpha_bl, echo=FALSE}
+D <- M %>%
+  filter(treatment != "no treatment (ruminal liquid + diet)") %>%
+  group_by(metric) %>%
+  do(tidy(lm(value ~ treatment, data = .))) %>%
+  filter(term != "(Intercept)")
+
+datatable(D, options = list(pageLength=100)) %>% 
+  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+p <- ggplot(data = D, mapping= aes(x=term, y=p.value))
+p <- p + geom_point(aes(color = metric, stroke = 1), position=position_jitter(h=0, w=0.27))
+p <- p + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
+p <- p + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
+p <- p + scale_y_continuous(breaks=pretty_breaks(n=20)) 
+p <- p + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
+p <- p + coord_trans(y="log2")
+p <- p + theme(axis.text.x = element_text(angle = 90))
+p
+#ggsave(filename = "alpha_significance_tablewithdots_correctedforbaseline_RUMEN.png", width = 8, height = 8, plot = p, device = "png")
+```
+

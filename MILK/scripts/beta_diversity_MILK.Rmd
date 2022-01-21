@@ -1,14 +1,13 @@
 ---
-title: "beta_diversity"
-author: "Filippo Biscarini"
-date: "November 18, 2021"
+title: "Beta_diversity_MILK"
+author: "Chiara Gini"
+date: "27/12/2021"
 output: html_document
 editor_options: 
   chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
 library("knitr")
 library("dplyr")
 library("tidyr")
@@ -20,15 +19,21 @@ library("rmarkdown")
 library("tidyverse")
 library("ggfortify")
 library("data.table")
+library("ggforce")
+library("plotly")
+library("lattice")
 ```
 
 ## Beta diversity
 
+From 16S rRNA-gene sequencing of cow milk microbiome samples:
+- 4 timepoints for milk samples and two treatments (oil, treated/untreated)
+
 Between-sample variability from 16S rRna-gene sequencing data.
 
 ```{r beta, echo=FALSE}
-metadata <- fread("mapping_file.csv")
-names(metadata)[2] <- "sample"
+metadata <- fread("/home/oem/milkqua_microbiome/Results/mapping_file_milk_alltimepoints_skin_T0beforeafter.csv")
+names(metadata)[1] <- "sample"
 ```
 
 ## Clustering
@@ -36,7 +41,7 @@ names(metadata)[2] <- "sample"
 ### PCA
 
 ```{r pressure, echo=FALSE, message=FALSE}
-matrice= read.table("results/beta_diversity/bray_curtis_CSS_normalized_otu_table.txt", row.names=1, header=T)
+matrice= read.table("/home/oem/milkqua_microbiome/Results/results/beta_diversity/bray_curtis_CSS_normalized_otu_table.txt", row.names=1, header=T)
 names(matrice) <- gsub("X","",names(matrice))
 
 vec <- filter(metadata, sample_type == "milk") %>% select(sample) %>% pull()
@@ -55,20 +60,69 @@ mds <- cmdscale(as.dist(matx))
 
 Clustering by timepoint (PCA):
 
-
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-p1 <- autoplot(prcomp(1-matx), data=mat_milk, colour = "timepoint", label = TRUE, label.size = 3)
+p1 <- autoplot(prcomp(1-matx), data=mat_milk, colour = "timepoint", label = TRUE, label.size = 3, frame = TRUE, frame.type = 'norm')
 p1
+#ggsave("clustering_by_timepoints_PCA_milk.png")
 ```
 
-Clustering by treatment (PCA): after removing sampels from timepoint 0
+Clustering by treatment (PCA): after removing samples from timepoint 0 # BECAUSE WE KNOW THAT AT TIMEPOINT 0 WE SHOULD NOT HAVE DIFFERENCES BETWEEN GROUPS
 
 ```{r, echo=FALSE}
 mat_milk_1 <- filter(mat_milk, timepoint != "0")
 matx0= data.matrix(select(mat_milk_1, -c(treatment,timepoint)))
 
-p2 <- autoplot(prcomp(1-matx0), data=mat_milk_1, colour = "treatment", label = TRUE, label.size = 3)
+p2 <- autoplot(prcomp(1-matx0), data=mat_milk_1, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
 p2
+#ggsave("clustering_by_treatment_PCA_milk.png")
+```
+
+Clustering by treatment (PCA): by timepoints 
+
+Time-point 28
+
+```{r, echo=FALSE}
+mat_milk_1 <- filter(mat_milk, timepoint =="28" )
+# mat_milk_1 <- filter(mat_milk, timepoint =!"0", timepoint =!"8",  timepoint =!"21"  )
+
+matxTP= data.matrix(select(mat_milk_1, -c(treatment,timepoint)))
+
+p2 <- autoplot(prcomp(1-matx0), data=mat_milk_1, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
+p2
+#ggsave("clustering_by_treatment_PCA_milk_T28.png")
+```
+
+Time-point 21
+
+```{r, echo=FALSE}
+mat_milk_1 <- filter(mat_milk, timepoint =="21" )
+matxTP= data.matrix(select(mat_milk_1, -c(treatment,timepoint)))
+
+p2 <- autoplot(prcomp(1-matx0), data=mat_milk_1, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
+p2
+#ggsave("clustering_by_treatment_PCA_milk_T21.png")
+```
+
+Time-point 8
+
+```{r, echo=FALSE}
+mat_milk_1 <- filter(mat_milk, timepoint =="8")
+matxTP= data.matrix(select(mat_milk_1, -c(treatment,timepoint)))
+
+p2 <- autoplot(prcomp(1-matx0), data=mat_milk_1, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
+p2
+#ggsave("clustering_by_treatment_PCA_milk_T8.png")
+```
+
+Time-point 0
+
+```{r, echo=FALSE}
+mat_milk_1 <- filter(mat_milk, timepoint=="0")
+matxTP= data.matrix(select(mat_milk_1, -c(treatment,timepoint)))
+
+p2 <- autoplot(prcomp(1-matx0), data=mat_milk_1, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
+p2
+#ggsave("clustering_by_treatment_PCA_milk_T0.png")
 ```
 
 ### MDS
@@ -78,20 +132,29 @@ p2
 ```{r, echo=FALSE, results='hide'}
 udder.mds= metaMDS(matx0, k=3) #function metaMDS in Vegan
 
+hull_f <- function(df) {
+
+  temp <- data.frame(NULL)
+  for (ll in unique(df$group)) {
+
+    nn <- df[df$group == ll,][chull(df[df$group == ll, c("NMDS1","NMDS2","NMDS3")]),]
+    temp <- rbind.data.frame(temp,nn)
+  }
+  return(temp)
+}
+
 udder.scores <- as.data.frame(scores(udder.mds))  #Using the scores function from vegan to extract the site scores and convert to a data.frame
 udder.scores$group <- mat_milk_1$treatment #  add the grp variable created earlier
 
-hull_treatment <- udder.scores %>%
-  group_by(group) %>%
-  slice(chull(NMDS1, NMDS2))
+hull.data <- hull_f(udder.scores)
 
 g <- ggplot(data=udder.scores, aes(x=NMDS1,y=NMDS2))
 g <- g + coord_equal()
-g = g + geom_polygon(data=hull_treatment,aes(x=NMDS1,y=NMDS2,fill=group,group=group),alpha=0.30)
-g = g + geom_point(data=udder.scores,aes(x=NMDS1,y=NMDS2,shape=group,colour=group),size=4)
-g = g + theme_bw() + theme(plot.margin=grid::unit(c(0,0,0,0), "mm"))
+g <- g + geom_polygon(data=hull.data,aes(x=NMDS1,y=NMDS2,fill=group,group=group),alpha=0.30)
+g <- g + geom_point(data=udder.scores,aes(x=NMDS1,y=NMDS2,shape=group,colour=group),size=4)
+g <- g + theme_bw() + theme(plot.margin=grid::unit(c(0,0,0,0), "mm"))
 g <- g + ggtitle("Treatment")
-print(g)
+g
 ```
 
 #### Clustering by timepoint (MDS): 
@@ -101,56 +164,55 @@ print(g)
 ```{r, echo=FALSE, results='hide'}
 udder.mds= metaMDS(matx, k=3) #function metaMDS in Vegan
 
+hull_f <- function(df) {
+
+  temp <- data.frame(NULL)
+  for (ll in unique(df$group)) {
+
+    nn <- df[df$group == ll,][chull(df[df$group == ll, c("NMDS1","NMDS2","NMDS3")]),]
+    temp <- rbind.data.frame(temp,nn)
+  }
+  return(temp)
+}
+
 udder.scores <- as.data.frame(scores(udder.mds))  #Using the scores function from vegan to extract the site scores and convert to a data.frame
 udder.scores$group <- mat_milk$timepoint #  add the grp variable created earlier
 
-hull_time <- udder.scores %>%
-  group_by(group) %>%
-  slice(chull(NMDS1, NMDS2))
+hull.data <- hull_f(udder.scores)
 
 g <- ggplot(data=udder.scores, aes(x=NMDS1,y=NMDS2))
 g <- g + coord_equal()
-g = g + geom_polygon(data=hull_time,aes(x=NMDS1,y=NMDS2,fill=group,group=group),alpha=0.30)
+g = g + geom_polygon(data=hull.data,aes(x=NMDS1,y=NMDS2,fill=group,group=group),alpha=0.30)
 g = g + geom_point(data=udder.scores,aes(x=NMDS1,y=NMDS2,shape=group,colour=group),size=4)
 g = g + scale_fill_manual(values = c("green", "#E7B800","red","yellow"))
 g = g + scale_color_manual(values = c("green", "#E7B800","red","yellow"))
 g = g + theme_bw() + theme(plot.margin=grid::unit(c(0,0,0,0), "mm"))
 g <- g + ggtitle("Source")
-
-g1 <- g
-print(g)
+g
 ```
 
 Clustering by type (MDS): **NMDS1 vs NMDS3**
 
 ```{r, echo=FALSE, results='hide'}
-hull_time <- udder.scores %>%
-  group_by(group) %>%
-  slice(chull(NMDS1, NMDS3))
-
 g <- ggplot(data=udder.scores, aes(x=NMDS1,y=NMDS3))
 g <- g + coord_equal()
-g = g + geom_polygon(data=hull_time,aes(x=NMDS1,y=NMDS3,fill=group,group=group),alpha=0.30)
+g = g + geom_polygon(data=hull.data,aes(x=NMDS1,y=NMDS3,fill=group,group=group),alpha=0.30)
 g = g + geom_point(data=udder.scores,aes(x=NMDS1,y=NMDS3,shape=group,colour=group),size=4)
 g = g + theme_bw() + theme(plot.margin=grid::unit(c(0,0,0,0), "mm"))
 g <- g + ggtitle("Source ")
-print(g)
+g
 ```
 
 Clustering by type (MDS): **NMDS2 vs NMDS3**
 
 ```{r, echo=FALSE, results='hide'}
-hull_time <- udder.scores %>%
-  group_by(group) %>%
-  slice(chull(NMDS2, NMDS3))
-
 g <- ggplot(data=udder.scores, aes(x=NMDS2,y=NMDS3))
 g <- g + coord_equal()
-g = g + geom_polygon(data=hull_time,aes(x=NMDS2,y=NMDS3,fill=group,group=group),alpha=0.30)
+g = g + geom_polygon(data=hull.data,aes(x=NMDS2,y=NMDS3,fill=group,group=group),alpha=0.30)
 g = g + geom_point(data=udder.scores,aes(x=NMDS2,y=NMDS3,shape=group,colour=group),size=4)
 g = g + theme_bw() + theme(plot.margin=grid::unit(c(0,0,0,0), "mm"))
 g <- g + ggtitle("Source")
-print(g)
+g
 ```
 
 ### Clustering by treatment by timepoint (MDS):
@@ -163,20 +225,31 @@ udder.scores <- as.data.frame(scores(udder.mds))  #Using the scores function fro
 udder.scores$timepoint <- mat_milk$timepoint #  add the grp variable created earlier
 udder.scores$treatment <- mat_milk$treatment
 
-hull_data <- udder.scores %>%
-  group_by(timepoint,treatment) %>%
-  slice(chull(NMDS1, NMDS2))
+
+hull_f <- function(df) {
+  
+  temp <- data.frame(NULL)
+  for (ll in unique(df$timepoint)) {
+    
+    nn <- df[df$type == ll,][chull(df[df$type == ll, c("NMDS1","NMDS2")]),]
+    temp <- rbind.data.frame(temp,nn)
+  }
+  return(temp)
+}
+
+hull.data <- hull_f(udder.scores)
 
 g= ggplot(data=udder.scores, aes(x=NMDS1,y=NMDS2))
 # g <- g + geom_point(aes(shape=group,colour=group),size=3)
 # g= g + coord_equal() 
-g= g + geom_polygon(data=hull_data,aes(x=NMDS1,y=NMDS2,fill=treatment,group=treatment),alpha=0.30) 
+g= g + geom_polygon(data=hull.data,aes(x=NMDS1,y=NMDS2,fill=treatment,group=treatment),alpha=0.30) 
+g= g + geom_mark_ellipse(aes(fill=treatment), con.colour = "white")
 g= g + geom_point(data=udder.scores,aes(x=NMDS1,y=NMDS2,shape=treatment,colour=treatment),size=4)
 g= g + theme_bw() + theme(plot.margin=grid::unit(c(0,0,0,0), "mm"))
 g= g + facet_wrap(~timepoint, scales = "free")
 # g <- g + theme(legend.position="none")
 g= g + ggtitle("TREATMENT x TIMEPOINT")
-print(g)
+g
 ```
 
 ## Significance of between-group distances
@@ -184,8 +257,7 @@ print(g)
 Significance values based on permuted analysis of variance (999 permutations), repeated 100 times.
 
 ```{r, label='permanova', echo=FALSE}
-n = 10
-pv_treatment <- replicate(n,
+pv_treatment <- replicate(100,
   adonis2(matx ~ mat_milk$treatment, permutations = 999)$"Pr(>F)"[1],
   simplify = "vector"
 )
@@ -197,12 +269,12 @@ permanova <- function(mat,term,perms) {
   return(obj$aov.tab$`Pr(>F)`[1])
 }
 
-pv_timepoint <- replicate(n,
+pv_timepoint <- replicate(100,
   permanova(matx, mat_milk$timepoint, 999),
   simplify = "vector"
 )
 
-pv_treat_time <- replicate(n,
+pv_treat_time <- replicate(100,
   adonis2(matx ~ mat_milk$treatment + mat_milk$timepoint + mat_milk$timepoint:mat_milk$treatment, permutations = 999)$"Pr(>F)"[1],
   simplify = "vector"
 )
@@ -221,10 +293,10 @@ X = \mu + treatment + timepoint + treatment*type + e
 $$
 
 ```{r pairwise, echo=FALSE, message=FALSE, warning=FALSE}
-source("~/Documents/cremonesi/rumine_anafi/parwise.adonis.r")
+source("/home/oem/milkqua_microbiome/Milk_&_SkinSwab/pairwise_adonis.r")
 obj <- adonis(matx ~ mat_milk$treatment+mat_milk$timepoint)
-# row.names(obj$aov.tab) <- c("treatment","timepoint","treatment_by_timepoint","residuals","total")
-# kable(obj$aov.tab)
+row.names(obj$aov.tab) <- c("treatment","timepoint","residuals","total")
+kable(obj$aov.tab)
 ```
 
 ## going 3D
@@ -255,8 +327,6 @@ hull.data <- hull_f(udder.scores)
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 ## 3D plot
-library("plotly")
-
 p <- plot_ly(data = udder.scores, 
              x = ~NMDS1, y = ~NMDS2, z = ~NMDS3,
              type = "scatter3d",
@@ -306,7 +376,6 @@ p <- plot_ly(data = temp,
 
 p
 ```
-
 
 ### timepoint 8
 

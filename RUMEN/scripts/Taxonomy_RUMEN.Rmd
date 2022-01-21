@@ -1,0 +1,995 @@
+---
+title: "Taxonomy_RUMEN"
+author: "Chiara Gini"
+date: "14/01/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+library("DT")
+library("knitr")
+library("tidyr")
+library("broom")
+library("vegan")
+library("ggpubr")
+library("ggplot2")
+library("reshape2")
+library("tidyverse")
+library("data.table")
+library("ggrepel")
+```
+
+#COMPARISON BETWEEN TREATMENS
+
+## 16S sequencing data - cow rumen samples milkqua project
+
+```{r data, echo=FALSE}
+metadata <- fread("~/Results/RUMEN/mapping_file_rumen.csv")
+names(metadata)[1] <- "sample"
+
+metadata$treatment[ which(metadata$treatment == "no treatment (ruminal liquid + diet)")] <- "Control"
+metadata$treatment[ which(metadata$treatment == "AE1")] <- "EO1"
+metadata$treatment[ which(metadata$treatment == "AE sintético 1")] <- "Synthetic EO1"
+
+meta_subset <- filter(metadata, treatment !="ruminal liquid")
+meta_subset %>%
+  group_by(treatment) %>%
+  dplyr::summarise(N=n())
+```
+
+```{r taxonomy, echo=FALSE}
+otu <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
+otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
+otu$treatment = metadata$treatment[match(otu$sample,metadata$sample)]
+otu <- filter(otu, sample %in% meta_subset$sample)
+
+## relative abundances
+metadata_cols = names(meta_subset)[c(1,5)]
+M <- select(otu,-all_of(metadata_cols))
+M <- M/rowSums(M)
+M <- bind_cols(select(otu, all_of(metadata_cols)),M)
+
+M <- subset(M, treatment !="ruminal liquid")
+```
+
+```{r, echo=FALSE, fig.height=12, fig.width=12}
+otu = otu %>% relocate (treatment, .after = sample)
+metadata_cols = names(otu)[c(1,2)]
+
+otu <- subset(otu, treatment !="ruminal liquid")
+
+mO <- reshape2::melt(otu,id.vars = metadata_cols, value.name = "counts", variable.name = "phylum")
+mO$phylum <- gsub("^.*;","",mO$phylum)
+mO[mO$phylum == "2","phylum"] <- "WPS.2"
+mO$sample <- factor(mO$sample)
+mO <- mO %>%
+  arrange(treatment)
+#mO$Cow_ID <- paste(mO$cow, mO$ref)
+```
+
+```{r, echo=FALSE, fig.height=12, fig.width=12}
+m1 <- reshape2::melt(M,id.vars = metadata_cols, value.name = "counts", variable.name = "phylum")
+m1$phylum <- gsub("^.*;","",m1$phylum)
+m1[m1$phylum == "2","phylum"] <- "WPS.2"
+m1$sample <- factor(m1$sample)
+m1 <- m1 %>%
+  arrange(treatment)
+
+# m1$sample <- paste(as.character(m1$sample),as.character(m1$ ),sep="-")
+ordered_samples <- metadata %>%
+  arrange(treatment) %>%
+  select(treatment,sample)
+
+m1$sample <- factor(m1$sample, levels = ordered_samples$sample)
+
+m1$treatment <- factor(m1$treatment)
+```
+
+### Treatments 
+
+First, let's look at phyla:
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+D <- m1 %>%
+  group_by(phylum,treatment) %>%
+  summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
+  filter(avg_abund>0.005) %>%
+  arrange(phylum,avg_abund)
+
+phylum <- D %>%
+  group_by(phylum) %>%
+  summarize("s"=sum(avg_abund)) %>%
+  arrange(desc(s)) %>%
+  select(phylum,s)
+
+D$phylum <- factor(D$phylum, levels = rev(phylum$phylum[order(phylum$s)]))
+D <- D %>%
+  arrange(treatment,phylum)
+
+kable(D)
+```
+
+```{r, echo=FALSE}
+p <- ggplot(mO, aes(x=phylum,y=as.factor(sample),fill=counts))
+p <- p + geom_tile()
+p <- p + facet_wrap(~treatment, scales = "free_y")
+p <- p + ylab("sample")
+p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1),axis.text.y = element_text(size=9))
+p <- p + scale_fill_gradient2(low="red",high = "blue")
+p
+#ggsave (p, height = 10, width = 20, filename = "taxonomy_count_rumen.png")
+```
+
+###boxplot abundances per treatment 
+
+##Phyla
+
+```{r, echo=FALSE}
+p <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=phylum)) + geom_bar(width=1,stat="identity")
+p <- p + facet_grid(N~treatment)
+#p <- p + coord_polar(theta='y', start=0) #activate this if you want a piechart
+#p <- p + scale_fill_brewer(palette = "Set3") 
+p <- p + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
+p <- p + guides(fill = guide_legend(title = "Phyla")) 
+p <- p + xlab("Relative abundances") + ylab("")
+my_palette = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2"), length(unique(D$phylum)))
+p <- p + xlab("relative abundances") + ylab("percentages")
+p <- p + scale_fill_manual(values = my_palette)
+p <- p + theme(text = element_text(size=10),
+               axis.text.x = element_text(size=8),
+               # axis.text.y = element_text(size=4),
+               strip.text = element_text(size = 8),
+               axis.text.y = element_blank(),
+               axis.ticks.y = element_blank(),
+               legend.text=element_text(size=10),
+               legend.title=element_text(size=10))
+
+print(p)
+#ggsave(p, height = 20, width = 10, filename ="taxonomy_phylum_boxplot_rumen.png")
+```
+
+### Treatments, all taxonomic levels
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+D <- D %>%
+  group_by(treatment) %>%
+  filter(avg_abund > 0.01) %>%
+  arrange(desc(avg_abund))
+
+phylum <- D %>%
+  group_by(phylum) %>%
+  summarize("s"=sum(avg_abund)) %>%
+  arrange(desc(s)) %>%
+  select(phylum,s)
+
+D$phylum <- factor(D$phylum, levels = rev(phylum$phylum[order(phylum$s)]))
+D <- D %>%
+  arrange(phylum)
+
+D$taxa_level = rep("phylum", nrow(D))
+
+otu2 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
+otu3 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L3.txt", header = TRUE, skip = 1)
+otu4 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L4.txt", header = TRUE, skip = 1)
+otu5 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L5.txt", header = TRUE, skip = 1)
+otu6 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L6.txt", header = TRUE, skip = 1)
+otu <- bind_rows(otu2,otu3,otu4,otu5,otu6)
+
+otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
+
+otu$treatment = metadata$treatment[match(otu$sample,metadata$sample)]
+otu <- filter(otu, sample %in% meta_subset$sample)
+
+mO <- reshape2::melt(otu,id.vars = metadata_cols, value.name = "counts", variable.name = "taxa")
+
+mO$level <- sapply(mO$taxa, function(x) length(strsplit(as.character(x),";")[[1]]) ) 
+
+get_taxa <- function(x,n) {
+  
+  z <- strsplit(x, split = ";")
+  res = lapply(z, function(x) x[n])
+  return(unlist(res))
+}
+
+new_taxa <- c(NULL)
+for (i in seq_along(mO$counts)) {
+  
+  arg1 = as.character(mO$taxa[i])
+  arg2 = ifelse(mO$level[i] <= 6, mO$level[i], 6)
+  
+  rr = get_taxa(arg1,arg2)
+  new_taxa <- c(new_taxa,rr)
+}
+
+mO$new_taxa <- new_taxa
+
+table(mO$level)
+neues <- c("phylum","class","order","family","genus")
+altes <- seq(2,6)
+mO$level <- neues[match(mO$level,altes)]
+
+## relative abundances
+mO <- mO %>%
+  group_by(level,sample) %>%
+  mutate(tot = sum(counts), rel_abundance = counts/tot)
+
+D <- mO %>%
+  group_by(level,new_taxa,treatment) %>%
+  summarise(avg_abund = round(mean(rel_abundance),4), std = round(sd(rel_abundance),3))
+```
+
+A table of relative abundances (and standard deviations) per taxa and treatment:
+
+```{r, tab2, echo=FALSE}
+D <- na.omit(D)
+D <- D %>%
+  group_by(new_taxa,treatment) %>%
+  filter(avg_abund > 0.01) %>%
+  arrange(level,desc(avg_abund))
+
+kable(D)
+```
+
+##Class
+
+```{r}
+Dclass <- D %>%
+  filter(level=="class")
+
+p <- ggplot(Dclass, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
+p <- p + facet_grid( ~treatment)
+p <- p + guides(fill = guide_legend(title = "Class")) 
+p <- p + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
+my_palette = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple", "darkorange1","pink1", "darkorchid1", "seagreen2"), length(unique(Dclass$new_taxa)))
+p <- p + xlab("relative abundances") + ylab("percentages")
+p <- p + scale_fill_manual(values = my_palette)
+p <- p + theme(text = element_text(size=10),
+               axis.text.x = element_text(size=8),
+               # axis.text.y = element_text(size=4),
+               strip.text = element_text(size = 8),
+               axis.text.y = element_blank(),
+               axis.ticks.y = element_blank(),
+               legend.text=element_text(size=10),
+               legend.title=element_text(size=10))
+print(p)
+#ggsave(p, height = 8, width = 8, filename ="taxonomy_class_bargraph_rumen.png")
+```
+
+##Family
+
+```{r}
+Dfamily <- D %>%
+  filter(level=="family")
+
+p <- ggplot(Dfamily, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
+p <- p + facet_grid( ~treatment)
+p <- p + guides(fill = guide_legend(title = "Family")) 
+#p <- p + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
+my_palette2 = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2", "darkmagenta", "burlywood1", "maroon", "darkred", "burlywood3", "chartreuse4", "coral", "peachpuff", "mediumorchid3", "yellow3", "turquoise4", "snow", "slategray3", "orangered", "olivedrab", "plum", "lightcyan", "gray38", "forestgreen", "firebrick1"), length(unique(Dfamily$new_taxa)))
+p <- p + xlab("relative abundances") + ylab("percentages")
+p <- p + scale_fill_manual(values = my_palette2)
+p <- p + theme(text = element_text(size=10),
+               axis.text.x = element_text(size=8),
+               # axis.text.y = element_text(size=4),
+               strip.text = element_text(size = 8),
+               axis.text.y = element_blank(),
+               axis.ticks.y = element_blank(),
+               legend.text=element_text(size=10),
+               legend.title=element_text(size=10))
+p
+#ggsave(p, height = 8, width = 8, filename ="taxonomy_family_bargraph_rumen.png")
+```
+
+## Genera 
+
+```{r}
+Dgenera <- D %>%
+  filter(level=="genus")
+
+p <- ggplot(Dgenera, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
+p <- p + facet_grid( ~treatment)
+p <- p + guides(fill = guide_legend(title = "Genera")) 
+my_palette2 = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2", "darkmagenta", "burlywood1", "maroon", "darkred", "burlywood3", "chartreuse4", "coral", "peachpuff", "mediumorchid3", "yellow3", "turquoise4", "snow", "slategray3", "orangered", "olivedrab", "plum", "lightcyan", "gray38", "forestgreen", "firebrick1"), length(unique(Dgenera$new_taxa)))
+p <- p + xlab("relative abundances") + ylab("percentages")
+p <- p + scale_fill_manual(values = my_palette2)
+p <- p + theme(text = element_text(size=10),
+               axis.text.x = element_text(size=8),
+               # axis.text.y = element_text(size=4),
+               strip.text = element_text(size = 8),
+               axis.text.y = element_blank(),
+               axis.ticks.y = element_blank(),
+               legend.text=element_text(size=5),
+               legend.title=element_text(size=5))
+print(p)
+ggsave(p, height = 8, width = 8, filename ="taxonomy_genera_bargraph_rumen.png")
+```
+
+##Order
+
+```{r}
+Dorder <- D %>%
+  filter(level=="order")
+
+p <- ggplot(Dorder, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
+p <- p + facet_grid( ~treatment)
+p <- p + guides(fill = guide_legend(title = "Order")) 
+my_palette2 = get_palette(c("red","darkred", "burlywood3", "chartreuse4","gray","gold","blue","magenta","cyan","purple","green3","yellow","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2", "darkmagenta", "burlywood1", "maroon",  "coral", "peachpuff", "mediumorchid3", "yellow3", "turquoise4", "snow", "slategray3", "orangered", "olivedrab", "plum", "lightcyan", "gray38", "forestgreen", "firebrick1"), length(unique(Dorder$new_taxa)))
+p <- p + xlab("relative abundances") + ylab("percentages")
+p <- p + scale_fill_manual(values = my_palette2)
+p <- p + theme(text = element_text(size=10),
+               axis.text.x = element_text(size=8),
+               # axis.text.y = element_text(size=4),
+               strip.text = element_text(size = 8),
+               axis.text.y = element_blank(),
+               axis.ticks.y = element_blank(),
+               legend.text=element_text(size=10),
+               legend.title=element_text(size=10))
+print(p)
+#ggsave(p, height = 8, width = 8, filename ="taxonomy_order_bargraph_rumen.png")
+```
+
+Same results, but in wide-format (treatments on the horizontal axis): relative abundances (no standard deviations):
+
+```{r, echo=FALSE}
+D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus"))
+
+D0 <- D %>%
+  select(-c(std)) %>%
+  spread(treatment,avg_abund)
+
+# D0[is.na(D0)] <- ""
+
+bg.picker <- function(z) {
+  
+  if(is.na(z)) {return(NULL)}
+  if(is.numeric(z)) {
+    
+    if(z > 0.05 & z <= 0.10) {return("pink")}
+    if(z > 0.10) {return("yellow")}
+  }
+}
+
+library("formattable")
+formattable(D0, list(
+  
+  `Control` = color_tile("white","green"),
+  `Treated` = color_tile("white","deepskyblue")
+  # `3 PR` = color_tile("white","yellow"),
+  # `4 PR` = color_tile("white","pink"),
+  # `5 PR` = color_tile("white","yellow"),
+  # `6 PR` = formatter("span",
+  #                 style = x ~ style(
+  #                   "border-radius" = "4px",
+  #                   "padding-right" = "4px",
+  #                   "background-color" = sapply(x, bg.picker))
+  #                 )
+))
+
+```
+
+Finally,a bubble chart to visualize relative abundances per taxa and treatment:
+
+```{r, echo=FALSE, fig.height = 14, fig.width = 10}
+taxa <- D %>%
+  group_by(level,new_taxa) %>%
+  summarize("s"=sum(avg_abund)) %>%
+  arrange(desc(level,s)) %>%
+  select(level,new_taxa,s)
+
+taxa <- taxa %>%
+  group_by(level) %>%
+  arrange(level,s)
+
+p <- ggplot(D, aes(x = treatment, y = new_taxa))
+p <- p + geom_point(aes(size = avg_abund, colour = treatment), alpha = 0.4)
+p <- p + facet_grid(level~treatment, scales = "free", space = "free")
+p <- p + scale_color_manual(values = c("green3","gold","blue","magenta","cyan","yellow", "green", "coral",  "#E7B800", "#FC4E07"))
+p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+p <- p + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+p <- p + theme(axis.text.x = element_text(size=8))
+p <- p + theme_bw()
+p <- p + xlab("treatments") + ylab("average abundances")
+p
+#ggsave (p, height = 13, width = 8, filename = "taxonomy_bubbleplot_rumen.png")
+```
+
+### Significance of treatments
+ 
+The significance of differences between treatments (Control vs Treated with Essential Oil) was evaluated using a linear model (ANOVA) that included the effect of  s:
+ 
+$$
+counts_{ikj} = \mu +  _k + treatment_j + e_{ikj}
+$$
+# 
+This way, the variability due to region is removed when assessing the effect of treatments.
+ 
+```{r, echo=FALSE}
+m1 <- mO %>%
+  filter(!is.na(level)) %>%
+  arrange(level,treatment)
+
+D <- m1 %>%
+  group_by(level, new_taxa) %>%
+  do(tidy(anova(lm(counts ~  +treatment, data = .)))) %>%
+  filter(term == "treatment")
+
+D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus"))
+D <- D %>%
+  arrange(level,new_taxa)
+
+datatable(D, options = list(pageLength=100)) %>%
+  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
+
+
+#write.csv(D, "one.csv")
+```
+
+
+```{r, echo=FALSE}
+DX <- D %>%
+  filter(`p.value` <= 0.05) %>%
+  select(c(level,new_taxa, `p.value`)) %>%
+  arrange(level,`p.value`)
+
+D0 <- mO %>%
+  dplyr::group_by(level,new_taxa, treatment) %>%
+  dplyr::summarise(avg_counts = mean(counts))
+
+to_save = list(D,DX,D0)
+save(to_save, file = "taxonomy_ .RData")
+
+load("taxonomy_ .RData")
+D <- to_save[[1]]
+DX <- to_save[[2]]
+D0 <- to_save[[3]]
+
+dd <- spread(D0, key = treatment, value = avg_counts)
+temp <- inner_join(DX,dd, by = c("level" = "level", "new_taxa" = "new_taxa"))
+#fwrite(temp, file = "~/~/Results/RUMEN/rumen_significant_otus.csv", col.names = TRUE, sep = ",")
+print (dd)
+```
+
+```{r, echo=FALSE, warning=FALSE}
+load("taxonomy_ .RData")
+D <- to_save[[1]]
+DX <- to_save[[2]]
+D0 <- to_save[[3]]
+
+D0 <- mutate(D0, avg_counts = avg_counts+1) %>% spread(key = treatment, value = avg_counts)
+
+D1 <- DX %>%
+  inner_join(D0, by = c("level" = "level", "new_taxa" = "new_taxa")) %>%
+  mutate(p.value = -log10(p.value)) %>%
+  gather(key = "treatment", value = "counts", -c(level,new_taxa, p.value))
+
+D1$level <- factor(D1$level, levels = c("phylum","class","order","family","genus"))
+
+D1 <- D1 %>% group_by(level) %>% mutate(tot = sum(counts), relab = counts/tot)
+
+p <- ggplot(D1, aes(x = treatment, y = new_taxa))
+p <- p + geom_tile(aes(fill = relab), colour = "white")
+p <- p + facet_grid(level~treatment, scales = "free")
+p <- p + scale_fill_gradient(low = "orange", high = "blue")
+p <- p + theme(strip.text.y = element_text(size = 5), 
+               strip.text.x = element_text(size = 6),
+               # axis.text.y = element_text(size = 4),
+               axis.text.x = element_text(size = 6),
+               axis.title = element_text(size = 6))
+p <- p + guides(fill="none") + theme(axis.title.y = element_blank(),
+                                    axis.text.y = element_blank(),
+                                    axis.ticks.y = element_blank())
+# p
+
+dd <- filter(D1, treatment == "EO1") %>% mutate(variable = "p-value")
+
+q <- ggplot(dd, aes(x = factor(1), y = new_taxa, group=level))
+q <- q + geom_tile(aes(fill = p.value), colour = "white")
+q <- q + facet_grid(level~variable, space="free", scales = "free_y")
+q <- q + scale_fill_gradient(low = "orange", high = "blue")
+q <- q + theme(strip.text = element_text(size = 4), 
+               strip.text.x = element_text(size = 6),
+               axis.text.y = element_text(size = 5),
+               axis.title = element_text(size = 6))
+q <- q + guides(fill=FALSE) + theme(
+  # axis.title.x = element_blank(),
+  # axis.text.x=element_blank(),
+  # axis.ticks.x=element_blank(),
+  strip.text.y = element_blank(),
+  # axis.text.x = element_blank()
+  axis.text.x = element_text(size = 6)
+)
+q <- q + xlab("") 
+# q
+
+figure_final <- ggarrange(q, p, widths=c(0.5, 1), 
+                          labels=c("A", "B"))
+
+print(figure_final)
+#ggsave(filename = "heatmap_rumen.png", plot = figure_final, device = "png", width = 8, height = 10)
+```
+
+
+
+
+#CHECK ON DIET EFFECTS ON RUMINAL FLUIDS
+
+```{r data, echo=FALSE}
+meta_subset_pre <- filter(metadata, treatment !="EO1" & treatment !="Carvacrol" & treatment !="Synthetic EO1" & treatment !="p-cymene" & treatment !="γ-terpinene")
+
+meta_subset_pre %>%
+  group_by(treatment) %>%
+  dplyr::summarise(N=n())
+```
+
+```{r taxonomy, echo=FALSE}
+otu <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
+otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
+otu$treatment = metadata$treatment[match(otu$sample,metadata$sample)]
+otu <- filter(otu, sample %in% meta_subset_pre$sample)
+
+## relative abundances
+metadata_cols = names(meta_subset_pre)[c(1,5)]
+M <- select(otu,-all_of(metadata_cols))
+M <- M/rowSums(M)
+M <- bind_cols(select(otu, all_of(metadata_cols)),M)
+
+M <- subset(M, treatment !="EO1" & treatment !="Carvacrol" & treatment !="Synthetic EO1" & treatment !="p-cymene" & treatment !="γ-terpinene")
+```
+
+```{r, echo=FALSE, fig.height=12, fig.width=12}
+otu = otu %>% relocate (treatment, .after = sample)
+metadata_cols = names(otu)[c(1,2)]
+
+otu <- subset(otu, treatment !="EO1" & treatment !="Carvacrol" & treatment !="Synthetic EO1" & treatment !="p-cymene" & treatment !="γ-terpinene")
+
+mO <- reshape2::melt(otu,id.vars = metadata_cols, value.name = "counts", variable.name = "phylum")
+mO$phylum <- gsub("^.*;","",mO$phylum)
+mO[mO$phylum == "2","phylum"] <- "WPS.2"
+mO$sample <- factor(mO$sample)
+mO <- mO %>%
+  arrange(treatment)
+#mO$Cow_ID <- paste(mO$cow, mO$ref)
+```
+
+```{r, echo=FALSE, fig.height=12, fig.width=12}
+m1 <- reshape2::melt(M,id.vars = metadata_cols, value.name = "counts", variable.name = "phylum")
+m1$phylum <- gsub("^.*;","",m1$phylum)
+m1[m1$phylum == "2","phylum"] <- "WPS.2"
+m1$sample <- factor(m1$sample)
+m1 <- m1 %>%
+  arrange(treatment)
+
+# m1$sample <- paste(as.character(m1$sample),as.character(m1$ ),sep="-")
+ordered_samples <- metadata %>%
+  arrange(treatment) %>%
+  select(treatment,sample)
+
+m1$sample <- factor(m1$sample, levels = ordered_samples$sample)
+
+m1$treatment <- factor(m1$treatment)
+```
+
+### Treatments 
+
+First, let's look at phyla:
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+D <- m1 %>%
+  group_by(phylum,treatment) %>%
+  summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
+  filter(avg_abund>0.005) %>%
+  arrange(phylum,avg_abund)
+
+phylum <- D %>%
+  group_by(phylum) %>%
+  summarize("s"=sum(avg_abund)) %>%
+  arrange(desc(s)) %>%
+  select(phylum,s)
+
+D$phylum <- factor(D$phylum, levels = rev(phylum$phylum[order(phylum$s)]))
+D <- D %>%
+  arrange(treatment,phylum)
+
+kable(D)
+```
+
+```{r, echo=FALSE}
+p <- ggplot(mO, aes(x=phylum,y=as.factor(sample),fill=counts))
+p <- p + geom_tile()
+p <- p + facet_wrap(~treatment, scales = "free_y")
+p <- p + ylab("sample")
+p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1),axis.text.y = element_text(size=9))
+p <- p + scale_fill_gradient2(low="red",high = "blue")
+p
+#ggsave (p, height = 10, width = 20, filename = "taxonomy_count_rumen_pre.png")
+```
+
+###boxplot abundances per treatment 
+
+##Phyla
+
+```{r, echo=FALSE}
+p <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=phylum)) + geom_bar(width=1,stat="identity")
+p <- p + facet_grid(~treatment)
+#p <- p + coord_polar(theta='y', start=0) #activate this if you want a piechart
+#p <- p + scale_fill_brewer(palette = "Set3") 
+p <- p + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
+p <- p + guides(fill = guide_legend(title = "Phyla")) 
+p <- p + xlab("Relative abundances") + ylab("")
+my_palette = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2"), length(unique(D$phylum)))
+p <- p + xlab("relative abundances") + ylab("percentages")
+p <- p + scale_fill_manual(values = my_palette)
+p <- p + theme(text = element_text(size=10),
+               axis.text.x = element_text(size=8),
+               # axis.text.y = element_text(size=4),
+               strip.text = element_text(size = 8),
+               axis.text.y = element_blank(),
+               axis.ticks.y = element_blank(),
+               legend.text=element_text(size=10),
+               legend.title=element_text(size=10))
+
+print(p)
+#ggsave(p, height = 20, width = 10, filename ="taxonomy_phylum_boxplot_rumen_pre.png")
+```
+
+### Treatments, all taxonomic levels
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+D <- D %>%
+  group_by(treatment) %>%
+  filter(avg_abund > 0.01) %>%
+  arrange(desc(avg_abund))
+
+phylum <- D %>%
+  group_by(phylum) %>%
+  summarize("s"=sum(avg_abund)) %>%
+  arrange(desc(s)) %>%
+  select(phylum,s)
+
+D$phylum <- factor(D$phylum, levels = rev(phylum$phylum[order(phylum$s)]))
+D <- D %>%
+  arrange(phylum)
+
+D$taxa_level = rep("phylum", nrow(D))
+
+otu2 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
+otu3 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L3.txt", header = TRUE, skip = 1)
+otu4 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L4.txt", header = TRUE, skip = 1)
+otu5 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L5.txt", header = TRUE, skip = 1)
+otu6 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L6.txt", header = TRUE, skip = 1)
+otu <- bind_rows(otu2,otu3,otu4,otu5,otu6)
+
+otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
+
+otu$treatment = metadata$treatment[match(otu$sample,metadata$sample)]
+otu <- filter(otu, sample %in% meta_subset_pre$sample)
+
+mO <- reshape2::melt(otu,id.vars = metadata_cols, value.name = "counts", variable.name = "taxa")
+
+mO$level <- sapply(mO$taxa, function(x) length(strsplit(as.character(x),";")[[1]]) ) 
+
+get_taxa <- function(x,n) {
+  
+  z <- strsplit(x, split = ";")
+  res = lapply(z, function(x) x[n])
+  return(unlist(res))
+}
+
+new_taxa <- c(NULL)
+for (i in seq_along(mO$counts)) {
+  
+  arg1 = as.character(mO$taxa[i])
+  arg2 = ifelse(mO$level[i] <= 6, mO$level[i], 6)
+  
+  rr = get_taxa(arg1,arg2)
+  new_taxa <- c(new_taxa,rr)
+}
+
+mO$new_taxa <- new_taxa
+
+table(mO$level)
+neues <- c("phylum","class","order","family","genus")
+altes <- seq(2,6)
+mO$level <- neues[match(mO$level,altes)]
+
+## relative abundances
+mO <- mO %>%
+  group_by(level,sample) %>%
+  mutate(tot = sum(counts), rel_abundance = counts/tot)
+
+D <- mO %>%
+  group_by(level,new_taxa,treatment) %>%
+  summarise(avg_abund = round(mean(rel_abundance),4), std = round(sd(rel_abundance),3))
+```
+
+A table of relative abundances (and standard deviations) per taxa and treatment:
+
+```{r, tab2, echo=FALSE}
+D <- na.omit(D)
+D <- D %>%
+  group_by(new_taxa,treatment) %>%
+  filter(avg_abund > 0.01) %>%
+  arrange(level,desc(avg_abund))
+
+kable(D)
+```
+
+##Class
+
+```{r}
+Dclass <- D %>%
+  filter(level=="class")
+
+p <- ggplot(Dclass, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
+p <- p + facet_grid( ~treatment)
+p <- p + guides(fill = guide_legend(title = "Class")) 
+p <- p + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
+my_palette = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple", "darkorange1","pink1", "darkorchid1", "seagreen2"), length(unique(Dclass$new_taxa)))
+p <- p + xlab("relative abundances") + ylab("percentages")
+p <- p + scale_fill_manual(values = my_palette)
+p <- p + theme(text = element_text(size=10),
+               axis.text.x = element_text(size=8),
+               # axis.text.y = element_text(size=4),
+               strip.text = element_text(size = 8),
+               axis.text.y = element_blank(),
+               axis.ticks.y = element_blank(),
+               legend.text=element_text(size=10),
+               legend.title=element_text(size=10))
+print(p)
+#ggsave(p, height = 8, width = 8, filename ="taxonomy_class_bargraph_rumen_pre.png")
+```
+
+##Family
+
+```{r}
+Dfamily <- D %>%
+  filter(level=="family")
+
+p <- ggplot(Dfamily, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
+p <- p + facet_grid( ~treatment)
+p <- p + guides(fill = guide_legend(title = "Family")) 
+#p <- p + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
+my_palette2 = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2", "darkmagenta", "burlywood1", "maroon", "darkred", "burlywood3", "chartreuse4", "coral", "peachpuff", "mediumorchid3", "yellow3", "turquoise4", "snow", "slategray3", "orangered", "olivedrab", "plum", "lightcyan", "gray38", "forestgreen", "firebrick1"), length(unique(Dfamily$new_taxa)))
+p <- p + xlab("relative abundances") + ylab("percentages")
+p <- p + scale_fill_manual(values = my_palette2)
+p <- p + theme(text = element_text(size=10),
+               axis.text.x = element_text(size=8),
+               # axis.text.y = element_text(size=4),
+               strip.text = element_text(size = 8),
+               axis.text.y = element_blank(),
+               axis.ticks.y = element_blank(),
+               legend.text=element_text(size=10),
+               legend.title=element_text(size=10))
+p
+#ggsave(p, height = 8, width = 8, filename ="taxonomy_family_bargraph_rumen_pre.png")
+```
+
+## Genera 
+
+```{r}
+Dgenera <- D %>%
+  filter(level=="genus")
+
+p <- ggplot(Dgenera, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
+p <- p + facet_grid( ~treatment)
+p <- p + guides(fill = guide_legend(title = "Genera")) 
+my_palette2 = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2", "darkmagenta", "burlywood1", "maroon", "darkred", "burlywood3", "chartreuse4", "coral", "peachpuff", "mediumorchid3", "yellow3", "turquoise4", "snow", "slategray3", "orangered", "olivedrab", "plum", "lightcyan", "gray38", "forestgreen", "firebrick1"), length(unique(Dgenera$new_taxa)))
+p <- p + xlab("relative abundances") + ylab("percentages")
+p <- p + scale_fill_manual(values = my_palette2)
+p <- p + theme(text = element_text(size=10),
+               axis.text.x = element_text(size=8),
+               # axis.text.y = element_text(size=4),
+               strip.text = element_text(size = 8),
+               axis.text.y = element_blank(),
+               axis.ticks.y = element_blank(),
+               legend.text=element_text(size=5),
+               legend.title=element_text(size=5))
+print(p)
+#ggsave(p, height = 8, width = 8, filename ="taxonomy_genera_bargraph_rumen_pre.png")
+```
+
+##Order
+
+```{r}
+Dorder <- D %>%
+  filter(level=="order")
+
+p <- ggplot(Dorder, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
+p <- p + facet_grid( ~treatment)
+p <- p + guides(fill = guide_legend(title = "Order")) 
+my_palette2 = get_palette(c("red","darkred", "burlywood3", "chartreuse4","gray","gold","blue","magenta","cyan","purple","green3","yellow","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2", "darkmagenta", "burlywood1", "maroon",  "coral", "peachpuff", "mediumorchid3", "yellow3", "turquoise4", "snow", "slategray3", "orangered", "olivedrab", "plum", "lightcyan", "gray38", "forestgreen", "firebrick1"), length(unique(Dorder$new_taxa)))
+p <- p + xlab("relative abundances") + ylab("percentages")
+p <- p + scale_fill_manual(values = my_palette2)
+p <- p + theme(text = element_text(size=10),
+               axis.text.x = element_text(size=8),
+               # axis.text.y = element_text(size=4),
+               strip.text = element_text(size = 8),
+               axis.text.y = element_blank(),
+               axis.ticks.y = element_blank(),
+               legend.text=element_text(size=10),
+               legend.title=element_text(size=10))
+print(p)
+#ggsave(p, height = 8, width = 8, filename ="taxonomy_order_bargraph_rumen_pre.png")
+```
+
+Same results, but in wide-format (treatments on the horizontal axis): relative abundances (no standard deviations):
+
+```{r, echo=FALSE}
+D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus"))
+
+D0 <- D %>%
+  select(-c(std)) %>%
+  spread(treatment,avg_abund)
+
+# D0[is.na(D0)] <- ""
+
+bg.picker <- function(z) {
+  
+  if(is.na(z)) {return(NULL)}
+  if(is.numeric(z)) {
+    
+    if(z > 0.05 & z <= 0.10) {return("pink")}
+    if(z > 0.10) {return("yellow")}
+  }
+}
+
+library("formattable")
+formattable(D0, list(
+  
+  `Control` = color_tile("white","green"),
+  `Treated` = color_tile("white","deepskyblue")
+  # `3 PR` = color_tile("white","yellow"),
+  # `4 PR` = color_tile("white","pink"),
+  # `5 PR` = color_tile("white","yellow"),
+  # `6 PR` = formatter("span",
+  #                 style = x ~ style(
+  #                   "border-radius" = "4px",
+  #                   "padding-right" = "4px",
+  #                   "background-color" = sapply(x, bg.picker))
+  #                 )
+))
+
+```
+
+Finally,a bubble chart to visualize relative abundances per taxa and treatment:
+
+```{r, echo=FALSE, fig.height = 14, fig.width = 10}
+taxa <- D %>%
+  group_by(level,new_taxa) %>%
+  summarize("s"=sum(avg_abund)) %>%
+  arrange(desc(level,s)) %>%
+  select(level,new_taxa,s)
+
+taxa <- taxa %>%
+  group_by(level) %>%
+  arrange(level,s)
+
+p <- ggplot(D, aes(x = treatment, y = new_taxa))
+p <- p + geom_point(aes(size = avg_abund, colour = treatment), alpha = 0.4)
+p <- p + facet_grid(level~treatment, scales = "free", space = "free")
+p <- p + scale_color_manual(values = c("green3","gold","blue","magenta","cyan","yellow", "green", "coral",  "#E7B800", "#FC4E07"))
+p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+p <- p + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+p <- p + theme(axis.text.x = element_text(size=8))
+p <- p + theme_bw()
+p <- p + xlab("treatments") + ylab("average abundances")
+p
+#ggsave (p, height = 13, width = 8, filename = "taxonomy_bubbleplot_rumen_pre.png")
+```
+
+### Significance of treatments
+ 
+The significance of differences between treatments (Control vs Treated with Essential Oil) was evaluated using a linear model (ANOVA) that included the effect of  s:
+ 
+$$
+counts_{ikj} = \mu +  _k + treatment_j + e_{ikj}
+$$
+# 
+This way, the variability due to region is removed when assessing the effect of treatments.
+ 
+```{r, echo=FALSE}
+m1 <- mO %>%
+  filter(!is.na(level)) %>%
+  arrange(level,treatment)
+
+D <- m1 %>%
+  group_by(level, new_taxa) %>%
+  do(tidy(anova(lm(counts ~  +treatment, data = .)))) %>%
+  filter(term == "treatment")
+
+D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus"))
+D <- D %>%
+  arrange(level,new_taxa)
+
+datatable(D, options = list(pageLength=100)) %>%
+  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
+
+
+#write.csv(D, "one_pre.csv")
+```
+
+
+```{r, echo=FALSE}
+DX <- D %>%
+  filter(`p.value` <= 0.05) %>%
+  select(c(level,new_taxa, `p.value`)) %>%
+  arrange(level,`p.value`)
+
+D0 <- mO %>%
+  dplyr::group_by(level,new_taxa, treatment) %>%
+  dplyr::summarise(avg_counts = mean(counts))
+
+to_save = list(D,DX,D0)
+save(to_save, file = "taxonomy_ .RData")
+
+load("taxonomy_ .RData")
+D <- to_save[[1]]
+DX <- to_save[[2]]
+D0 <- to_save[[3]]
+
+dd <- spread(D0, key = treatment, value = avg_counts)
+temp <- inner_join(DX,dd, by = c("level" = "level", "new_taxa" = "new_taxa"))
+fwrite(temp, file = "~/Results/RUMEN/rumen_significant_otus_pre.csv", col.names = TRUE, sep = ",")
+`print (dd)
+```
+
+```{r, echo=FALSE, warning=FALSE}
+load("taxonomy_ .RData")
+D <- to_save[[1]]
+DX <- to_save[[2]]
+D0 <- to_save[[3]]
+
+D0 <- mutate(D0, avg_counts = avg_counts+1) %>% spread(key = treatment, value = avg_counts)
+
+D1 <- DX %>%
+  inner_join(D0, by = c("level" = "level", "new_taxa" = "new_taxa")) %>%
+  mutate(p.value = -log10(p.value)) %>%
+  gather(key = "treatment", value = "counts", -c(level,new_taxa, p.value))
+
+D1$level <- factor(D1$level, levels = c("phylum","class","order","family","genus"))
+
+D1 <- D1 %>% group_by(level) %>% mutate(tot = sum(counts), relab = counts/tot)
+
+p <- ggplot(D1, aes(x = treatment, y = new_taxa))
+p <- p + geom_tile(aes(fill = relab), colour = "white")
+p <- p + facet_grid(level~treatment, scales = "free")
+p <- p + scale_fill_gradient(low = "orange", high = "blue")
+p <- p + theme(strip.text.y = element_text(size = 5), 
+               strip.text.x = element_text(size = 6),
+               # axis.text.y = element_text(size = 4),
+               axis.text.x = element_text(size = 6),
+               axis.title = element_text(size = 6))
+p <- p + guides(fill="none") + theme(axis.title.y = element_blank(),
+                                    axis.text.y = element_blank(),
+                                    axis.ticks.y = element_blank())
+# p
+
+dd <- filter(D1, treatment == "EO1") %>% mutate(variable = "p-value")
+
+q <- ggplot(dd, aes(x = factor(1), y = new_taxa, group=level))
+q <- q + geom_tile(aes(fill = p.value), colour = "white")
+q <- q + facet_grid(level~variable, space="free", scales = "free_y")
+q <- q + scale_fill_gradient(low = "orange", high = "blue")
+q <- q + theme(strip.text = element_text(size = 4), 
+               strip.text.x = element_text(size = 6),
+               axis.text.y = element_text(size = 5),
+               axis.title = element_text(size = 6))
+q <- q + guides(fill=FALSE) + theme(
+  # axis.title.x = element_blank(),
+  # axis.text.x=element_blank(),
+  # axis.ticks.x=element_blank(),
+  strip.text.y = element_blank(),
+  # axis.text.x = element_blank()
+  axis.text.x = element_text(size = 6)
+)
+q <- q + xlab("") 
+# q
+
+figure_final <- ggarrange(q, p, widths=c(0.5, 1), 
+                          labels=c("A", "B"))
+
+print(figure_final)
+#ggsave(filename = "heatmap_rumen_pre.png", plot = figure_final, device = "png", width = 8, height = 10)
+```

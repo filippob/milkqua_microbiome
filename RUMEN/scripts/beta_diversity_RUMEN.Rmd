@@ -1,0 +1,245 @@
+---
+title: "Beta_diversity_RUMEN"
+author: "Chiara Gini"
+date: "27/12/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+library("knitr")
+library("dplyr")
+library("tidyr")
+library("broom")
+library("vegan")
+library("ggplot2")
+library("reshape2")
+library("rmarkdown")
+library("tidyverse")
+library("ggfortify")
+library("data.table")
+library("ggforce")
+library("plotly")
+library("lattice")
+```
+
+## Beta diversity
+
+From 16S rRNA-gene sequencing of cow RUMEN microbiome samples:
+- 6 treatments for rumen samples + ruminal liquid (base) + ("AE1","AE sintético 1","Carvacrol", "p-cymene", "γ-terpinene", "no treatment (ruminal liquid + diet)")
+
+Between-sample variability from 16S rRna-gene sequencing data.
+
+```{r beta, echo=FALSE}
+metadata <- fread("../../../rumen/mapping_file.csv")
+names(metadata)[1] <- "sample"
+metadata <- mutate(metadata, cow = ifelse(treatment == "ruminal liquid", gsub("I","",vial), cow))
+```
+
+## Clustering
+
+### PCA
+
+```{r pressure, echo=FALSE, message=FALSE}
+matrice= read.table("../../../rumen/qiime_1.9/results/beta_diversity/bray_curtis_CSS_normalized_otu_table.txt", row.names=1, header=T)
+names(matrice) <- gsub("X","",names(matrice))
+
+
+matrice$treatment <- as.character(metadata$treatment[match(row.names(matrice),metadata$sample)])
+
+matx= data.matrix(select(matrice, -c(treatment)))
+
+## MDS
+mds <- cmdscale(as.dist(matx))
+```
+
+Clustering by treatment (PCA): after removing samples from treatment no treatment (ruminal liquid + diet) # BECAUSE WE KNOW THAT THERE WE SHOULD NOT HAVE DIFFERENCES BETWEEN GROUPS
+
+```{r, echo=FALSE}
+matrice_1 <- filter(matrice, treatment != "no treatment (ruminal liquid + diet)")
+matx0= data.matrix(select(matrice_1, -c(treatment)))
+
+p2 <- autoplot(prcomp(1-matx0), data=matrice_1, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
+p2
+#ggsave("clustering_by_treatment_PCA_rumen.png")
+```
+
+### MDS
+
+#### Clustering by treatment (MDS): **NMDS1 vs NMDS2**
+
+```{r, echo=FALSE, results='hide'}
+rumen.mds= metaMDS(matx0, k=3) #function metaMDS in Vegan
+
+hull_f <- function(df) {
+
+  temp <- data.frame(NULL)
+  for (ll in unique(df$group)) {
+
+    nn <- df[df$group == ll,][chull(df[df$group == ll, c("NMDS1","NMDS2","NMDS3")]),]
+    temp <- rbind.data.frame(temp,nn)
+  }
+  return(temp)
+}
+
+rumen.scores <- as.data.frame(scores(rumen.mds))  #Using the scores function from vegan to extract the site scores and convert to a data.frame
+rumen.scores$group <- matrice_1$treatment #  add the grp variable created earlier
+
+hull.data <- hull_f(rumen.scores)
+
+g <- ggplot(data=rumen.scores, aes(x=NMDS1,y=NMDS2))
+g <- g + coord_equal()
+g <- g + geom_polygon(data=hull.data,aes(x=NMDS1,y=NMDS2,fill=group,group=group),alpha=0.30)
+g <- g + geom_point(data=rumen.scores,aes(x=NMDS1,y=NMDS2,shape=group,colour=group),size=4)
+g <- g + theme_bw() + theme(plot.margin=grid::unit(c(0,0,0,0), "mm"))
+g <- g + ggtitle("Treatment")
+g
+```
+
+Clustering by type (MDS): **NMDS2 vs NMDS3**
+
+```{r, echo=FALSE, results='hide'}
+g <- ggplot(data=rumen.scores, aes(x=NMDS2,y=NMDS3))
+g <- g + coord_equal()
+g = g + geom_polygon(data=hull.data,aes(x=NMDS2,y=NMDS3,fill=group,group=group),alpha=0.30)
+g = g + geom_point(data=rumen.scores,aes(x=NMDS2,y=NMDS3,shape=group,colour=group),size=4)
+g = g + theme_bw() + theme(plot.margin=grid::unit(c(0,0,0,0), "mm"))
+g <- g + ggtitle("Source")
+g
+```
+
+## Significance of between-group distances
+
+Significance values based on permuted analysis of variance (999 permutations), repeated 100 times.
+
+```{r, label='permanova', echo=FALSE}
+pv_treatment <- replicate(100,
+  adonis2(matx ~ matrice$treatment, permutations = 999)$"Pr(>F)"[1],
+  simplify = "vector"
+)
+
+permanova <- function(mat,term,perms) {
+  
+  perm <- how(nperm = sample(perms,1))
+  obj <- adonis(mat ~ term, add = TRUE, parallel = TRUE, permutations = perm)
+  return(obj$aov.tab$`Pr(>F)`[1])
+}
+
+```
+
+- between treatments: p-value = **`r mean(pv_treatment)`** (std = `r sd(pv_treatment)`)
+
+Below the ANOVA table from the model:
+
+$$
+X = \mu + treatment +  + treatment*type + e
+$$
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+source("../../r_scripts/pairwise_adonis.r")
+
+obj <- adonis(matx ~ matrice$treatment)
+
+row.names(obj$aov.tab) <- c("treatment","residuals","total")
+kable(obj$aov.tab)
+```
+
+## going 3D
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+rumen.mds= metaMDS(matx, k = 3) #function metaMDS in Vegan
+
+rumen.scores <- as.data.frame(scores(rumen.mds))  #Using the scores function from vegan to extract the site scores and convert to a data.frame
+rumen.scores$treatment <- matrice$treatment
+
+
+hull_f <- function(df) {
+  
+  temp <- data.frame(NULL)
+  for (ll in unique(df$treatment)) {
+    
+    nn <- df[df$treatment == ll,][chull(df[df$treatment == ll, c("NMDS1","NMDS2","NMDS3")]),]
+    temp <- rbind.data.frame(temp,nn)
+  }
+  return(temp)
+}
+
+hull.data <- hull_f(rumen.scores)
+```
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+## 3D plot
+p <- plot_ly(data = rumen.scores, 
+             x = ~NMDS1, y = ~NMDS2, z = ~NMDS3,
+             type = "scatter3d",
+             color = ~treatment) %>%
+  add_markers() %>%
+  layout(scene = list(xaxis = list(title = 'NMDS1'),
+                      yaxis = list(title = 'NMDS1'),
+                      zaxis = list(title = 'NMDS1')),
+         annotations = list(
+           x = 0.005,
+           y = 0.01,
+           text = '',
+           xref = 'paper',
+           yref = 'paper',
+           showarrow = FALSE
+         ))
+
+p
+
+if(pandoc_available()) {
+  
+  htmlwidgets::saveWidget(as_widget(p), "beta_treatment_3d.html")
+}
+```
+
+###  Cows
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+matrice$cow <- as.character(metadata$cow[match(row.names(matrice),metadata$sample)])
+
+rumen.mds= metaMDS(matx, k = 3) #function metaMDS in Vegan
+
+rumen.scores <- as.data.frame(scores(rumen.mds))  #Using the scores function from vegan to extract the site scores and convert to a data.frame
+rumen.scores$cow <- matrice$cow
+
+
+hull_f <- function(df) {
+  
+  temp <- data.frame(NULL)
+  for (ll in unique(df$cow)) {
+    
+    nn <- df[df$treatment == ll,][chull(df[df$cow == ll, c("NMDS1","NMDS2","NMDS3")]),]
+    temp <- rbind.data.frame(temp,nn)
+  }
+  return(temp)
+}
+
+hull.data <- hull_f(rumen.scores)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+p <- plot_ly(data = rumen.scores, 
+             x = ~NMDS1, y = ~NMDS2, z = ~NMDS3,
+             type = "scatter3d",
+             color = ~cow) %>%
+  add_markers() %>%
+  layout(scene = list(xaxis = list(title = 'NMDS1'),
+                      yaxis = list(title = 'NMDS1'),
+                      zaxis = list(title = 'NMDS1')),
+         annotations = list(
+           x = 0.005,
+           y = 0.01,
+           text = 'cow',
+           xref = 'paper',
+           yref = 'paper',
+           showarrow = FALSE
+         ))
+
+p
+```
+

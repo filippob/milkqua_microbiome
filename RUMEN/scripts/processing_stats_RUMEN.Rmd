@@ -1,14 +1,12 @@
 ---
-title: "MILKQUA project: milk and udder-swab samples - Metabarcoding Stats"
-author: "Filippo Biscarini"
-date: "October 30, 2021"
+title: "MILKQUA project: skinswab samples - Metabarcoding Stats"
+author: "Chiara Gini"
+date: "27/12/2021"
 output:
   html_document: default
-  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
 library("knitr")
 library("broom")
 # library("plyr")
@@ -26,7 +24,7 @@ library("data.table")
 The first step is joining the sequenced paired-end reads.
 
 ```{r reads, echo=FALSE, warning=FALSE, message=FALSE}
-joined_pairs <- read.csv("/home/mycelium/milkqua_project/qiime_1.9_results/results/readsPerSample",sep="\t",header = FALSE,skip = 1, stringsAsFactors = FALSE)
+joined_pairs <- read.csv("/home/oem/milkqua_microbiome/Results/results/readsPerSample",sep="\t",header = FALSE,skip = 1, stringsAsFactors = FALSE)
 nReads <- as.numeric(joined_pairs$V1[seq(2,nrow(joined_pairs)-1,by=2)])
 samples <- joined_pairs$V1[seq(1,nrow(joined_pairs)-1,by=2)]
 
@@ -70,9 +68,9 @@ Reads were then filtered for:
 
 
 ```{r, echo=FALSE, warning=FALSE}
-inputSeqs <- read.table("/home/mycelium/milkqua_project/qiime_1.9_results/results/inputSeqs",sep=":")
-outputSeqs <- read.table("/home/mycelium/milkqua_project/qiime_1.9_results/results/outputSeqs", sep="\t")
-samples <- read.table("/home/mycelium/milkqua_project/qiime_1.9_results/results/samples.txt", sep=":")
+inputSeqs <- read.table("/home/oem/milkqua_microbiome/Results/results/inputSeqs",sep=":")
+outputSeqs <- read.table("/home/oem/milkqua_microbiome/Results/results/outputSeqs", sep="\t")
+samples <- read.table("//home/oem/milkqua_microbiome/Results/results/samples.txt", sep=":")
 
 trim <- function (x) gsub("^\\s+|\\s+$", "", x)
 
@@ -163,7 +161,7 @@ p
 ### Summary stats
 
 ```{r, echo=FALSE}
-mapfile <- fread("/home/mycelium/milkqua_project/Mapping_file/mapping_file_def.csv", header = TRUE)
+mapfile <- fread("/home/oem/milkqua_microbiome/Results/mapping_file_milk_alltimepoints_skin_T0beforeafter.csv", header = TRUE)
 mapfile$sample <- paste("Sample",sapply(mapfile$`#SampleID`, function(x) substr(x,1,nchar(x)/2)),sep="_")
 seqs <- seqs %>%
   inner_join(mapfile, by = "sample")
