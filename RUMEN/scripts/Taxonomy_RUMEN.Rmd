@@ -1,7 +1,7 @@
 ---
 title: "Taxonomy_RUMEN"
 author: "Chiara Gini"
-date: "14/01/2022"
+date: "21/02/2022"
 output: html_document
 editor_options: 
   chunk_output_type: inline
@@ -21,9 +21,9 @@ library("data.table")
 library("ggrepel")
 ```
 
-#COMPARISON BETWEEN TREATMENS
+#COMPARISON BETWEEN TREATMENS 
 
-## 16S sequencing data - cow rumen samples milkqua project
+## 16S sequencing data - cow rumen samples
 
 ```{r data, echo=FALSE}
 metadata <- fread("~/Results/RUMEN/mapping_file_rumen.csv")
