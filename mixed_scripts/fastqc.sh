@@ -1,28 +1,35 @@
 ## setting the enviornmnent
 currpath=$(pwd)
-datapath="data/210902_M04028_0139_000000000-JRGYP_swab"
-targetdir= "Analysis/raw_quality/swab"
+datapath="data/subset"
+targetdir="Analysis/raw_quality/subset"
 core=8
 
 module load python3/intel/2020
 source activate milkqua
 
 export PATH=/home/users/filippo.biscarini.est/.local/bin:$PATH
-
-if [ ! -d `$currentpath/Analysis/$targetdir`]; then
-	mkdir $currpath/Analysis/$targetdir
-fi
-
 ## Create analysis folders
 
-echo $HOME
-echo $currpath
+echo "current path: $currpath"
+
+fullpath="$currpath/$targetdir"
+echo "target path: $fullpath"
+
+if [ ! -d $fullpath ]; then
+	mkdir $fullpath
+fi
+
 
 ## FastQC
 cd $currpath
 
-$HOME/software/FastQC/fastqc ${currpath}/${datapath}/*.fastq.gz -o $currpath/Analysis/$targetdir -t 8
-cd $currpath/Analysis/$targetdir
+# $HOME/software/FastQC/fastqc ${currpath}/${datapath}/*.fastq.gz -o $currpath/Analysis/$targetdir -t 8
+## load fastqc
+module load genetics/fastqc
+fastqc ${currpath}/${datapath}/*.fastq.gz -o $fullpath -t 8
+
+## MultiQC
+cd $fullpath
 multiqc .
 
 echo "DONE!"
