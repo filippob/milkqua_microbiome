@@ -12,11 +12,11 @@ export PATH=/home/users/filippo.biscarini.est/.local/bin:$PATH
 
 echo "current path: $currpath"
 
-fullpath="$currpath/$targetdir"
-echo "target path: $fullpath"
+targetpath="$currpath/$targetdir"
+echo "target path: $targetpath"
 
-if [ ! -d $fullpath ]; then
-	mkdir $fullpath
+if [ ! -d $targetpath ]; then
+	mkdir $targetpath
 fi
 
 
@@ -26,10 +26,10 @@ cd $currpath
 # $HOME/software/FastQC/fastqc ${currpath}/${datapath}/*.fastq.gz -o $currpath/Analysis/$targetdir -t 8
 ## load fastqc
 module load genetics/fastqc
-fastqc ${currpath}/${datapath}/*.fastq.gz -o $fullpath -t 8
+fastqc ${currpath}/${datapath}/*.fastq.gz -o $targetpath -t 8
 
 ## MultiQC
-cd $fullpath
+cd $targetpath
 multiqc .
 
 echo "DONE!"
