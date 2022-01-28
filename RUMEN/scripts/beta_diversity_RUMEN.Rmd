@@ -32,9 +32,12 @@ From 16S rRNA-gene sequencing of cow RUMEN microbiome samples:
 Between-sample variability from 16S rRna-gene sequencing data.
 
 ```{r beta, echo=FALSE}
-metadata <- fread("../../../rumen/mapping_file.csv")
+metadata <- fread("~/Results/RUMEN/mapping_file_rumen.csv")
 names(metadata)[1] <- "sample"
-metadata <- mutate(metadata, cow = ifelse(treatment == "ruminal liquid", gsub("I","",vial), cow))
+metadata$treatment[ which(metadata$treatment == "no treatment (ruminal liquid + diet)")] <- "Control"
+metadata$treatment[ which(metadata$treatment == "AE1")] <- "EO1"
+metadata$treatment[ which(metadata$treatment == "AE sintético 1")] <- "Synthetic EO1"
+metadata <- subset(metadata, treatment !="ruminal liquid") 
 ```
 
 ## Clustering
@@ -42,25 +45,24 @@ metadata <- mutate(metadata, cow = ifelse(treatment == "ruminal liquid", gsub("I
 ### PCA
 
 ```{r pressure, echo=FALSE, message=FALSE}
-matrice= read.table("../../../rumen/qiime_1.9/results/beta_diversity/bray_curtis_CSS_normalized_otu_table.txt", row.names=1, header=T)
+matrice= read.table("~/Results/RUMEN/results/beta_diversity/bray_curtis_CSS_normalized_otu_table.txt", row.names=1, header=T)
 names(matrice) <- gsub("X","",names(matrice))
 
+samples = filter(metadata, treatment != "ruminal liquid") %>% pull(sample)
+vec <- rownames(matrice) %in% samples
+matrice = matrice[vec,vec]
 
 matrice$treatment <- as.character(metadata$treatment[match(row.names(matrice),metadata$sample)])
-
 matx= data.matrix(select(matrice, -c(treatment)))
 
 ## MDS
 mds <- cmdscale(as.dist(matx))
 ```
 
-Clustering by treatment (PCA): after removing samples from treatment no treatment (ruminal liquid + diet) # BECAUSE WE KNOW THAT THERE WE SHOULD NOT HAVE DIFFERENCES BETWEEN GROUPS
+Clustering by treatment (PCA)
 
 ```{r, echo=FALSE}
-matrice_1 <- filter(matrice, treatment != "no treatment (ruminal liquid + diet)")
-matx0= data.matrix(select(matrice_1, -c(treatment)))
-
-p2 <- autoplot(prcomp(1-matx0), data=matrice_1, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
+p2 <- autoplot(prcomp(1-matx), data=matrice, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
 p2
 #ggsave("clustering_by_treatment_PCA_rumen.png")
 ```
@@ -70,7 +72,7 @@ p2
 #### Clustering by treatment (MDS): **NMDS1 vs NMDS2**
 
 ```{r, echo=FALSE, results='hide'}
-rumen.mds= metaMDS(matx0, k=3) #function metaMDS in Vegan
+rumen.mds= metaMDS(matx, k=3) #function metaMDS in Vegan
 
 hull_f <- function(df) {
 
@@ -84,7 +86,7 @@ hull_f <- function(df) {
 }
 
 rumen.scores <- as.data.frame(scores(rumen.mds))  #Using the scores function from vegan to extract the site scores and convert to a data.frame
-rumen.scores$group <- matrice_1$treatment #  add the grp variable created earlier
+rumen.scores$group <- matrice$treatment #  add the grp variable created earlier
 
 hull.data <- hull_f(rumen.scores)
 
@@ -137,7 +139,7 @@ X = \mu + treatment +  + treatment*type + e
 $$
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-source("../../r_scripts/pairwise_adonis.r")
+source("~/milkqua_microbiome/r_scripts/pairwise_adonis.r")
 
 obj <- adonis(matx ~ matrice$treatment)
 
@@ -200,7 +202,7 @@ if(pandoc_available()) {
 
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-matrice$cow <- as.character(metadata$cow[match(row.names(matrice),metadata$sample)])
+matrice$cow <- as.character(metadata$inoculation[match(row.names(matrice),metadata$sample)])
 
 rumen.mds= metaMDS(matx, k = 3) #function metaMDS in Vegan
 
