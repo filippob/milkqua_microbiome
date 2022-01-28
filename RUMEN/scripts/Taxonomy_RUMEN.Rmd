@@ -305,6 +305,10 @@ p <- p + theme(text = element_text(size=10),
 print(p)
 ggsave(p, height = 8, width = 8, filename ="taxonomy_genera_bargraph_rumen.png")
 ```
+```{r}
+fit = aov(avg_abund ~ treatment, data = Dgenera) ## linear model value = mu + treatment + e (y = mu + x + e)
+TukeyHSD(fit, "treatment", ordered = TRUE)
+```
 
 ##Order
 
