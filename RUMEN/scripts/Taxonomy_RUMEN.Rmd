@@ -26,7 +26,8 @@ library("ggrepel")
 ## 16S sequencing data - cow rumen samples
 
 ```{r data, echo=FALSE}
-metadata <- fread("~/Results/RUMEN/mapping_file_rumen.csv")
+project_folder = "~/Documents/MILKQUA"
+metadata <- fread(file.path(project_folder,"rumen/mapping_file.csv"))
 names(metadata)[1] <- "sample"
 
 metadata$treatment[ which(metadata$treatment == "no treatment (ruminal liquid + diet)")] <- "Control"
@@ -40,16 +41,16 @@ meta_subset %>%
 ```
 
 ```{r taxonomy, echo=FALSE}
-otu <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
+otu <- fread(file.path(project_folder, "rumen/qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt"), header = TRUE, skip = 1)
 otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
 otu$treatment = metadata$treatment[match(otu$sample,metadata$sample)]
 otu <- filter(otu, sample %in% meta_subset$sample)
 
 ## relative abundances
 metadata_cols = names(meta_subset)[c(1,5)]
-M <- select(otu,-all_of(metadata_cols))
+M <- dplyr::select(otu,-all_of(metadata_cols))
 M <- M/rowSums(M)
-M <- bind_cols(select(otu, all_of(metadata_cols)),M)
+M <- bind_cols(dplyr::select(otu, all_of(metadata_cols)),M)
 
 M <- subset(M, treatment !="ruminal liquid")
 ```
@@ -80,7 +81,7 @@ m1 <- m1 %>%
 # m1$sample <- paste(as.character(m1$sample),as.character(m1$ ),sep="-")
 ordered_samples <- metadata %>%
   arrange(treatment) %>%
-  select(treatment,sample)
+  dplyr::select(treatment,sample)
 
 m1$sample <- factor(m1$sample, levels = ordered_samples$sample)
 
@@ -102,7 +103,7 @@ phylum <- D %>%
   group_by(phylum) %>%
   summarize("s"=sum(avg_abund)) %>%
   arrange(desc(s)) %>%
-  select(phylum,s)
+  dplyr::select(phylum,s)
 
 D$phylum <- factor(D$phylum, levels = rev(phylum$phylum[order(phylum$s)]))
 D <- D %>%
@@ -162,7 +163,7 @@ phylum <- D %>%
   group_by(phylum) %>%
   summarize("s"=sum(avg_abund)) %>%
   arrange(desc(s)) %>%
-  select(phylum,s)
+  dplyr::select(phylum,s)
 
 D$phylum <- factor(D$phylum, levels = rev(phylum$phylum[order(phylum$s)]))
 D <- D %>%
@@ -170,11 +171,11 @@ D <- D %>%
 
 D$taxa_level = rep("phylum", nrow(D))
 
-otu2 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
-otu3 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L3.txt", header = TRUE, skip = 1)
-otu4 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L4.txt", header = TRUE, skip = 1)
-otu5 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L5.txt", header = TRUE, skip = 1)
-otu6 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L6.txt", header = TRUE, skip = 1)
+otu2 <- fread(file.path(project_folder,"rumen/qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt"), header = TRUE, skip = 1)
+otu3 <- fread(file.path(project_folder,"rumen/qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L3.txt"), header = TRUE, skip = 1)
+otu4 <- fread(file.path(project_folder,"rumen/qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L4.txt"), header = TRUE, skip = 1)
+otu5 <- fread(file.path(project_folder,"rumen/qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L5.txt"), header = TRUE, skip = 1)
+otu6 <- fread(file.path(project_folder,"rumen/qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L6.txt"), header = TRUE, skip = 1)
 otu <- bind_rows(otu2,otu3,otu4,otu5,otu6)
 
 otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
@@ -336,7 +337,7 @@ Same results, but in wide-format (treatments on the horizontal axis): relative a
 D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus"))
 
 D0 <- D %>%
-  select(-c(std)) %>%
+  dplyr::select(-c(std)) %>%
   spread(treatment,avg_abund)
 
 # D0[is.na(D0)] <- ""
@@ -376,7 +377,7 @@ taxa <- D %>%
   group_by(level,new_taxa) %>%
   summarize("s"=sum(avg_abund)) %>%
   arrange(desc(level,s)) %>%
-  select(level,new_taxa,s)
+  dplyr::select(level,new_taxa,s)
 
 taxa <- taxa %>%
   group_by(level) %>%
@@ -412,7 +413,7 @@ m1 <- mO %>%
 
 D <- m1 %>%
   group_by(level, new_taxa) %>%
-  do(tidy(anova(lm(counts ~  +treatment, data = .)))) %>%
+  do(tidy(anova(lm(counts ~  treatment, data = .)))) %>%
   filter(term == "treatment")
 
 D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus"))
@@ -422,7 +423,6 @@ D <- D %>%
 datatable(D, options = list(pageLength=100)) %>%
   formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
 
-
 #write.csv(D, "one.csv")
 ```
 
@@ -430,7 +430,7 @@ datatable(D, options = list(pageLength=100)) %>%
 ```{r, echo=FALSE}
 DX <- D %>%
   filter(`p.value` <= 0.05) %>%
-  select(c(level,new_taxa, `p.value`)) %>%
+  dplyr::select(c(level,new_taxa, `p.value`)) %>%
   arrange(level,`p.value`)
 
 D0 <- mO %>%
@@ -509,7 +509,37 @@ figure_final <- ggarrange(q, p, widths=c(0.5, 1),
 print(figure_final)
 #ggsave(filename = "heatmap_rumen.png", plot = figure_final, device = "png", width = 8, height = 10)
 ```
+### Extracting estimated coefficients for "significant" OTUs
 
+```{r}
+res = data.frame("level"=NULL, "OTU"=NULL, "p_value"=NULL, "Carvacrol"=NULL,"EO1"=NULL,"p-cymene"=NULL,"Synthetic EO1"=NULL,"γ-terpinene"=NULL)
+
+for (name in DX$new_taxa) {
+  
+  print(paste("analysing OTU ", name))
+  pval = as.numeric(DX[DX$new_taxa==name,"p.value"])
+  level = DX[DX$new_taxa==name,"level"]
+  
+  ## estimating coefficients
+  temp = filter(m1, new_taxa == name)
+  temp$treatment <- factor(temp$treatment, levels = c("Control","Carvacrol","EO1","p-cymene","Synthetic EO1","γ-terpinene"))
+  g = lm(counts ~ treatment, data = temp)
+  
+  ## extracting coefficients
+  coefs = g$coefficients
+  coefs = coefs[!grepl("(Intercept)", names(coefs))]
+  names(coefs) = gsub("treatment","",names(coefs))
+  coefs = as.data.frame(t(coefs))
+  
+  ## adding metadata
+  coefs["level"] = level
+  coefs["OTU"] = name
+  coefs["p_value"] = pval
+
+  # saving results
+  res = rbind.data.frame(res, coefs)
+}
+```
 
 
 
@@ -524,7 +554,7 @@ meta_subset_pre %>%
 ```
 
 ```{r taxonomy, echo=FALSE}
-otu <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
+otu <- fread(file.path(project_folder, "rumen/qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt"), header = TRUE, skip = 1)
 otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
 otu$treatment = metadata$treatment[match(otu$sample,metadata$sample)]
 otu <- filter(otu, sample %in% meta_subset_pre$sample)
@@ -654,11 +684,11 @@ D <- D %>%
 
 D$taxa_level = rep("phylum", nrow(D))
 
-otu2 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
-otu3 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L3.txt", header = TRUE, skip = 1)
-otu4 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L4.txt", header = TRUE, skip = 1)
-otu5 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L5.txt", header = TRUE, skip = 1)
-otu6 <- fread("~/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L6.txt", header = TRUE, skip = 1)
+otu2 <- fread(file.path(project_folder,"rumen/qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt"), header = TRUE, skip = 1)
+otu3 <- fread(file.path(project_folder,"rumen/qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L3.txt"), header = TRUE, skip = 1)
+otu4 <- fread(file.path(project_folder,"rumen/qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L4.txt"), header = TRUE, skip = 1)
+otu5 <- fread(file.path(project_folder,"rumen/qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L5.txt"), header = TRUE, skip = 1)
+otu6 <- fread(file.path(project_folder,"rumen/qiime_1.9/results/taxa_summary_abs/CSS_normalized_otu_table_L6.txt"), header = TRUE, skip = 1)
 otu <- bind_rows(otu2,otu3,otu4,otu5,otu6)
 
 otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
@@ -896,7 +926,7 @@ m1 <- mO %>%
 
 D <- m1 %>%
   group_by(level, new_taxa) %>%
-  do(tidy(anova(lm(counts ~  +treatment, data = .)))) %>%
+  do(tidy(anova(lm(counts ~  treatment, data = .)))) %>%
   filter(term == "treatment")
 
 D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus"))
@@ -931,8 +961,8 @@ D0 <- to_save[[3]]
 
 dd <- spread(D0, key = treatment, value = avg_counts)
 temp <- inner_join(DX,dd, by = c("level" = "level", "new_taxa" = "new_taxa"))
-fwrite(temp, file = "~/Results/RUMEN/rumen_significant_otus_pre.csv", col.names = TRUE, sep = ",")
-`print (dd)
+fwrite(temp, file = file.path(project_folder, "rumen/rumen_significant_otus_pre.csv"), col.names = TRUE, sep = ",")
+print (dd)
 ```
 
 ```{r, echo=FALSE, warning=FALSE}
@@ -993,3 +1023,8 @@ figure_final <- ggarrange(q, p, widths=c(0.5, 1),
 print(figure_final)
 #ggsave(filename = "heatmap_rumen_pre.png", plot = figure_final, device = "png", width = 8, height = 10)
 ```
+
+```{r}
+
+```
+
