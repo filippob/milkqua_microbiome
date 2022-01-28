@@ -32,7 +32,8 @@ From 16S rRNA-gene sequencing of cow RUMEN microbiome samples:
 Between-sample variability from 16S rRna-gene sequencing data.
 
 ```{r beta, echo=FALSE}
-metadata <- fread("~/Results/RUMEN/mapping_file_rumen.csv")
+project_folder = "~/Documents/MILKQUA"
+metadata <- fread(file.path(project_folder,"rumen/mapping_file.csv"))
 names(metadata)[1] <- "sample"
 metadata$treatment[ which(metadata$treatment == "no treatment (ruminal liquid + diet)")] <- "Control"
 metadata$treatment[ which(metadata$treatment == "AE1")] <- "EO1"
@@ -45,7 +46,7 @@ metadata <- subset(metadata, treatment !="ruminal liquid")
 ### PCA
 
 ```{r pressure, echo=FALSE, message=FALSE}
-matrice= read.table("~/Results/RUMEN/results/beta_diversity/bray_curtis_CSS_normalized_otu_table.txt", row.names=1, header=T)
+matrice= read.table(file.path(project_folder,"rumen/qiime_1.9/results/beta_diversity/weighted_unifrac_CSS_normalized_otu_table.txt"), row.names=1, header=T)
 names(matrice) <- gsub("X","",names(matrice))
 
 samples = filter(metadata, treatment != "ruminal liquid") %>% pull(sample)
@@ -72,7 +73,7 @@ p2
 #### Clustering by treatment (MDS): **NMDS1 vs NMDS2**
 
 ```{r, echo=FALSE, results='hide'}
-rumen.mds= metaMDS(matx, k=3) #function metaMDS in Vegan
+rumen.mds= metaMDS(matx, k=3, autotransform = FALSE) #function metaMDS in Vegan
 
 hull_f <- function(df) {
 
@@ -121,12 +122,18 @@ pv_treatment <- replicate(100,
   simplify = "vector"
 )
 
+n = 10
 permanova <- function(mat,term,perms) {
   
   perm <- how(nperm = sample(perms,1))
   obj <- adonis(mat ~ term, add = TRUE, parallel = TRUE, permutations = perm)
   return(obj$aov.tab$`Pr(>F)`[1])
 }
+
+pv_treatment <- replicate(n,
+  permanova(matx, matrice$treatment, 999),
+  simplify = "vector"
+)
 
 ```
 
@@ -139,7 +146,7 @@ X = \mu + treatment +  + treatment*type + e
 $$
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-source("~/milkqua_microbiome/r_scripts/pairwise_adonis.r")
+source(file.path(project_folder,"milkqua_microbiome/r_scripts/pairwise_adonis.r"))
 
 obj <- adonis(matx ~ matrice$treatment)
 
@@ -202,7 +209,7 @@ if(pandoc_available()) {
 
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-matrice$cow <- as.character(metadata$inoculation[match(row.names(matrice),metadata$sample)])
+matrice$cow <- as.character(metadata$cow[match(row.names(matrice),metadata$sample)])
 
 rumen.mds= metaMDS(matx, k = 3) #function metaMDS in Vegan
 
