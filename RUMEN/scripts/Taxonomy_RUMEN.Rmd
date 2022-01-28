@@ -529,6 +529,7 @@ figure_final <- ggarrange(q, p, widths=c(0.5, 1),
 print(figure_final)
 #ggsave(filename = "heatmap_rumen.png", plot = figure_final, device = "png", width = 8, height = 10)
 ```
+
 ### Extracting estimated coefficients for "significant" OTUs
 
 ```{r}
@@ -560,8 +561,6 @@ for (name in DX$new_taxa) {
   res = rbind.data.frame(res, coefs)
 }
 ```
-
-
 
 #CHECK ON DIET EFFECTS ON RUMINAL FLUIDS
 
