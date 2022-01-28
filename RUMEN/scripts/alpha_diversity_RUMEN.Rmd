@@ -1,7 +1,7 @@
 ---
 title: "Alpha_diversity_RUMEN"
 author: "Chiara Gini"
-date: "27/12/2021"
+date: "28/01/2022"
 output: html_document
 editor_options: 
   chunk_output_type: inline
@@ -29,15 +29,18 @@ library("ggplot2")
 ## Alpha diversity of RUMEN samples
 
 From 16S rRNA-gene sequencing of cow RUMEN microbiome samples:
-- 6 treatments for rumen samples + ruminal liquid (base) + ("AE1","AE sintético 1","Carvacrol", "p-cymene", "γ-terpinene", "no treatment (ruminal liquid + diet)")
+- 6 treatments for rumen samples + ruminal liquid (base) + ("AE1","AE sintético 1","Carvacrol", "p-cymene", "γ-terpinene", "Control")
 
 Main alpha diversity indexes per group. 
 
 ```{r alpha, echo=FALSE}
-metadata <- fread("../../../rumen/mapping_file.csv")
+metadata <- fread("~/Results/RUMEN/mapping_file_rumen.csv")
 names(metadata)[1] <- "sample"
+metadata$treatment[ which(metadata$treatment == "no treatment (ruminal liquid + diet)")] <- "Control"
+metadata$treatment[ which(metadata$treatment == "AE1")] <- "EO1"
+metadata$treatment[ which(metadata$treatment == "AE sintético 1")] <- "Synthetic EO1"
 
-alpha <- read.table("../../../rumen/qiime_1.9/results/alpha_diversity/alpha.txt", header = TRUE)
+alpha <- read.table("~/Results/RUMEN/results/alpha_diversity/alpha.txt", header = TRUE)
 alpha$sample <- row.names(alpha)
 alpha$observed_species <- NULL
 
@@ -51,7 +54,7 @@ mAlpha$treatment <- metadata$treatment[match(mAlpha$sample,metadata$sample)]
 ## Averages and plots
 
 ```{r pressure, echo=FALSE}
-mAlpha$treatment <- factor(mAlpha$treatment, levels = c("no treatment (ruminal liquid + diet)","AE1","AE sintético 1","Carvacrol", "p-cymene", "γ-terpinene", "ruminal liquid"))
+mAlpha$treatment <- factor(mAlpha$treatment, levels = c("Control","EO1","Synthetic EO1","Carvacrol", "p-cymene", "γ-terpinene", "ruminal liquid"))
 D <- mAlpha %>%
   group_by(metric,treatment) %>%
   summarize(N=n(),avg=round(mean(value),3)) %>%
@@ -115,13 +118,13 @@ p
 
 ```{r}
 bl_medie <- mAlpha %>%
-  filter(treatment=="no treatment (ruminal liquid + diet)") %>%
+  filter(treatment=="Control") %>%
   group_by(metric) %>%
   summarize(media_bl=mean(value))
   
 bl_counts <- mAlpha %>%
   group_by(metric) %>%
-  filter(treatment=="no treatment (ruminal liquid + diet)") %>%
+  filter(treatment=="Control") %>%
   arrange(metric) %>%
   rename(value.bl = value)
 
@@ -167,7 +170,7 @@ p
 
 ```{r test_alpha_bl, echo=FALSE}
 D <- M %>%
-  filter(treatment != "no treatment (ruminal liquid + diet)") %>%
+  filter(treatment != "Control") %>%
   group_by(metric) %>%
   do(tidy(lm(value ~ treatment, data = .))) %>%
   filter(term != "(Intercept)")
