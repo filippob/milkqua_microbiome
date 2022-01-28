@@ -116,3 +116,11 @@ p <- p + theme(axis.text.x = element_text(angle = 90))
 p
 #ggsave(filename = "alpha_significance_tablewithdots_RUMEN.png", width = 8, height = 8, plot = p, device = "png")
 ```
+```{r}
+temp <- filter(mAlpha, metric == "chao1")
+# g = lm(value ~ treatment, data = temp)
+# class(g)
+fit = aov(value ~ treatment, data = temp) ## linear model value = mu + treatment + e (y = mu + x + e)
+TukeyHSD(fit, "treatment", ordered = TRUE)
+```
+
