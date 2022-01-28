@@ -34,13 +34,14 @@ From 16S rRNA-gene sequencing of cow RUMEN microbiome samples:
 Main alpha diversity indexes per group. 
 
 ```{r alpha, echo=FALSE}
-metadata <- fread("~/Documents/MILKQUA/rumen/mapping_file.csv")
+project_folder = "~/Documents/MILKQUA"
+metadata <- fread(file.path(project_folder,"rumen/mapping_file.csv"))
 names(metadata)[1] <- "sample"
 metadata$treatment[ which(metadata$treatment == "no treatment (ruminal liquid + diet)")] <- "Control"
 metadata$treatment[ which(metadata$treatment == "AE1")] <- "EO1"
 metadata$treatment[ which(metadata$treatment == "AE sintético 1")] <- "Synthetic EO1"
 
-alpha <- read.table("~/Documents/MILKQUA/rumen/qiime_1.9/results/alpha_diversity/alpha.txt", header = TRUE)
+alpha <- read.table(file.path(project_folder,"rumen/qiime_1.9/results/alpha_diversity/alpha.txt"), header = TRUE)
 alpha$sample <- row.names(alpha)
 alpha$observed_species <- NULL
 
@@ -115,82 +116,3 @@ p <- p + theme(axis.text.x = element_text(angle = 90))
 p
 #ggsave(filename = "alpha_significance_tablewithdots_RUMEN.png", width = 8, height = 8, plot = p, device = "png")
 ```
-
-## Correction for baseline
-
-```{r}
-bl_medie <- mAlpha %>%
-  filter(treatment=="Control") %>%
-  group_by(metric) %>%
-  summarize(media_bl=mean(value))
-  
-bl_counts <- mAlpha %>%
-  group_by(metric) %>%
-  filter(treatment=="Control") %>%
-  arrange(metric) %>%
-  rename(value.bl = value)
-
-M <- merge(mAlpha,bl_counts[,c(1,2,3)],by=c("metric","sample"),all.x = TRUE)
-M1 <- M%>%
-  filter(!is.na(M$value.bl))
-
-M2 <- M %>%
-  filter(is.na(value.bl)) %>%
-  mutate(value.bl=replace(value.bl,is.na(value.bl),right_join(bl_medie, ., by =c("metric"))$media_bl))
-
-M <- rbind.data.frame(M1,M2)  
-
-M <- M %>%
-  mutate(corrected_counts=value-value.bl) %>%
-  filter(value!=0) %>%
-  arrange(sample)
-
-M <- M %>%
-  group_by(metric) %>%
-  mutate(scaled_counts=scales::rescale(corrected_counts,c(0,100)))
-```
-
-```{r, echo=FALSE}
-D <- M %>%
-  group_by(metric,treatment) %>%
-  summarize(avg=mean(corrected_counts)) %>%
-  spread(key = metric, value = avg)
-
-kable(D)
-```
-
-
-```{r, echo=FALSE}
-mD <- melt(D, id.vars = c("treatment"), variable.name = "metric")
-
-p <- ggplot(M, aes(x=treatment,y=corrected_counts)) + geom_jitter(aes(colour=treatment))
-p <- p + facet_wrap(~metric, scales = "free_y")
-p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1))
-p  
-#COMMENT/WARNING: geom_path: Each group consists of only one observation. Do you need to adjust the group aesthetic?
-```
-
-```{r test_alpha_bl, echo=FALSE}
-D <- M %>%
-  filter(treatment != "Control") %>%
-  group_by(metric) %>%
-  do(tidy(lm(value ~ treatment, data = .))) %>%
-  filter(term != "(Intercept)")
-
-datatable(D, options = list(pageLength=100)) %>% 
-  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
-```
-
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
-p <- ggplot(data = D, mapping= aes(x=term, y=p.value))
-p <- p + geom_point(aes(color = metric, stroke = 1), position=position_jitter(h=0, w=0.27))
-p <- p + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
-p <- p + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
-p <- p + scale_y_continuous(breaks=pretty_breaks(n=20)) 
-p <- p + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
-p <- p + coord_trans(y="log2")
-p <- p + theme(axis.text.x = element_text(angle = 90))
-p
-#ggsave(filename = "alpha_significance_tablewithdots_correctedforbaseline_RUMEN.png", width = 8, height = 8, plot = p, device = "png")
-```
-
