@@ -9,6 +9,7 @@
 project_home="$HOME/MILKQUA"
 data_folder="data/210902_M04028_0139_000000000-JRGYP_milk"
 output_dir="Analysis_Chiara/extract_barcode"
+sing_container="${project_home}Qiime1.9.sif"
 
 echo "project folder is $project_home"
 
@@ -19,7 +20,7 @@ fi
 
 ## using the Singularity container
 echo " - calling the singularity container"
-singularity run Qiime1.9.sif multiple_extract_barcodes.py --input_dir=${data_folder} --output_dir=${output_dir} --read1_indicator _R1 --read2_indicator _R2
+singularity run ${sing_container} multiple_extract_barcodes.py --input_dir=${data_folder} --output_dir=${output_dir} --read1_indicator _R1 --read2_indicator _R2
 
 
 echo "DONE!"
