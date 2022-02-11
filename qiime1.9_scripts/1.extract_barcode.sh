@@ -5,12 +5,13 @@
 ## by default the first 8 bases are trimmed: otherwise, pass a manifest/mapping file with the barcode sequences
 
 ## setting up the environment
-
+currpath=$(pwd)
 project_home="$HOME/MILKQUA"
 data_folder="data/210902_M04028_0139_000000000-JRGYP_milk"
-output_dir="Analysis_Chiara/extract_barcode"
-sing_container="${project_home}Qiime1.9.sif"
+output_dir="Analysis/extract_barcode"
+sing_container="${project_home}/Qiime1.9.sif"
 
+cd $currpath
 echo "project folder is $project_home"
 
 ## make folder if it does not exist
