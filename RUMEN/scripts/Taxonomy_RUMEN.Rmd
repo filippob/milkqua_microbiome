@@ -29,8 +29,9 @@ metadata <- fread("/home/oem/Results/RUMEN/mapping_file_rumen.csv")
 names(metadata)[1] <- "sample"
 
 metadata$treatment[ which(metadata$treatment == "no treatment (ruminal liquid + diet)")] <- "Control"
-metadata$treatment[ which(metadata$treatment == "AE1")] <- "EO1"
-metadata$treatment[ which(metadata$treatment == "AE sintético 1")] <- "Synthetic EO1"
+metadata$treatment[ which(metadata$treatment == "AE1")] <- "NEO"
+metadata$treatment[ which(metadata$treatment == "AE sintético 1")] <- "SEO"
+metadata$treatment[ which(metadata$treatment == "γ-terpinene")] <- "g-terpinene"
 
 meta_subset <- filter(metadata, treatment !="ruminal liquid")
 meta_subset %>%
@@ -107,17 +108,17 @@ kable(D)
 ```
 
 ```{r, echo=FALSE}
-p <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=phylum)) + geom_bar(width=1,stat="identity")
-#p <- p + facet_grid(N~treatment)
-#p <- p + coord_polar(theta='y', start=0) #activate this if you want a piechart
-#p <- p + scale_fill_brewer(palette = "Set3") 
-p <- p + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
-p <- p + guides(fill = guide_legend(title = "Phyla")) 
-p <- p + xlab("Relative abundances") + ylab("")
+pphylatot <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=phylum)) + geom_bar(width=1,stat="identity")
+#pphylatot <- pphylatot + facet_grid(N~treatment)
+#pphylatot <- pphylatot + coord_polar(theta='y', start=0) #activate this if you want a piechart
+#pphylatot <- pphylatot + scale_fill_brewer(palette = "Set3") 
+pphylatot <- pphylatot + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
+pphylatot <- pphylatot + guides(fill = guide_legend(title = "Phyla")) 
+pphylatot <- pphylatot + xlab("Relative abundances") + ylab("")
 my_palette = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2"), length(unique(D$phylum)))
-p <- p + xlab("relative abundances") + ylab("percentages")
-p <- p + scale_fill_manual(values = my_palette)
-p <- p + theme(text = element_text(size=10),
+pphylatot <- pphylatot + xlab("relative abundances") + ylab("percentages")
+pphylatot <- pphylatot + scale_fill_manual(values = my_palette)
+pphylatot <- pphylatot + theme(text = element_text(size=10),
                axis.text.x = element_text(size=8),
                # axis.text.y = element_text(size=4),
                strip.text = element_text(size = 8),
@@ -126,10 +127,10 @@ p <- p + theme(text = element_text(size=10),
                legend.text=element_text(size=10),
                legend.title=element_text(size=10))
 
-print(p)
-#ggsave(p, height = 20, width = 10, filename ="taxonomy_phylum_boxplot_rumen.png")
+print(pphylatot)
+#ggsave(pphylatot, height = 20, width = 10, filename ="taxonomy_phylum_boxplot_rumen_tot.png")
 
-#D %>% group_by(phylum) %>% summarise(treatment=n())
+D %>% group_by(phylum) %>% summarise(treatment=n())
 ```
 
 
@@ -176,17 +177,17 @@ p
 ##Phyla
 
 ```{r, echo=FALSE}
-p <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=phylum)) + geom_bar(width=1,stat="identity")
-p <- p + facet_grid(N~treatment)
-#p <- p + coord_polar(theta='y', start=0) #activate this if you want a piechart
-#p <- p + scale_fill_brewer(palette = "Set3") 
-p <- p + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
-p <- p + guides(fill = guide_legend(title = "Phyla")) 
-p <- p + xlab("Relative abundances") + ylab("")
+pphyla <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=phylum)) + geom_bar(width=1,stat="identity")
+pphyla <- pphyla + facet_grid(N~treatment)
+#pphyla <- pphyla + coord_polar(theta='y', start=0) #activate this if you want a piechart
+#pphyla <- pphyla + scale_fill_brewer(palette = "Set3") 
+pphyla <- pphyla + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
+pphyla <- pphyla + guides(fill = guide_legend(title = "Phyla")) 
+pphyla <- pphyla + xlab("Relative abundances") + ylab("")
 my_palette = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2"), length(unique(D$phylum)))
-p <- p + xlab("relative abundances") + ylab("percentages")
-p <- p + scale_fill_manual(values = my_palette)
-p <- p + theme(text = element_text(size=10),
+pphyla <- pphyla + xlab("relative abundances") + ylab("percentages")
+pphyla <- pphyla + scale_fill_manual(values = my_palette)
+pphyla <- pphyla + theme(text = element_text(size=10),
                axis.text.x = element_text(size=8),
                # axis.text.y = element_text(size=4),
                strip.text = element_text(size = 8),
@@ -195,11 +196,15 @@ p <- p + theme(text = element_text(size=10),
                legend.text=element_text(size=10),
                legend.title=element_text(size=10))
 
-print(p)
-#ggsave(p, height = 20, width = 10, filename ="taxonomy_phylum_boxplot_rumen.png")
+print(pphyla)
+#ggsave(pphyla, height = 20, width = 20, filename ="taxonomy_phylum_boxplot_rumen.png")
 
 D %>% group_by(phylum) %>% summarise(treatment=n())
+
+D %>% group_by(treatment) %>% summarise(phylum=n())
 ```
+
+
 ```{r}
 fit = aov(avg_abund ~ treatment, data = D) ## linear model value = mu + treatment + e (y = mu + x + e)
 TukeyHSD(fit, "treatment", ordered = TRUE)
@@ -286,6 +291,18 @@ D <- D %>%
 
 kable(D)
 ```
+A table of relative abundances in % (and standard deviations) per taxa 
+
+```{r, echo=FALSE}
+D <- na.omit(D)
+D <- D %>%
+  group_by(level) %>%
+  filter(avg_abund > 0.01) %>%
+  arrange(level,desc(avg_abund*100))
+
+kable(D)
+```
+
 
 ##Class
 
@@ -293,14 +310,14 @@ kable(D)
 Dclass <- D %>%
   filter(level=="class")
 
-p <- ggplot(Dclass, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
-p <- p + facet_grid( ~treatment)
-p <- p + guides(fill = guide_legend(title = "Class")) 
-p <- p + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
+pclass <- ggplot(Dclass, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
+pclass <- pclass + facet_grid( ~treatment)
+pclass <- pclass + guides(fill = guide_legend(title = "Class")) 
+pclass <- pclass + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
 my_palette = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple", "darkorange1","pink1", "darkorchid1", "seagreen2"), length(unique(Dclass$new_taxa)))
-p <- p + xlab("relative abundances") + ylab("percentages")
-p <- p + scale_fill_manual(values = my_palette)
-p <- p + theme(text = element_text(size=10),
+pclass <- pclass + xlab("relative abundances") + ylab("percentages")
+pclass <- pclass + scale_fill_manual(values = my_palette)
+pclass <- pclass + theme(text = element_text(size=10),
                axis.text.x = element_text(size=8),
                # axis.text.y = element_text(size=4),
                strip.text = element_text(size = 8),
@@ -308,12 +325,14 @@ p <- p + theme(text = element_text(size=10),
                axis.ticks.y = element_blank(),
                legend.text=element_text(size=10),
                legend.title=element_text(size=10))
-print(p)
-#ggsave(p, height = 8, width = 8, filename ="taxonomy_class_bargraph_rumen.png")
+print(pclass)
+#ggsave(pclass, height = 8, width = 8, filename ="taxonomy_class_bargraph_rumen.png")
 
-table(Dclass$new_taxa)
 Dclass %>% group_by(new_taxa) %>% summarise(treatment=n())
+
+Dclass %>% group_by(treatment) %>% summarise(new_taxa=n())
 ```
+
 ```{r}
 fit = aov(avg_abund ~ treatment, data = Dclass) ## linear model value = mu + treatment + e (y = mu + x + e)
 TukeyHSD(fit, "treatment", ordered = TRUE)
@@ -325,14 +344,14 @@ TukeyHSD(fit, "treatment", ordered = TRUE)
 Dfamily <- D %>%
   filter(level=="family")
 
-p <- ggplot(Dfamily, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
-p <- p + facet_grid( ~treatment)
-p <- p + guides(fill = guide_legend(title = "Family")) 
-#p <- p + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
+pfamily <- ggplot(Dfamily, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
+pfamily <- pfamily + facet_grid( ~treatment)
+pfamily <- pfamily + guides(fill = guide_legend(title = "Family")) 
+#pfamily <- pfamily + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
 my_palette2 = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2", "darkmagenta", "burlywood1", "maroon", "darkred", "burlywood3", "chartreuse4", "coral", "peachpuff", "mediumorchid3", "yellow3", "turquoise4", "snow", "slategray3", "orangered", "olivedrab", "plum", "lightcyan", "gray38", "forestgreen", "firebrick1"), length(unique(Dfamily$new_taxa)))
-p <- p + xlab("relative abundances") + ylab("percentages")
-p <- p + scale_fill_manual(values = my_palette2)
-p <- p + theme(text = element_text(size=10),
+pfamily <- pfamily + xlab("relative abundances") + ylab("percentages")
+pfamily <- pfamily + scale_fill_manual(values = my_palette2)
+pfamily <- pfamily + theme(text = element_text(size=10),
                axis.text.x = element_text(size=8),
                # axis.text.y = element_text(size=4),
                strip.text = element_text(size = 8),
@@ -340,11 +359,13 @@ p <- p + theme(text = element_text(size=10),
                axis.ticks.y = element_blank(),
                legend.text=element_text(size=10),
                legend.title=element_text(size=10))
-p
-#ggsave(p, height = 8, width = 8, filename ="taxonomy_family_bargraph_rumen.png")
+print(pfamily)
+#ggsave(pfamily, height = 8, width = 8, filename ="taxonomy_family_bargraph_rumen.png")
 
 table(Dfamily$new_taxa)
 Dfamily %>% group_by(new_taxa) %>% summarise(treatment=n())
+
+Dfamily %>% group_by(treatment) %>% summarise(new_taxa=n())
 ```
 
 ```{r}
@@ -358,13 +379,13 @@ TukeyHSD(fit, "treatment", ordered = TRUE)
 Dgenera <- D %>%
   filter(level=="genus")
 
-p <- ggplot(Dgenera, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
-p <- p + facet_grid( ~treatment)
-p <- p + guides(fill = guide_legend(title = "Genera")) 
+pgenera <- ggplot(Dgenera, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
+pgenera <- pgenera + facet_grid( ~treatment)
+pgenera <- pgenera + guides(fill = guide_legend(title = "Genera")) 
 my_palette2 = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2", "darkmagenta", "burlywood1", "maroon", "darkred", "burlywood3", "chartreuse4", "coral", "peachpuff", "mediumorchid3", "yellow3", "turquoise4", "snow", "slategray3", "orangered", "olivedrab", "plum", "lightcyan", "gray38", "forestgreen", "firebrick1"), length(unique(Dgenera$new_taxa)))
-p <- p + xlab("relative abundances") + ylab("percentages")
-p <- p + scale_fill_manual(values = my_palette2)
-p <- p + theme(text = element_text(size=10),
+pgenera <- pgenera + xlab("relative abundances") + ylab("percentages")
+pgenera <- pgenera + scale_fill_manual(values = my_palette2)
+pgenera <- pgenera + theme(text = element_text(size=10),
                axis.text.x = element_text(size=8),
                # axis.text.y = element_text(size=4),
                strip.text = element_text(size = 8),
@@ -372,11 +393,14 @@ p <- p + theme(text = element_text(size=10),
                axis.ticks.y = element_blank(),
                legend.text=element_text(size=5),
                legend.title=element_text(size=5))
-print(p)
-#ggsave(p, height = 8, width = 8, filename ="taxonomy_genera_bargraph_rumen.png")
+print(pgenera)
+#ggsave(pgenera, height = 8, width = 8, filename ="taxonomy_genera_bargraph_rumen.png")
 
 Dgenera %>% group_by(new_taxa) %>% summarise(treatment=n())
+
+Dgenera %>% group_by(treatment) %>% summarise(new_taxa=n())
 ```
+
 ```{r}
 fit = aov(avg_abund ~ treatment, data = Dgenera) ## linear model value = mu + treatment + e (y = mu + x + e)
 TukeyHSD(fit, "treatment", ordered = TRUE)
@@ -388,13 +412,13 @@ TukeyHSD(fit, "treatment", ordered = TRUE)
 Dorder <- D %>%
   filter(level=="order")
 
-p <- ggplot(Dorder, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
-p <- p + facet_grid( ~treatment)
-p <- p + guides(fill = guide_legend(title = "Order")) 
+porder <- ggplot(Dorder, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
+porder <- porder + facet_grid( ~treatment)
+porder <- porder + guides(fill = guide_legend(title = "Order")) 
 my_palette2 = get_palette(c("red","darkred", "burlywood3", "chartreuse4","gray","gold","blue","magenta","cyan","purple","green3","yellow","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2", "darkmagenta", "burlywood1", "maroon",  "coral", "peachpuff", "mediumorchid3", "yellow3", "turquoise4", "snow", "slategray3", "orangered", "olivedrab", "plum", "lightcyan", "gray38", "forestgreen", "firebrick1"), length(unique(Dorder$new_taxa)))
-p <- p + xlab("relative abundances") + ylab("percentages")
-p <- p + scale_fill_manual(values = my_palette2)
-p <- p + theme(text = element_text(size=10),
+porder <- porder + xlab("relative abundances") + ylab("percentages")
+porder <- porder + scale_fill_manual(values = my_palette2)
+porder <- porder + theme(text = element_text(size=10),
                axis.text.x = element_text(size=8),
                # axis.text.y = element_text(size=4),
                strip.text = element_text(size = 8),
@@ -402,14 +426,28 @@ p <- p + theme(text = element_text(size=10),
                axis.ticks.y = element_blank(),
                legend.text=element_text(size=10),
                legend.title=element_text(size=10))
-print(p)
-#ggsave(p, height = 8, width = 8, filename ="taxonomy_order_bargraph_rumen.png")
+print(porder)
+#ggsave(porder, height = 8, width = 8, filename ="taxonomy_order_bargraph_rumen.png")
 
 Dorder %>% group_by(new_taxa) %>% summarise(treatment=n())
+  
+Dorder %>% group_by(treatment) %>% summarise(new_taxa=n())
 ```
+
 ```{r}
 fit = aov(avg_abund ~ treatment, data = Dorder) ## linear model value = mu + treatment + e (y = mu + x + e)
 TukeyHSD(fit, "treatment", ordered = TRUE)
+```
+
+
+###combined plots
+``` {r}
+pxc <- ggarrange(pphyla, pclass, porder, pfamily, pgenera,
+                 labels = c("Phyla", "Classes", "Orders", "Families", "Genera"), nrow = 3, ncol = 2, legend = "right", font.label = list(size=30), hjust = 0,
+  vjust = 0)
+
+#pxc
+ggsave(pxc, height = 30, width = 20, filename ="taxa_plots_combined.png")
 ```
 
 Same results, but in wide-format (treatments on the horizontal axis): relative abundances (no standard deviations):
