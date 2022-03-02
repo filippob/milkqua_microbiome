@@ -16,7 +16,7 @@ library("broom")
 library("vegan")
 library("scales")
 library("ggplot2")
-library("ggpubr")
+#library("ggpubr")
 # library("madbito")
 library("reshape2")
 library("gghighlight")
@@ -34,14 +34,18 @@ From 16S rRNA-gene sequencing of cow RUMEN microbiome samples:
 Main alpha diversity indexes per group. 
 
 ```{r alpha, echo=FALSE}
-project_folder = "~/Documents/MILKQUA"
-metadata <- fread(file.path(project_folder,"rumen/mapping_file.csv"))
+# project_folder = "~/Documents/MILKQUA"
+# metadata <- fread(file.path(project_folder,"rumen/mapping_file.csv"))
+metadata <- fread ("~/Results/RUMEN/mapping_file_rumen.csv")
+
+
 names(metadata)[1] <- "sample"
 metadata$treatment[ which(metadata$treatment == "no treatment (ruminal liquid + diet)")] <- "Control"
-metadata$treatment[ which(metadata$treatment == "AE1")] <- "EO1"
-metadata$treatment[ which(metadata$treatment == "AE sintético 1")] <- "Synthetic EO1"
+metadata$treatment[ which(metadata$treatment == "AE1")] <- "NEO"
+metadata$treatment[ which(metadata$treatment == "AE sintético 1")] <- "SEO"
 
-alpha <- read.table(file.path(project_folder,"rumen/qiime_1.9/results/alpha_diversity/alpha.txt"), header = TRUE)
+# alpha <- read.table(file.path(project_folder,"rumen/qiime_1.9/results/alpha_diversity/alpha.txt"), header = TRUE)
+alpha <- read.table("~/Results/RUMEN/results/alpha_diversity/alpha.txt", header = TRUE)
 alpha$sample <- row.names(alpha)
 alpha$observed_species <- NULL
 
@@ -55,7 +59,7 @@ mAlpha$treatment <- metadata$treatment[match(mAlpha$sample,metadata$sample)]
 ## Averages and plots
 
 ```{r pressure, echo=FALSE}
-mAlpha$treatment <- factor(mAlpha$treatment, levels = c("Control","EO1","Synthetic EO1","Carvacrol", "p-cymene", "γ-terpinene", "ruminal liquid"))
+mAlpha$treatment <- factor(mAlpha$treatment, levels = c("Control","NEO","SEO","Carvacrol", "p-cymene", "γ-terpinene", "ruminal liquid"))
 D <- mAlpha %>%
   group_by(metric,treatment) %>%
   summarize(N=n(),avg=round(mean(value),3)) %>%
@@ -64,6 +68,8 @@ D <- mAlpha %>%
 d_alpha <- D %>%
   gather(key = "metric", value = "value", -c(treatment,N)) %>%
   spread(key = "treatment", value = "value")
+
+#write_csv(d_alpha, "alpha_rumen.csv")
 
 kable(D)
 ```
@@ -94,7 +100,7 @@ p
 
 ```{r test_alpha, echo=FALSE}
 mAlpha$treatment = as.character(mAlpha$treatment)
-mAlpha$treatment = factor(mAlpha$treatment, levels = c("Control", "EO1", "Synthetic EO1", "γ-terpinene", "p-cymene", "Carvacrol"))
+mAlpha$treatment = factor(mAlpha$treatment, levels = c("Control", "NEO", "SEO", "γ-terpinene", "p-cymene", "Carvacrol"))
 D <- mAlpha %>%
   group_by(metric) %>%
   do(tidy(lm(value ~ treatment, data = .))) %>%
