@@ -23,8 +23,17 @@ library("data.table")
 
 The first step is joining the sequenced paired-end reads.
 
+```{r}
+main_path="../../../rumen"
+path_to_results = "qiime_1.9/results"
+```
+
+
 ```{r reads, echo=FALSE, warning=FALSE, message=FALSE}
-joined_pairs <- read.csv("/home/oem/Results/RUMEN/results/readsPerSample",sep="\t",header = FALSE,skip = 1, stringsAsFactors = FALSE)
+# joined_pairs <- read.csv("/home/oem/Results/RUMEN/results/readsPerSample",sep="\t",header = FALSE,skip = 1, stringsAsFactors = FALSE)
+fname = "readsPerSample"
+fpath = file.path(main_path,path_to_results,fname)
+joined_pairs <- read.csv(fpath, sep="\t",header = FALSE,skip = 1, stringsAsFactors = FALSE)
 nReads <- as.numeric(joined_pairs$V1[seq(2,nrow(joined_pairs)-1,by=2)])
 samples_rum <- joined_pairs$V1[seq(1,nrow(joined_pairs)-1,by=2)]
 
@@ -68,9 +77,9 @@ Reads were then filtered for:
 
 
 ```{r, echo=FALSE, warning=FALSE}
-inputSeqs <- read.table("/home/oem/Results/RUMEN/results/inputSeqs",sep=":")
-outputSeqs <- read.table("/home/oem/Results/RUMEN/results/outputSeqs", sep="\t")
-samples_rum <- read.table("/home/oem/Results/RUMEN/results/samples.txt", sep=":")
+inputSeqs <- read.table(file.path(main_path,path_to_results,"inputSeqs"),sep=":")
+outputSeqs <- read.table(file.path(main_path, path_to_results, "outputSeqs"), sep="\t")
+samples_rum <- read.table(file.path(main_path, path_to_results, "samples.txt"), sep=":")
 
 trim <- function (x) gsub("^\\s+|\\s+$", "", x)
 
@@ -161,7 +170,7 @@ p
 ### Summary stats
 
 ```{r, echo=FALSE}
-mapfile_rumen<- fread("/home/oem/Results/RUMEN/mapping_file_rumen.csv", header = TRUE)
+mapfile_rumen<- readxl::read_xlsx(file.path(main_path, "mapping_file_rumen.xlsx"), sheet = 1)
 names(mapfile_rumen)[1] <- "sample_ID"
 mapfile_rumen$sample <- paste("Sample",sapply(mapfile_rumen$sample_ID, function(x) substr(x,1,nchar(x)/2)),sep="_")
 seqs <- seqs %>%
