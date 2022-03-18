@@ -45,11 +45,6 @@ D <- mO %>%
   summarize("F/B_avg"=mean(ratio),"B_avg"=mean(Bacteroidetes),"F_avg"=mean(Firmicutes),
             "F/B_med"=median(ratio),"B_med"=median(Bacteroidetes),"F_med"=median(Firmicutes))
 
-temp <- mO %>%
-  mutate(ratio=Firmicutes/Bacteroidetes) 
-
-# p <- ggplot(temp, aes(x=treatment,y=ratio)) + geom_boxplot(aes(fill=treatment))
-# p
 
 ## significance of differences
 treatments = arrange(D, `F/B_avg`) %>% pull(treatment)
