@@ -1,9 +1,15 @@
 ## script for tables
 
 ## libraries
+library("scales")
+library("ggpubr")
 library("ggplot2")
+library("ggrepel")
+library("reshape2")
 library("tidyverse")
 library("data.table")
+library("gghighlight")
+
 
 ## path parameters
 main_path = "~/Documents/MILKQUA/rumen"
@@ -218,3 +224,41 @@ dd %>% left_join(temp, by = "treatment") %>%
   select(-statistic) %>%
   rename(FB_avg = `F/B_avg`, FB_med = `F/B_med`, estimate_diff = estimate) %>%
   fwrite(file.path(main_path, "tables", "fb_ratio.csv"))
+
+
+################################
+#### ALPHA DIVERSITY          ##
+################################
+fname <- file.path(main_path, path_to_results,"alpha_diversity/alpha.txt")
+alpha <- read.table(fname, header = TRUE)
+alpha$sample <- row.names(alpha)
+alpha$observed_species <- NULL
+
+mAlpha <- reshape2::melt(alpha, id.vars = "sample", variable.name = "metric", value.name = "value")
+
+mAlpha$treatment <- meta_subset$treatment[match(mAlpha$sample,meta_subset$sample)]
+
+mAlpha$treatment <- factor(mAlpha$treatment, levels = c("Control","NEO","SEO","Carvacrol", "p-cymene", "g-terpinene"))
+D <- mAlpha %>%
+  group_by(metric,treatment) %>%
+  summarize(N=n(),avg=round(mean(value),3)) %>%
+  spread(key = metric, value = avg)
+
+fname <- file.path(main_path, "tables","alpha_diversity.csv")
+fwrite(D, file = fname, col.names = TRUE)
+
+fname = file.path(main_path, "intermediate_results/alpha_significance.csv")
+alpha_significance = fread(fname)
+
+p <- ggplot(data = alpha_significance, mapping= aes(x=term, y=p.value))
+p <- p + geom_point(aes(color = metric, stroke = 1.5), position=position_jitter(h=0, w=0.25))
+p <- p + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
+p <- p + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
+p <- p + scale_y_continuous(breaks=pretty_breaks(n=20)) 
+p <- p + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = TRUE)
+p <- p + coord_trans(y="log2")
+p <- p + theme(axis.text.x = element_text(angle = 90))
+p
+
+fname = file.path(main_path, "figures", "alpha_significance.png")
+ggsave(filename = fname, plot = p, device = "png", width = 7, height = 5, dpi = 300)
