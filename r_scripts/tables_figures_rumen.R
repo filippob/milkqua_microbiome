@@ -106,3 +106,77 @@ ggdraw() +
   draw_plot_label(label = c("A", "B"), size = 14,
                   x = c(0, 0.5), y = c(1, 1)) 
 dev.off()
+
+
+## differentially abundant taxa - figure
+load("taxonomy_ .RData")
+D <- to_save[[1]]
+DX <- to_save[[2]]
+D0 <- to_save[[3]]
+
+D0 <- mutate(D0, avg_counts = avg_counts+1) %>% spread(key = treatment, value = avg_counts)
+
+D1 <- DX %>%
+  inner_join(D0, by = c("level" = "level", "new_taxa" = "new_taxa")) %>%
+  mutate(p.value = -log10(p.value)) %>%
+  gather(key = "treatment", value = "counts", -c(level,new_taxa, p.value))
+
+D1$level <- factor(D1$level, levels = c("phylum","class","order","family","genus"))
+D1$treatment <- factor(D1$treatment, levels = c("Control","NEO","SEO","Carvacrol", "p-cymene", "g-terpinene"))
+
+D1 <- D1 %>% group_by(level) %>% mutate(tot = sum(counts), relab = counts/tot)
+
+p <- ggplot(D1, aes(x = treatment, y = new_taxa))
+p <- p + geom_tile(aes(fill = relab), colour = "white")
+p <- p + facet_grid(level~treatment, space = "free", scales = "free")
+p <- p + scale_fill_gradient(low = "orange", high = "blue")
+p <- p + theme(strip.text.y = element_text(size = 5), 
+               strip.text.x = element_text(size = 6),
+               # axis.text.y = element_text(size = 4),
+               axis.text.x = element_text(size = 6),
+               axis.title = element_text(size = 6))
+p <- p + guides(fill="none") + theme(axis.title.y = element_blank(),
+                                    axis.text.y = element_blank(),
+                                    axis.ticks.y = element_blank())
+p
+
+dd <- filter(D1, treatment == "NEO") %>% mutate(variable = "p-value")
+
+q <- ggplot(dd, aes(x = factor(1), y = new_taxa, group=level))
+q <- q + geom_tile(aes(fill = p.value), colour = "white")
+q <- q + facet_grid(level~variable, space="free", scales = "free_y")
+q <- q + scale_fill_gradient(low = "orange", high = "blue")
+q <- q + theme(strip.text = element_text(size = 4), 
+               strip.text.x = element_text(size = 6),
+               axis.text.y = element_text(size = 5),
+               axis.title = element_text(size = 6))
+q <- q + guides(fill=FALSE) + theme(
+  # axis.title.x = element_blank(),
+  # axis.text.x=element_blank(),
+  # axis.ticks.x=element_blank(),
+  strip.text.y = element_blank(),
+  # axis.text.x = element_blank()
+  axis.text.x = element_text(size = 6)
+)
+q <- q + xlab("") 
+q
+
+figure_final <- ggarrange(q, p, widths=c(0.5, 1), 
+                          labels=c("A", "B"))
+
+print(figure_final)
+#ggsave(filename = "heatmap_rumen.png", plot = figure_final, device = "png", width = 8, height = 10)
+
+
+## differentially abundant taxa - table
+
+load("taxonomy_ .RData")
+D <- to_save[[1]]
+DX <- to_save[[2]]
+D0 <- to_save[[3]]
+
+dd <- spread(D0, key = treatment, value = avg_counts)
+temp <- inner_join(DX,dd, by = c("level" = "level", "new_taxa" = "new_taxa"))
+fwrite(temp, file = "rumen_significant_otus.csv", col.names = TRUE, sep = ",")
+print (temp)
+
