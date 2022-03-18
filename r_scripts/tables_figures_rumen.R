@@ -267,3 +267,33 @@ p
 
 fname = file.path(main_path, "figures", "alpha_significance.png")
 ggsave(filename = fname, plot = p, device = "png", width = 7, height = 5, dpi = 300)
+
+
+#######################################
+#### BETA DIVERSITY                 ###
+#######################################
+# matrice= read.table(file.path(project_folder,"rumen/qiime_1.9/results/beta_diversity/weighted_unifrac_CSS_normalized_otu_table.txt"), row.names=1, header=T)
+fname = file.path(main_path, path_to_results, "beta_diversity", "weighted_unifrac_CSS_normalized_otu_table.txt")
+matrice= read.table(fname, row.names=1, header=T)
+
+names(matrice) <- gsub("X","",names(matrice))
+
+samples = filter(meta_subset, treatment != "ruminal liquid") %>% pull(sample)
+vec <- rownames(matrice) %in% samples
+matrice = matrice[vec,vec]
+
+matrice$treatment <- as.character(meta_subset$treatment[match(row.names(matrice),meta_subset$sample)])
+matx= data.matrix(select(matrice, -c(treatment)))
+
+## MDS
+mds <- cmdscale(as.dist(matx))
+mds <- as.data.frame(mds)
+mds$treatment <- meta_subset$treatment[match(rownames(mds), meta_subset$sample)]
+mds$cow <- meta_subset$cow[match(rownames(mds), meta_subset$sample)]
+mds <- mutate(mds, cow = as.factor(cow))
+
+p <- ggplot(mds, aes(V1,V2)) + geom_point(aes(colour = treatment, shape = cow), size = 3)
+# p
+
+fname = file.path(main_path, outdir, "figures", "beta_diversity.png")
+ggsave(filename = fname, plot = p, device = "png", dpi = 300)
