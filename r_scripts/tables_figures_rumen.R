@@ -293,7 +293,8 @@ mds$cow <- meta_subset$cow[match(rownames(mds), meta_subset$sample)]
 mds <- mutate(mds, cow = as.factor(cow))
 
 p <- ggplot(mds, aes(V1,V2)) + geom_point(aes(colour = treatment, shape = cow), size = 3)
+p <- p + xlab("dim1") + ylab("dim2")
 # p
 
-fname = file.path(main_path, outdir, "figures", "beta_diversity.png")
-ggsave(filename = fname, plot = p, device = "png", dpi = 300)
+fname = file.path(main_path, "figures", "beta_diversity.png")
+ggsave(filename = fname, plot = p, device = "png", dpi = 300, width = 6, height = 5)
