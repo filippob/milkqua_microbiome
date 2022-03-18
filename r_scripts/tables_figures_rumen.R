@@ -186,6 +186,7 @@ print (temp)
 ### F:B RATIO               ####
 ################################
 
+## figure
 fb_ratio = fread(file.path(main_path, "intermediate_results/fb_ratio_stats.csv"))
 load(file.path(main_path,"intermediate_results/fb.RData"))
 
@@ -207,4 +208,13 @@ q <- q + geom_boxplot(aes(fill=treatment))
 g <- ggarrange(p,q,ncol = 2, labels = c("A","B"), common.legend = TRUE)
 
 fname = file.path(main_path, "figures", "fb_ratio.png")
-ggsave(filename = fname, plot = g, device = "png", width = 7, height = 5)
+ggsave(filename = fname, plot = g, device = "png", width = 8.5, height = 5, dpi = 300)
+
+## table
+dd <- fread(file.path(main_path, "intermediate_results/fb_ratio_stats.csv"))
+temp = group_by(filter(mR, !is.na(ratio)), treatment) %>% summarise(boot_avg_FB = mean(ratio), boot_med_FB = median(ratio))
+
+dd %>% left_join(temp, by = "treatment") %>% 
+  select(-statistic) %>%
+  rename(FB_avg = `F/B_avg`, FB_med = `F/B_med`, estimate_diff = estimate) %>%
+  fwrite(file.path(main_path, "tables", "fb_ratio.csv"))
