@@ -72,7 +72,8 @@ M$avg <- rowMeans(M[,-1])
 M <- arrange(M, desc(avg)) %>% rename(taxon = `#OTU ID`)
 
 ## write out table of the core microbiota
-select(M, c(taxon,avg)) %>% rename(avg_normalised_counts = avg) %>% fwrite("../tables/core_microbiota.csv", sep = ",")
+fname = file.path(main_path, "tables", "core_microbiota.csv")
+select(M, c(taxon,avg)) %>% rename(avg_normalised_counts = avg) %>% fwrite(fname, sep = ",")
 
 oldc <- M$taxon[M$avg < 25]
 newc <- rep("Other", length(oldc))
@@ -99,7 +100,8 @@ g <- ggarrange(p, q, ncol = 2, labels = c("A","B"), heights = c(0.1,4))
 
 
 library("cowplot")
-png(filename = "../figures/Figure1.png", width = 12, height = 7, units = "in", res = 300)
+fname = file.path(main_path, "figures", "Figure1.png")
+png(filename = fname, width = 12, height = 7, units = "in", res = 300)
 ggdraw() +
   draw_plot(p, x = 0, y = 0.1, width = 0.4, height = 0.75) +
   draw_plot(q, x = 0.4, y = 0, width = 0.6, height = 1) +
@@ -107,7 +109,7 @@ ggdraw() +
                   x = c(0, 0.5), y = c(1, 1)) 
 dev.off()
 
-
+########################################
 ## differentially abundant taxa - figure
 load("taxonomy_ .RData")
 D <- to_save[[1]]
@@ -180,3 +182,29 @@ temp <- inner_join(DX,dd, by = c("level" = "level", "new_taxa" = "new_taxa"))
 fwrite(temp, file = "rumen_significant_otus.csv", col.names = TRUE, sep = ",")
 print (temp)
 
+################################
+### F:B RATIO               ####
+################################
+
+fb_ratio = fread(file.path(main_path, "intermediate_results/fb_ratio_stats.csv"))
+load(file.path(main_path,"intermediate_results/fb.RData"))
+
+mO = to_save[[1]] ## F:B ratio from the original data configuration
+mR = to_save[[2]] ## F:B ratio from bootstrapping
+
+mR$treatment <- factor(mR$treatment, levels = levels(mO$treatment))
+
+temp <- mO %>%
+  mutate(ratio=Firmicutes/Bacteroidetes) 
+
+p <- ggplot(temp, aes(x=treatment,y=ratio)) + geom_boxplot(aes(fill=treatment)) 
+# p
+
+q <- ggplot(mR, aes(x=treatment, y=ratio))
+q <- q + geom_boxplot(aes(fill=treatment))
+# q
+
+g <- ggarrange(p,q,ncol = 2, labels = c("A","B"), common.legend = TRUE)
+
+fname = file.path(main_path, "figures", "fb_ratio.png")
+ggsave(filename = fname, plot = g, device = "png", width = 7, height = 5)
