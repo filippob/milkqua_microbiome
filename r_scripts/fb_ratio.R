@@ -12,6 +12,7 @@ library("data.table")
 ## path parameters
 main_path = "~/Documents/MILKQUA/rumen"
 path_to_results = "qiime_1.9/results_48"
+outdir = "intermediate_results"
 
 ## metadata
 #project_folder = "~/Documents/MILKQUA"
@@ -35,6 +36,7 @@ otu <- filter(otu, sample %in% meta_subset$sample)
 ## F:B ratio
 mO <- gather(otu, key = "phylum", value = "counts", -c(sample,treatment))
 mO <- filter(mO, phylum %in% c("Bacteroidetes", "Firmicutes")) %>% spread(key = "phylum", value = "counts")
+# fwrite(mO, file = "fb_ratio.csv", col.names = TRUE)
 
 D <- mO %>%
   select(sample, treatment, Bacteroidetes, Firmicutes) %>%
@@ -46,19 +48,30 @@ D <- mO %>%
 temp <- mO %>%
   mutate(ratio=Firmicutes/Bacteroidetes) 
 
-p <- ggplot(temp, aes(x=treatment,y=ratio)) + geom_boxplot(aes(fill=treatment))
-p
+# p <- ggplot(temp, aes(x=treatment,y=ratio)) + geom_boxplot(aes(fill=treatment))
+# p
 
 ## significance of differences
+treatments = arrange(D, `F/B_avg`) %>% pull(treatment)
+treatments = c("Control",treatments[treatments != "Control" ])
+mO$treatment <- factor(mO$treatment, levels = treatments)
+D <- D[match(treatments, D$treatment),]
+
+
 mO %>%
   select(sample, treatment, Bacteroidetes, Firmicutes) %>%
   mutate(ratio=Firmicutes/Bacteroidetes) %>%
   do(glance(lm(ratio ~ treatment, .)))
 
-mO %>%
+temp <- mO %>%
   select(sample, treatment, Bacteroidetes, Firmicutes) %>%
   mutate(ratio=Firmicutes/Bacteroidetes) %>%
-  do(tidy(lm(ratio ~ treatment, .)))
+  do(tidy(lm(ratio ~ treatment, .))) %>%
+  mutate(term = gsub("treatment","",term))
+
+select(D, c(treatment,B_avg,F_avg,`F/B_avg`,`F/B_med`)) %>% 
+  left_join(temp, by = c("treatment"="term")) %>%
+  fwrite(file.path(main_path,outdir,"fb_ratio_stats.csv"), col.names = TRUE)
 
 ### BOOTSTRAPPING
 
@@ -93,7 +106,7 @@ res <- matrix(unlist(res), ncol = n, byrow = FALSE)
 res <- t(res)
 res <- as.data.frame(res)
 names(res) <- group_names
-save(res,file = "boot_res.RData")
+# save(res,file = "boot_res.RData")
 
 mR <- reshape2::melt(res, variable.name = "treatment", value.name = "ratio")
 
@@ -101,14 +114,13 @@ D <- mR %>%
   group_by(treatment) %>%
   summarise(med=median(ratio,na.rm=TRUE))
 
-fwrite(D, file = "fb_ratio.csv")
 
+# p <- ggplot(mR, aes(x=ratio, fill=treatment))
+# p <- p + geom_density(alpha=0.25)
+# p
 
-p <- ggplot(mR, aes(x=ratio, fill=treatment))
-p <- p + geom_density(alpha=0.25)
-p
-
-to_save = list(temp,mR)
-save(to_save, file = "fb.RData")
+to_save = list(mO,mR)
+fname = file.path(main_path,outdir, "fb.RData")
+save(to_save, file = fname)
 
 
