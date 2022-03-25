@@ -10,9 +10,16 @@
 ## Importing data with different formats
 
 project_home="$HOME/MILKQUA"
-data_folder="210902_M04028_0139_000000000-JRGYP"
+data_folder="210902_M04028_0139_000000000-JRGYP_milk"
+manifest="Config/manifest_milk.csv"
+outdir="Analysis/milkqua_milk_subset"
+
+if [ ! -d "${outdir}/import" ]; then
+	mkdir -p ${outdir}/import
+fi
 
 echo "project folder is $project_home"
+echo "output folder is $outdir"
 
 ## exporting conda to PATH then activating the Qiime2 Conda env
 echo " - activating conda env"
@@ -31,8 +38,8 @@ echo " - running qiime to import data"
 ## Paired-end reads with quality (fastq files)
 qiime tools import \
   --type 'SampleData[PairedEndSequencesWithQuality]' \
-  --input-path $project_home/Config/manifest.csv \
-  --output-path $project_home/Analysis/$data_folder.qza \
+  --input-path $project_home/$manifest \
+  --output-path $project_home/$outdir/import/$data_folder.qza \
   --input-format PairedEndFastqManifestPhred33V2
 
 echo "DONE!"
