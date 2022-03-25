@@ -22,7 +22,7 @@ module load python3/intel/2020
 source activate qiime2-2019.10
 
 echo " - running qiime for subsampling"
-qiime demux subsample-paired --i-sequences $project_home/$outdir/import/$data_folder.qza --p-fraction 0.3 --verbose --o-subsampled-sequences $project_home/$outdir/subsample/${data_folder}_subsample.qza
+qiime demux subsample-paired --i-sequences $project_home/$outdir/import/${data_folder}.qza --p-fraction 0.3 --verbose --o-subsampled-sequences $project_home/$outdir/subsample/${data_folder}_subsample.qza
 
 echo " - running qiime for summary"
 qiime demux summarize --i-data $project_home/$outdir/subsample/${data_folder}_subsample.qza --o-visualization $project_home/$outdir/subsample/${data_folder}_subsample.qzv

@@ -39,7 +39,7 @@ echo " - running qiime to import data"
 qiime tools import \
   --type 'SampleData[PairedEndSequencesWithQuality]' \
   --input-path $project_home/$manifest \
-  --output-path $project_home/$outdir/import/$data_folder.qza \
+  --output-path $project_home/$outdir/import/${data_folder}.qza \
   --input-format PairedEndFastqManifestPhred33V2
 
 echo "DONE!"
