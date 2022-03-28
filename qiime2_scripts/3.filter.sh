@@ -25,7 +25,7 @@ echo "(in the subfolder 'subsamples')"
 qiime tools export --input-path $project_home/$outdir/subsample/${data_folder}_subsample.qzv --output-path $project_home/$outdir/subsample/demux-subsample_temp/
 sed -i 's/,/\t/g' $project_home/$outdir/subsample/demux-subsample_temp/per-sample-fastq-counts.csv
 tail -n +2 $project_home/$outdir/subsample/demux-subsample_temp/per-sample-fastq-counts.csv > $project_home/$outdir/subsample/temp
-echo -e "sample-id\tforward sequence count" | cat - $project_home/$outdir/subsample/temp > $project_home/$outdir/subsample/demux-subsample_temp/per-sample-fastq-counts.csv
+echo -e "sample-id\tforward sequence count\treverse sequence count" | cat - $project_home/$outdir/subsample/temp > $project_home/$outdir/subsample/demux-subsample_temp/per-sample-fastq-counts.csv
 rm $project_home/$outdir/subsample/temp
 
 echo " - running qiime for filtering samples"
