@@ -13,12 +13,13 @@ import pandas as pd
 from oauth2client.service_account import ServiceAccountCredentials
 
 #%% set params
+print(" - setting parameters")
 scope = ['https://www.googleapis.com/auth/spreadsheets',
         'https://www.googleapis.com/auth/drive']
 docid = "12qfJKcg3hHhG3210pim878cTvMSGFsmR0YET_qFs55E"
-home = '/home/filippo/'
-credential_path = 'Dropbox/gdrive/microbiomes-6719db38cddb.json'
-project = 'Documents/MILKQUA'
+home = '/home/users/filippo.biscarini.est/MILKQUA'
+credential_path = 'Config/microbiomes-6719db38cddb.json'
+outdir = 'Config'
 label = 'milkqua_stools_swabs.csv'
 
 #%%
@@ -34,5 +35,9 @@ sheet1 = google_sh.get_worksheet(0)
 df = pd.DataFrame(data=sheet1.get_all_records())
 
 #%% write out
-fname = os.path.join(home, project,label)
+fname = os.path.join(home, outdir, label)
+print(" - writing to file {}".format(fname))
 df.to_csv(fname, index=False)
+
+
+print("DONE!")
