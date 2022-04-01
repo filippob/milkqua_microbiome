@@ -21,7 +21,8 @@ if [ ! -d ${project_home}/data/temp ]; then
 
 	## copying files of interest in the temporary folder
 	cd ${project_home}/data
-	for i in `seq 45 76`; do
+	## !! SPECIFY HERE THE SAMPLES TO SUBSET !!
+	for i in `seq $nstart $nend`; do
         	echo "copying file ${input_dir}/${i}*.fastq.gz"
         	cp ${input_dir}/${i}*.fastq.gz temp/
 	done;
