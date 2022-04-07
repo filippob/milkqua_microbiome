@@ -2,7 +2,7 @@
 
 project_home="$HOME/MILKQUA"
 r_pckgs="${project_home}/r_packages"
-rscript="milkqua_microbiome/r_scripts/create_manifest2.r"
+rscript="milkqua_microbiome/r_scripts/create_manifest.r"
 
 ## setting up R
 module load R/3.6.0

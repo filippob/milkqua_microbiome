@@ -4,16 +4,16 @@ library("data.table")
 #########################
 ## PARAMETERS   #########
 #########################
-homedir = "/home/users/chiara.gini/MILKQUA" ## home to where the original mapping file is located (from gdrive()
+homedir = "/home/users/filippo.biscarini.est/MILKQUA" ## home to where the original mapping file is located (from gdrive()
 # mapping_file = "~/Documents/cremonesi/milkqua/mapping_file.csv.xlsx"
 mapping_file = "Config/milkqua_stools_swabs.csv"
 sample_sheet = "SampleSheet.csv"
 nskip = 16 ## n of rows to skip in the sample sheet (header)
-outdir = "Config"
+outdir = "Config/"
 type = "faeces"
 orig_data_folder = "220225_M04028_0144_000000000-K6CMG"
-abs_path = "/home/users/chiara.gini/MILKQUA/data"
-n_samples = 64 ## controls the number of samples randomly selected
+abs_path = "/home/users/filippo.biscarini.est/MILKQUA/data"
+n_samples = 6 ## controls the number of samples randomly selected
 
 ## reading the data
 writeLines(" - reading the mapping file")
@@ -64,12 +64,12 @@ manifest <- mutate(mapping,
 
 manifest <- manifest %>%
   arrange(`sample-id`) %>%
-#  slice_sample(n = n_samples) %>% ## !! PAY ATTENTION: we are taking a sample of the data !!
+  slice_sample(n = n_samples) %>% ## !! PAY ATTENTION: we are taking a sample of the data !!
   rename(`forward-absolute-filepath` = forward_absolute_filepath,
          `reverse-absolute-filepath` = reverse_absolute_filepath)
 
 writeLines(" - writing out the manifest file")
-fname = file.path(outdir, paste("manifest_",type,"2.csv", sep=""))
+fname = file.path(outdir, paste("manifest_",type,".csv", sep=""))
 print(paste("writing to file", fname))
 fwrite(manifest, file = fname, sep="\t", col.names = TRUE)
 
