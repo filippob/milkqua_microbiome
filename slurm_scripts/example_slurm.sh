@@ -1,21 +1,19 @@
 #!/bin/bash
-
-#SBATCH -o /gpfs/home/users/chiara.gini/MILKQUA/Analysis_subset/4.OTU_picking/test/myjob.%j.%N.out
-#SBATCH -D /gpfs/home/users/chiara.gini
-#SBATCH -J Prova
+#SBATCH --job-name=run-MILKQUA
+#SBATCH --account=MILKQUA
 #SBATCH --get-user-env
-#SBATCH -p light
+#SBATCH --partition=light
 #SBATCH --nodes=1
-#SBATCH -c 1 # Number of cores per task
-#SBATCH --mem-per-cpu=1000
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=32
+#SBATCH --time=12:0:0
+#SBATCH --output=/home/users/chiara.gini/MILKQUA/%x-%j.%N.out
+#SBATCH --error=/home/users/chiara.gini/MILKQUA/%x-%j.%N.err
 #SBATCH --mail-type=all
 #SBATCH --mail-user=chiara.gini@unimi.it
-#SBATCH --time=0:10:00
-#SBATCH --account=MILKQUA
 
-cd /gpfs/home/users/chiara.gini/test
-/home/users/chiara.gini/MILKQUA/OnTest_Chiara/scripts_Qiime1.9/4.OTU_picking.sh
-~                                                                                                    
+sh /home/users/chiara.gini/MILKQUA/OnTest_Chiara/scripts_Qiime2/12.taxonomy.sh
+                    
 ~                                                                                                    
 ~                                                                                                    
 ~                                                                                                    
