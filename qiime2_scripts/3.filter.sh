@@ -37,6 +37,7 @@ if [ "${use_singularity}" = true ]; then
         --p-where "CAST([forward sequence count] AS INT) > $min_seqs" --o-filtered-demux $project_home/$outdir/filter/${data_folder}_filtered.qza
 else
 	## exporting conda to PATH then activating the Qiime2 Conda env
+	echo "CONDA ENV (chosen qiime distribution)"
 	echo " - activating conda env"
 	module load python3/intel/2020
 	source activate qiime2-2019.10
