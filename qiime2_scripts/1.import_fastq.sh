@@ -10,9 +10,9 @@
 ## Importing data with different formats
 
 project_home="$HOME/MILKQUA"
-data_folder="210902_M04028_0139_000000000-JRGYP_milk"
-manifest="Config/manifest_milk.csv"
-outdir="Analysis/milkqua_milk_subset"
+data_folder="220225_M04028_0144_000000000-K6CMG"
+manifest="Config/manifest_faeces.csv"
+outdir="Analysis/milkqua_stools" ## <project-name>_<sample-type>
 
 if [ ! -d "${outdir}/import" ]; then
 	mkdir -p ${outdir}/import
@@ -41,6 +41,9 @@ qiime tools import \
   --input-path $project_home/$manifest \
   --output-path $project_home/$outdir/import/${data_folder}.qza \
   --input-format PairedEndFastqManifestPhred33V2
+
+echo " - changing permissions to the output folder (r+x)"
+chmod -R a+rx ${project_home}/${outdir}/import
 
 echo "DONE!"
 
