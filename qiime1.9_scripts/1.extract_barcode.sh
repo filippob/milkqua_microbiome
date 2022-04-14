@@ -12,6 +12,8 @@ output_dir="Analysis/milkqua_stools/qiime1.9/extract_barcode"
 #sing_container="${project_home}/Qiime1.9.sif"
 sing_container="/gpfs/software/Container/qiime_docker:fischuu-qiime-1.9.1.sif"
 temp_folder="temp/temp_fastq"
+sample_start=45 #first sample to use (in the sequence)
+sample_end=55 #last sample to use (in the sequence)
 
 cd $currpath
 echo "project folder is $project_home"
@@ -25,7 +27,7 @@ if [ ! -d "${temp_folder}" ]; then
 fi
 
 echo " - copying relevant fastq files"
-for i in {45..55}; 
+for i in $(seq ${sample_start} ${sample_end}); 
 do
 	cp ${data_folder}/${i}*.fastq.gz ${project_home}/${temp_folder}
 done
@@ -40,6 +42,8 @@ fi
 echo " - calling the singularity container"
 singularity run ${sing_container} multiple_extract_barcodes.py --input_dir=${temp_folder} --output_dir=${output_dir} --read1_indicator _R1 --read2_indicator _R2
 
+echo " - removing temprorary files"
+rm -r ${temp_folder}
 
 echo "DONE!"
 
