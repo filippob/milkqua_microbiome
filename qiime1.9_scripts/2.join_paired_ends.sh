@@ -26,7 +26,7 @@ fi
 
 ## using the Singularity container
 echo " - calling the singularity container for read joining"
-singularity run ${sing_container} multiple_join_paired_ends.py --input_dir=${input_folder} --output_dir=${output_folder} --include_input_dir_path --parameter_fp=$paramfile --read1_indicator _R1 --read2_indicator _R2
+singularity run ${sing_container} multiple_join_paired_ends.py --input_dir=${input_folder} --output_dir=${output_dir} --include_input_dir_path --parameter_fp=$paramfile --read1_indicator _R1 --read2_indicator _R2
 
 echo "DONE!"
 
