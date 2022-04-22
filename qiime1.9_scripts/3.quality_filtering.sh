@@ -7,8 +7,8 @@
 ## setting up the environment
 currpath=$(pwd)
 project_home="$HOME/MILKQUA"
-input_folder="Analysis/milkqua_stools/qiime1.9/join_paired_ends"
-output_dir="Analysis/milkqua_stools/qiime1.9/filtered_fasta"
+input_folder="Analysis/milkqua_skinswab/qiime1.9/join_paired_ends"
+output_dir="Analysis/milkqua_skinswab/qiime1.9/filtered_fasta"
 #sing_container="${project_home}/Qiime1.9.sif"
 sing_container="/gpfs/software/Container/qiime_docker:fischuu-qiime-1.9.1.sif"
 paramfile="Config/filter.parameters"
@@ -19,6 +19,7 @@ echo "project folder is $project_home"
 ## make folder if it does not exist
 if [ ! -d "${output_dir}" ]; then
 	mkdir -p ${output_dir}
+	chmod g+rxw ${output_dir}
 fi
 
 ## generating qiime_parameters file

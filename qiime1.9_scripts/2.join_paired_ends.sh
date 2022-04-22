@@ -19,6 +19,7 @@ echo "project folder is $project_home"
 ## make folder if it does not exist
 if [ ! -d "${output_dir}" ]; then
 	mkdir -p ${output_dir}
+	chmod g+rxw ${output_dir}
 fi
 
 ## generating qiime_parameters file
