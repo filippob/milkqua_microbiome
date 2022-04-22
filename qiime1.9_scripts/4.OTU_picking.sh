@@ -6,7 +6,7 @@
 currpath=$(pwd)
 project_home="/gpfs/home/users/chiara.gini/MILKQUA"
 data_folder="Analysis/milkqua_skinswab/qiime1.9/3.quality_filtering"
-output_dir="Analysis/milkqua_skinswab/qiime1.9"
+output_dir="Analysis/milkqua_skinswab/qiime1.9/4.OTU_picking"
 param_file="temp/OnTest_Chiara/Databases/Silva_132/SILVA_132_QIIME_release"
 
 cd $currpath
@@ -16,6 +16,7 @@ echo "project folder is $project_home"
 
 if [ ! -d "$project_home/${output_dir}/4.OTU_picking" ]; then
         mkdir -p $project_home/${output_dir}/4.OTU_picking
+        chmod g+rxw $project_home/${output_dir}
 fi
 
 ## using the Singularity container
