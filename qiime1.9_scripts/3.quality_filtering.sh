@@ -7,8 +7,8 @@
 ## setting up the environment
 currpath=$(pwd)
 project_home="$HOME/MILKQUA"
-input_folder="Analysis/milkqua_skinswab/qiime1.9/join_paired_ends"
-output_dir="Analysis/milkqua_skinswab/qiime1.9/filtered_fasta"
+input_folder="Analysis/milkqua_skinswab/qiime1.9/2.join_paired_ends"
+output_dir="Analysis/milkqua_skinswab/qiime1.9/3.quality_filtering"
 #sing_container="${project_home}/Qiime1.9.sif"
 sing_container="/gpfs/software/Container/qiime_docker:fischuu-qiime-1.9.1.sif"
 paramfile="Config/filter.parameters"
@@ -28,6 +28,9 @@ fi
 ## using the Singularity container
 echo " - calling the singularity container for quality filtering"
 singularity run ${sing_container} multiple_split_libraries_fastq.py -p "${project_home}/$paramfile" --input_dir=$input_folder  --output_dir=$output_dir
+
+## fix sample names in the output fasta file (<prefix>_ needs to be removed, otherwise prefix will be the sample name)
+sed -i 's/seqprep_//g' seqs.fna
 
 echo "DONE!"
 
