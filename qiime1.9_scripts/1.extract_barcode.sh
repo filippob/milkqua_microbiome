@@ -8,7 +8,7 @@
 currpath=$(pwd)
 project_home="$HOME/MILKQUA"
 #data_folder="data/220225_M04028_0144_000000000-K6CMG"
-output_dir="Analysis/milkqua_stools/qiime1.9/extract_barcode"
+output_dir="Analysis/prova_qiime1.9/1.extract_barcode"
 #sing_container="${project_home}/Qiime1.9.sif"
 sing_container="/gpfs/software/Container/qiime_docker:fischuu-qiime-1.9.1.sif"
 temp_folder="temp/temp_fastq"
@@ -25,6 +25,11 @@ fi
 ## using the Singularity container
 echo " - calling the singularity container"
 singularity run ${sing_container} multiple_extract_barcodes.py --input_dir=${temp_folder} --output_dir=${output_dir} --read1_indicator _R1 --read2_indicator _R2
+
+echo " - removing barcodes files"
+cd $output_dir
+find . -name \*barcodes.fastq -type f -delete
+cd $currpath
 
 echo " - removing temprorary files"
 #rm -r ${temp_folder}

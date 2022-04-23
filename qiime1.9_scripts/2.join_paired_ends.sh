@@ -7,8 +7,8 @@
 ## setting up the environment
 currpath=$(pwd)
 project_home="$HOME/MILKQUA"
-input_folder="Analysis/milkqua_stools/qiime1.9/extract_barcode"
-output_dir="Analysis/milkqua_stools/qiime1.9/join_paired_ends"
+input_folder="Analysis/prova_qiime1.9/1.extract_barcode"
+output_dir="Analysis/prova_qiime1.9/2.join_paired_ends"
 #sing_container="${project_home}/Qiime1.9.sif"
 sing_container="/gpfs/software/Container/qiime_docker:fischuu-qiime-1.9.1.sif"
 paramfile="Config/join.parameters"
@@ -27,7 +27,13 @@ fi
 
 ## using the Singularity container
 echo " - calling the singularity container for read joining"
-singularity run ${sing_container} multiple_join_paired_ends.py --input_dir=${input_folder} --output_dir=${output_dir} --include_input_dir_path --parameter_fp=$paramfile --read1_indicator _R1 --read2_indicator _R2
+singularity run ${sing_container} multiple_join_paired_ends.py --input_dir=${input_folder} --output_dir=${output_dir} --include_input_dir_path --parameter_fp=$paramfile --read1_indicator=_R1 --read2_indicator=_R2
+chmod g+rxw -R ${output_dir}
+
+echo " - removing unassembled reads"
+cd $output_dir
+find . -name \*unassembled*.fastq.gz -type f -delete
+cd $currpath
 
 ## clean output folder from potential barcode subfolders
 echo " - cleaning the output folder (barcodes subfolders)"

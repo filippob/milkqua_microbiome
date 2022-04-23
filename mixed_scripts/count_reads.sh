@@ -4,7 +4,7 @@
 currpath=$(pwd)
 project_home="$HOME/MILKQUA"
 
-target="${project_home}/Analysis/milkqua_skinswab/qiime1.9/2.join_paired_ends"
+target="${project_home}/Analysis/prova_qiime1.9/2.join_paired_ends"
 output="$target/readsPerSample.tsv" 
 
 ## if file exists, remove it to avoid appending to old results

@@ -20,7 +20,7 @@ fi
 
 echo " - download database" 
 cd $target
-wget -O ${db_url}
+wget ${db_url}
 
 ## unzip the database archive
 unzip $(basename -- ${db_url}) -d $folder_name

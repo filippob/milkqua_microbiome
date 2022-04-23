@@ -10,15 +10,15 @@
 currpath=$(pwd)
 project_home="$HOME/MILKQUA"
 data_folder1="data/JRGYP"
-data_folder2="data/220225_M04028_0144_000000000-K6CMG"
+data_folder2=""
 output_dir="temp/temp_fastq"
 #sing_container="${project_home}/Qiime1.9.sif"
 #sing_container="/gpfs/software/Container/qiime_docker:fischuu-qiime-1.9.1.sif"
 temp_folder="temp/temp_fastq"
 sample_start1=1 #first sample to use (in the sequence)
-sample_end1=32 #last sample to use (in the sequence)
-sample_start2=77 #first sample to use (in the sequence)
-sample_end2=92 #last sample to use (in the sequence)
+sample_end1=6 #last sample to use (in the sequence)
+sample_start2=10 #first sample to use (in the sequence)
+sample_end2=12 #last sample to use (in the sequence)
 
 cd $currpath
 echo "project folder is $project_home"
