@@ -13,8 +13,6 @@ library("phyloseq")
 library("tidyverse")
 library("data.table")
 library("metagenomeSeq")
-source("dada2_etc/dist2list.R") ## from: https://github.com/vmikk/metagMisc/
-source("dada2_etc/phyloseq_transform.R") ## from: https://github.com/vmikk/metagMisc/
 
 ## PARAMETERS
 HOME <- Sys.getenv("HOME")
@@ -23,6 +21,11 @@ fname = "dada2_etc/otu_table/otu_table_filtered.biom"
 conf_file = "dada2_etc/Config/mapping_milkqua_skinswabs.csv"
 min_tot_counts = 500 ## minimum number of total counts per sample to be included in the analysis
 outdir = "results"
+
+repo = "milkqua_microbiome"
+source(file.path(prj_folder, repo, "r_scripts/dist2list.R")) ## from: https://github.com/vmikk/metagMisc/
+source(file.path(prj_folder, repo, "r_scripts/phyloseq_transform.R")) ## from: https://github.com/vmikk/metagMisc/
+
 
 writeLines(" - reading the filtered (OTU-wise) biom file into phyloseq")
 ## both the OTU table and the taxonomic classification are available from the biom file (qiime 1.9)
