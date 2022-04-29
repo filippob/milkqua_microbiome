@@ -1,11 +1,20 @@
+## script to obtain statistics on the reads processed through the bioinformatics pipeline
+## this is currently designed on the output from Qiime 1.9
+
+## 1. SET UP
 library("tidyverse")
 library("data.table")
 
+## 2. PARAMETERS
 project_folder = "/home/filippo/Documents/MILKQUA"
 path_to_file = "Analysis/milkqua_skinswab/qiime1.9"
 fname1 = "2.join_reads/readsPerSample.tsv" ## n. of reads after joining
 fname2 = "3.quality_filtering/reads_after_filter.tsv" ## n. of reads after filtering
+out_fname = "processing_stats.tsv"
+sep_line = list("\n--------------------------------------\n")
 
+## 3. READS AFTER JOINING
+writeLines(" - 1) reads after joining")
 reads = fread(file.path(project_folder,path_to_file,fname1))
 names(reads) <- c("sample","n_reads")
 reads$sample <- gsub("/","",reads$sample)
@@ -19,16 +28,17 @@ D <- reads %>%
     minReads=round(min(n_reads),3)
   )
 
-D
 
+fwrite(x = D, file = file.path(project_folder,path_to_file,out_fname), sep = "\t")
+fwrite(x = sep_line, file = file.path(project_folder,path_to_file,out_fname), sep = "\t", append = TRUE)
 
 p <- ggplot(reads,aes(x=sample,y=n_reads)) + geom_bar(aes(fill=sample), stat = "identity")
 p <- p + guides(fill='none')
 p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1, size=3))
-print(p)
+ggsave(filename = file.path(project_folder,path_to_file,"1.reads_per_sample.png"), plot = p, device = "png")
 
-## after filtering
-
+## 3. after filtering
+writeLines(" - 2) reads after filtering")
 after_reads = fread(file.path(project_folder,path_to_file,fname2), fill = TRUE, sep = ":", header = FALSE)
 
 prefix = "/gpfs/home/projects/MILKQUA/Analysis/milkqua_skinswab/qiime1.9/join_paired_ends/"
@@ -48,9 +58,13 @@ after_reads = mutate(after_reads,
        out_seqs = as.numeric(out_seqs)
        )
 
+writeLines(" - 2) loss due to filtering")
 seqs <- after_reads %>%
   mutate(loss=(inp_seqs-out_seqs)/inp_seqs) %>%
   arrange(loss)
+
+fwrite(x = seqs, file = file.path(project_folder,path_to_file,out_fname), sep = "\t", append = TRUE)
+fwrite(x = sep_line, file = file.path(project_folder,path_to_file,out_fname), sep = "\t", append = TRUE)
 
 D <- seqs %>%
   # .(group),
@@ -62,13 +76,18 @@ D <- seqs %>%
     "stdInp"=sd(inp_seqs),
     "stdOutput"=sd(out_seqs,na.rm=TRUE)
   )
-D
+
+fwrite(x = D, file = file.path(project_folder,path_to_file,out_fname), sep = "\t", append = TRUE)
+fwrite(x = sep_line, file = file.path(project_folder,path_to_file,out_fname), sep = "\t", append = TRUE)
+
 
 d1 <- seqs %>%
   mutate(retained=out_seqs/inp_seqs) %>%
   summarize(maxRetained=max(retained),minRetained=min(retained),avgRetained=mean(retained))
 
-d1
+fwrite(x = d1, file = file.path(project_folder,path_to_file,out_fname), sep = "\t", append = TRUE)
+fwrite(x = sep_line, file = file.path(project_folder,path_to_file,out_fname), sep = "\t", append = TRUE)
+
 
 mS <- reshape2::melt(seqs,id.vars = c("sample_id","loss"), variable.name = "seq", value.name = "reads")
 mS <- mS %>%
@@ -79,4 +98,8 @@ mS$sample_id <- factor(mS$sample_id, levels = seqs$sample_id)
 
 p <- ggplot(mS, aes(x=sample_id,y=reads,group=seq)) + geom_line(aes(colour=seq))
 p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1, size=4))
-p
+
+ggsave(filename = file.path(project_folder,path_to_file,"2.reads_after_filtering"), plot = p, device = "png")
+
+writeLines("DONE!!")
+
