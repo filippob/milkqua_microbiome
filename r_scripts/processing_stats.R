@@ -6,12 +6,13 @@ library("tidyverse")
 library("data.table")
 
 ## 2. PARAMETERS
-project_folder = "/home/filippo/Documents/MILKQUA"
-path_to_file = "Analysis/milkqua_skinswab/qiime1.9"
-fname1 = "2.join_reads/readsPerSample.tsv" ## n. of reads after joining
-fname2 = "3.quality_filtering/reads_after_filter.tsv" ## n. of reads after filtering
+project_folder = "/home/filippo/Documents/cremonesi"
+path_to_file = "cani/results"
+fname1 = "joined_readsPerSample.tsv" ## n. of reads after joining
+fname2 = "reads_after_filter.tsv" ## n. of reads after filtering
 out_fname = "processing_stats.tsv"
 sep_line = list("\n--------------------------------------\n")
+header = list("sample \t input_seqs \t output_seqs \t loss\n")
 
 ## 3. READS AFTER JOINING
 writeLines(" - 1) reads after joining")
@@ -31,6 +32,7 @@ D <- reads %>%
 
 fwrite(x = D, file = file.path(project_folder,path_to_file,out_fname), sep = "\t")
 fwrite(x = sep_line, file = file.path(project_folder,path_to_file,out_fname), sep = "\t", append = TRUE)
+fwrite(x = header, file = file.path(project_folder,path_to_file,out_fname), sep = "\t", append = TRUE)
 
 p <- ggplot(reads,aes(x=sample,y=n_reads)) + geom_bar(aes(fill=sample), stat = "identity")
 p <- p + guides(fill='none')
@@ -77,6 +79,8 @@ D <- seqs %>%
     "stdOutput"=sd(out_seqs,na.rm=TRUE)
   )
 
+header = list("tot input_seqs \t tot output_seqs \t avg input seqs \t avg output_seqs \t std inp_seqs \t std out_seqs\n")
+fwrite(x = header, file = file.path(project_folder,path_to_file,out_fname), sep = "\t", append = TRUE)
 fwrite(x = D, file = file.path(project_folder,path_to_file,out_fname), sep = "\t", append = TRUE)
 fwrite(x = sep_line, file = file.path(project_folder,path_to_file,out_fname), sep = "\t", append = TRUE)
 
@@ -85,6 +89,8 @@ d1 <- seqs %>%
   mutate(retained=out_seqs/inp_seqs) %>%
   summarize(maxRetained=max(retained),minRetained=min(retained),avgRetained=mean(retained))
 
+header = list("max retained \t min retained \t avg retained\n")
+fwrite(x = header, file = file.path(project_folder,path_to_file,out_fname), sep = "\t", append = TRUE)
 fwrite(x = d1, file = file.path(project_folder,path_to_file,out_fname), sep = "\t", append = TRUE)
 fwrite(x = sep_line, file = file.path(project_folder,path_to_file,out_fname), sep = "\t", append = TRUE)
 
