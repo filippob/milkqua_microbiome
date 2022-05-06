@@ -148,3 +148,33 @@ dd = dist2list(distances, tri = FALSE)
 dx = spread(dd, key = "col", value = "value")
 fwrite(x = dx, file = file.path(prj_folder, analysis_folder, "results", "euclidean_distances.csv"))
 
+### add tree ###
+random_tree = rtree(ntaxa((otu_tax_sample_norm)), rooted=TRUE, tip.label=taxa_names(otu_tax_sample_norm))
+otu_norm_tree = merge_phyloseq(otu_tax_sample_norm, random_tree)
+# plot_tree(otu_norm_tree, color="treatment", label.tips="taxa_names", ladderize="left", plot.margin=0.3)
+plot_tree(otu_norm_tree, color="Phylum", shape="treatment", size="abundance")
+
+## unifrac
+writeLines(" - calculate Unifrac distances")
+distances = distance(otu_norm_tree, method="unifrac", type = "samples")
+iMDS  <- ordinate(otu_norm_tree, "MDS", distance=distances)
+p <- plot_ordination(biom1, iMDS, color="treatment", shape="timepoint")
+ggsave(filename = file.path(prj_folder, analysis_folder, "results", "mds_plot_unifrac.png"), plot = p, device = "png")
+
+writeLines(" - write out Unifrac distance matrix")
+dd = dist2list(distances, tri = FALSE)
+dx = spread(dd, key = "col", value = "value")
+fwrite(x = dx, file = file.path(prj_folder, analysis_folder, "results", "unifrac_distances.csv"))
+
+## weighted unifrac
+writeLines(" - calculate weighted Unifrac distances")
+distances = distance(otu_norm_tree, method="wunifrac", type = "samples")
+iMDS  <- ordinate(otu_norm_tree, "MDS", distance=distances)
+p <- plot_ordination(biom1, iMDS, color="treatment", shape="timepoint")
+ggsave(filename = file.path(prj_folder, analysis_folder, "results", "mds_plot_weighted_unifrac.png"), plot = p, device = "png")
+
+writeLines(" - write out weighted Unifrac distance matrix")
+dd = dist2list(distances, tri = FALSE)
+dx = spread(dd, key = "col", value = "value")
+fwrite(x = dx, file = file.path(prj_folder, analysis_folder, "results", "weighted_unifrac_distances.csv"))
+
