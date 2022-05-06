@@ -26,8 +26,8 @@ outdir = file.path(analysis_folder, "6.normalize_OTU")
 repo = "milkqua_microbiome"
 # source(file.path(prj_folder, repo, "r_scripts/dist2list.R")) ## from: https://github.com/vmikk/metagMisc/
 # source(file.path(prj_folder, repo, "r_scripts/phyloseq_transform.R")) ## from: https://github.com/vmikk/metagMisc/
-source(file.path(HOME, repo, "r_scripts/support_functions/dist2list.R")) ## from: https://github.com/vmikk/metagMisc/
-source(file.path(HOME, repo, "r_scripts/support_functions/phyloseq_transform.R")) ## from: https://github.com/vmikk/metagMisc/
+source(file.path(prj_folder, repo, "r_scripts/support_functions/dist2list.R")) ## from: https://github.com/vmikk/metagMisc/
+source(file.path(prj_folder, repo, "r_scripts/support_functions/phyloseq_transform.R")) ## from: https://github.com/vmikk/metagMisc/
 
 writeLines(" - reading the filtered (OTU-wise) biom file into phyloseq")
 ## both the OTU table and the taxonomic classification are available from the biom file (qiime 1.9)
