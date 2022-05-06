@@ -17,10 +17,11 @@ library("metagenomeSeq")
 ## PARAMETERS
 HOME <- Sys.getenv("HOME")
 prj_folder = file.path(HOME, "Documents/MILKQUA")
-fname = "dada2_etc/otu_table/otu_table_filtered.biom"
-conf_file = "dada2_etc/Config/mapping_milkqua_skinswabs.csv"
+analysis_folder = "Analysis/milkqua_skinswab/qiime1.9"
+fname = "5.filter_OTUs/otu_table_filtered.biom"
+conf_file = "Config/mapping_milkqua_skinswabs.csv"
 min_tot_counts = 500 ## minimum number of total counts per sample to be included in the analysis
-outdir = "results"
+outdir = file.path(analysis_folder, "6.normalize_OTU")
 
 repo = "milkqua_microbiome"
 source(file.path(prj_folder, repo, "r_scripts/dist2list.R")) ## from: https://github.com/vmikk/metagMisc/
@@ -29,7 +30,7 @@ source(file.path(prj_folder, repo, "r_scripts/phyloseq_transform.R")) ## from: h
 
 writeLines(" - reading the filtered (OTU-wise) biom file into phyloseq")
 ## both the OTU table and the taxonomic classification are available from the biom file (qiime 1.9)
-biom_otu_tax <- phyloseq::import_biom(BIOMfilename = file.path(prj_folder,fname))
+biom_otu_tax <- phyloseq::import_biom(BIOMfilename = file.path(prj_folder,analysis_folder,fname))
 
 writeLines(" - removing samples with too few total counts")
 biom_otu_tax = prune_samples(sample_sums(biom_otu_tax)>=min_tot_counts, biom_otu_tax)
@@ -68,20 +69,32 @@ sample_data(otu_tax_sample)
 
 # plot_bar(otu_tax_sample, "Class", fill="Kingdom") + facet_grid(timepoint~treatment)
 
+## making results folder
+if(!file.exists(file.path(prj_folder, analysis_folder, "results"))) dir.create(file.path(prj_folder, analysis_folder, "results"), showWarnings = FALSE)
+
 ## Alpha diversity
 ## alpha diversity is calculated on the original count data, not normalised 
 ## (see https://www.bioconductor.org/packages/devel/bioc/vignettes/phyloseq/inst/doc/phyloseq-FAQ.html#should-i-normalize-my-data-before-alpha-diversity-analysis)
 ## (see https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1003531)
 writeLines(" - calculate alpha diversity indices")
 alpha = estimate_richness(otu_tax_sample, split = TRUE)
-fwrite(x = alpha, file = file.path(prj_folder, outdir, "alpha.csv"))
+fwrite(x = alpha, file = file.path(prj_folder, analysis_folder, "results", "alpha.csv"))
 p <- plot_richness(otu_tax_sample, x="treatment", color="timepoint")
-ggsave(filename = file.path(prj_folder, outdir, "alpha_plot.png"), plot = p, device = "png", width = 11, height = 7)
+ggsave(filename = file.path(prj_folder, analysis_folder, "results", "alpha_plot.png"), plot = p, device = "png", width = 11, height = 7)
 
 ## Preprocessing: e.g. filtering
+## making normalization folder
+if(!file.exists(file.path(prj_folder, outdir))) dir.create(file.path(prj_folder, outdir), showWarnings = FALSE)
+
 writeLines(" - CSS normalization")
 otu_tax_sample_norm = phyloseq_transform_css(otu_tax_sample, norm = TRUE, log = FALSE)
-otu_css_norm = otu_table(otu_tax_sample_norm)
+otu_css_norm = base::as.data.frame(otu_table(otu_tax_sample_norm))
+otu_css_norm$tax_id = row.names(otu_css_norm)
+otu_css_norm <- relocate(otu_css_norm, tax_id)
+taxonomy = as.data.frame(tax_table(otu_tax_sample_norm))
+taxonomy$tax_id = row.names(taxonomy)
+taxonomy <- relocate(taxonomy, tax_id)
+otu_css_norm = otu_css_norm %>% inner_join(taxonomy, by = "tax_id")
 writeLines(" - writing out the CSS normalized OTU table")
 fwrite(x = otu_css_norm, file = file.path(prj_folder, outdir, "otu_norm_CSS.csv"))
 
