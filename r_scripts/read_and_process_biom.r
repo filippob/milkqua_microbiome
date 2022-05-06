@@ -116,20 +116,35 @@ plot_tree(biom1, color="treatment", label.tips="taxa_names", ladderize="left", p
 plot_tree(biom1, color="Genus", shape="treatment", size="abundance")
 
 
-## distances
+###############
+## distances ##
+###############
 writeLines(" - beta diversity: distance matrices")
 writeLines(" - available distance metrics")
 dist_methods <- unlist(distanceMethodList)
 print(dist_methods)
 
+## bray-curtis
 writeLines(" - calculate Bray-Curtis distances")
 distances = distance(otu_tax_sample_norm, method="bray", type = "samples")
 iMDS  <- ordinate(otu_tax_sample_norm, "MDS", distance=distances)
 p <- plot_ordination(otu_tax_sample_norm, iMDS, color="treatment", shape="timepoint")
-ggsave(filename = file.path(prj_folder, analysis_folder, "results", "mds_plot_beta.png"), plot = p, device = "png")
+ggsave(filename = file.path(prj_folder, analysis_folder, "results", "mds_plot_bray_curtis.png"), plot = p, device = "png")
 
 writeLines(" - write out distance matrix")
 dd = dist2list(distances, tri = FALSE)
 dx = spread(dd, key = "col", value = "value")
 fwrite(x = dx, file = file.path(prj_folder, analysis_folder, "results", "bray_curtis_distances.csv"))
+
+## euclidean
+writeLines(" - calculate Euclidean distances")
+distances = distance(otu_tax_sample_norm, method="euclidean", type = "samples")
+iMDS  <- ordinate(otu_tax_sample_norm, "MDS", distance=distances)
+p <- plot_ordination(otu_tax_sample_norm, iMDS, color="treatment", shape="timepoint")
+ggsave(filename = file.path(prj_folder, analysis_folder, "results", "mds_plot_euclidean.png"), plot = p, device = "png")
+
+writeLines(" - write out euclidean distance matrix")
+dd = dist2list(distances, tri = FALSE)
+dx = spread(dd, key = "col", value = "value")
+fwrite(x = dx, file = file.path(prj_folder, analysis_folder, "results", "euclidean_distances.csv"))
 
