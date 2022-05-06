@@ -16,16 +16,20 @@ library("metagenomeSeq")
 
 ## PARAMETERS
 HOME <- Sys.getenv("HOME")
-prj_folder = file.path(HOME, "Documents/MILKQUA")
-fname = "dada2_etc/otu_table/otu_table_filtered.biom"
-conf_file = "dada2_etc/Config/mapping_milkqua_skinswabs.csv"
+# prj_folder = file.path(HOME, "Documents/MILKQUA")
+# fname = "dada2_etc/otu_table/otu_table_filtered.biom"
+# conf_file = "dada2_etc/Config/mapping_milkqua_skinswabs.csv"
+prj_folder = file.path(HOME, "Results/SKINSWABS")
+fname = "otu_table_filtered.biom"
+conf_file = "mapping_milkqua_skinswabs.csv"
 min_tot_counts = 500 ## minimum number of total counts per sample to be included in the analysis
 outdir = "results"
 
 repo = "milkqua_microbiome"
-source(file.path(prj_folder, repo, "r_scripts/dist2list.R")) ## from: https://github.com/vmikk/metagMisc/
-source(file.path(prj_folder, repo, "r_scripts/phyloseq_transform.R")) ## from: https://github.com/vmikk/metagMisc/
-
+# source(file.path(prj_folder, repo, "r_scripts/dist2list.R")) ## from: https://github.com/vmikk/metagMisc/
+# source(file.path(prj_folder, repo, "r_scripts/phyloseq_transform.R")) ## from: https://github.com/vmikk/metagMisc/
+source(file.path(HOME, repo, "r_scripts/dist2list.R")) ## from: https://github.com/vmikk/metagMisc/
+source(file.path(HOME, repo, "r_scripts/phyloseq_transform.R")) ## from: https://github.com/vmikk/metagMisc/
 
 writeLines(" - reading the filtered (OTU-wise) biom file into phyloseq")
 ## both the OTU table and the taxonomic classification are available from the biom file (qiime 1.9)
@@ -83,6 +87,11 @@ writeLines(" - CSS normalization")
 otu_tax_sample_norm = phyloseq_transform_css(otu_tax_sample, norm = TRUE, log = FALSE)
 otu_css_norm = otu_table(otu_tax_sample_norm)
 writeLines(" - writing out the CSS normalized OTU table")
+#fwrite(x = otu_css_norm, file = file.path(prj_folder, outdir, "otu_norm_CSS.csv"))
+otu_css_norm=as.data.frame(otu_css_norm)
+tax_file = "otu_table_filtered.tsv"
+tax = fread(file.path(prj_folder, tax_file), skip = 1, header = TRUE)
+otu_css_norm <- cbind(otu_css_norm, tax$taxonomy)
 fwrite(x = otu_css_norm, file = file.path(prj_folder, outdir, "otu_norm_CSS.csv"))
 
 otu_relative = transform_sample_counts(otu_tax_sample, function(x) x/sum(x) )
