@@ -16,18 +16,18 @@ library("metagenomeSeq")
 
 ## PARAMETERS
 HOME <- Sys.getenv("HOME")
-prj_folder = file.path(HOME, "Documents/MILKQUA")
-analysis_folder = "Analysis/milkqua_skinswab/qiime1.9"
+prj_folder = file.path(HOME, "Documents/cremonesi")
+analysis_folder = "results"
 fname = "5.filter_OTUs/otu_table_filtered.biom"
-conf_file = "Config/mapping_milkqua_skinswabs.csv"
+conf_file = "Config/mapping_rossi_cani.csv"
 min_tot_counts = 500 ## minimum number of total counts per sample to be included in the analysis
 outdir = file.path(analysis_folder, "6.normalize_OTU")
 
-repo = "milkqua_microbiome"
+repo = file.path(HOME, "Documents/MILKQUA/milkqua_microbiome")
 # source(file.path(prj_folder, repo, "r_scripts/dist2list.R")) ## from: https://github.com/vmikk/metagMisc/
 # source(file.path(prj_folder, repo, "r_scripts/phyloseq_transform.R")) ## from: https://github.com/vmikk/metagMisc/
-source(file.path(prj_folder, repo, "r_scripts/support_functions/dist2list.R")) ## from: https://github.com/vmikk/metagMisc/
-source(file.path(prj_folder, repo, "r_scripts/support_functions/phyloseq_transform.R")) ## from: https://github.com/vmikk/metagMisc/
+source(file.path(repo, "r_scripts/support_functions/dist2list.R")) ## from: https://github.com/vmikk/metagMisc/
+source(file.path(repo, "r_scripts/support_functions/phyloseq_transform.R")) ## from: https://github.com/vmikk/metagMisc/
 
 writeLines(" - reading the filtered (OTU-wise) biom file into phyloseq")
 ## both the OTU table and the taxonomic classification are available from the biom file (qiime 1.9)
@@ -79,6 +79,8 @@ if(!file.exists(file.path(prj_folder, analysis_folder, "results"))) dir.create(f
 ## (see https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1003531)
 writeLines(" - calculate alpha diversity indices")
 alpha = estimate_richness(otu_tax_sample, split = TRUE)
+alpha$"sample-id" = row.names(alpha)
+alpha = relocate(alpha, `sample-id`)
 fwrite(x = alpha, file = file.path(prj_folder, analysis_folder, "results", "alpha.csv"))
 p <- plot_richness(otu_tax_sample, x="treatment", color="timepoint")
 ggsave(filename = file.path(prj_folder, analysis_folder, "results", "alpha_plot.png"), plot = p, device = "png", width = 11, height = 7)
