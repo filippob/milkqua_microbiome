@@ -92,6 +92,9 @@ otu_css_norm=as.data.frame(otu_css_norm)
 tax_file = "otu_table_filtered.tsv"
 tax = fread(file.path(prj_folder, tax_file), skip = 1, header = TRUE)
 otu_css_norm <- cbind(otu_css_norm, tax$taxonomy)
+names(otu_css_norm)[names(otu_css_norm) == "tax$taxonomy"] <- "taxonomy"
+otu_css_norm <- cbind(otu_css_norm, tax$`#OTU ID`)
+names(otu_css_norm)[names(otu_css_norm) == "tax$`#OTU ID`"] <- "#OTU ID"
 fwrite(x = otu_css_norm, file = file.path(prj_folder, outdir, "otu_norm_CSS.csv"))
 
 otu_relative = transform_sample_counts(otu_tax_sample, function(x) x/sum(x) )
