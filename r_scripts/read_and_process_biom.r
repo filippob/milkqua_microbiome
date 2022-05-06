@@ -98,6 +98,8 @@ if(!file.exists(file.path(prj_folder, outdir))) dir.create(file.path(prj_folder,
 
 writeLines(" - CSS normalization")
 otu_tax_sample_norm = phyloseq_transform_css(otu_tax_sample, norm = TRUE, log = FALSE)
+
+## add taxonomy to normalised counts
 otu_css_norm = base::as.data.frame(otu_table(otu_tax_sample_norm))
 otu_css_norm$tax_id = row.names(otu_css_norm)
 otu_css_norm <- relocate(otu_css_norm, tax_id)
@@ -105,17 +107,11 @@ taxonomy = as.data.frame(tax_table(otu_tax_sample_norm))
 taxonomy$tax_id = row.names(taxonomy)
 taxonomy <- relocate(taxonomy, tax_id)
 otu_css_norm = otu_css_norm %>% inner_join(taxonomy, by = "tax_id")
+
 writeLines(" - writing out the CSS normalized OTU table")
-#fwrite(x = otu_css_norm, file = file.path(prj_folder, outdir, "otu_norm_CSS.csv"))
-otu_css_norm=as.data.frame(otu_css_norm)
-tax_file = "otu_table_filtered.tsv"
-tax = fread(file.path(prj_folder, tax_file), skip = 1, header = TRUE)
-otu_css_norm <- cbind(otu_css_norm, tax$taxonomy)
-names(otu_css_norm)[names(otu_css_norm) == "tax$taxonomy"] <- "taxonomy"
-otu_css_norm <- cbind(otu_css_norm, tax$`#OTU ID`)
-names(otu_css_norm)[names(otu_css_norm) == "tax$`#OTU ID`"] <- "#OTU ID"
 fwrite(x = otu_css_norm, file = file.path(prj_folder, outdir, "otu_norm_CSS.csv"))
 
+## relative abundances
 otu_relative = transform_sample_counts(otu_tax_sample, function(x) x/sum(x) )
 otu_rel_filtered = filter_taxa(otu_relative, function(x) mean(x) > 5e-3, TRUE)
 nrow(otu_table(otu_rel_filtered))
