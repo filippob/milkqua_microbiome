@@ -16,17 +16,27 @@ library("metagenomeSeq")
 
 ## PARAMETERS
 HOME <- Sys.getenv("HOME")
+<<<<<<< HEAD
 prj_folder = file.path(HOME, "Documents/MILKQUA")
 analysis_folder = "Analysis/milkqua_skinswab/qiime1.9"
 fname = "5.filter_OTUs/otu_table_filtered.biom"
 conf_file = "Config/mapping_milkqua_skinswabs.csv"
+=======
+# prj_folder = file.path(HOME, "Documents/MILKQUA")
+# fname = "dada2_etc/otu_table/otu_table_filtered.biom"
+# conf_file = "dada2_etc/Config/mapping_milkqua_skinswabs.csv"
+prj_folder = file.path(HOME, "Results/SKINSWABS")
+fname = "otu_table_filtered.biom"
+conf_file = "mapping_milkqua_skinswabs.csv"
+>>>>>>> 818b2258f5d89dd5dfc57cf7e9128f5544547e35
 min_tot_counts = 500 ## minimum number of total counts per sample to be included in the analysis
 outdir = file.path(analysis_folder, "6.normalize_OTU")
 
 repo = "milkqua_microbiome"
-source(file.path(prj_folder, repo, "r_scripts/dist2list.R")) ## from: https://github.com/vmikk/metagMisc/
-source(file.path(prj_folder, repo, "r_scripts/phyloseq_transform.R")) ## from: https://github.com/vmikk/metagMisc/
-
+# source(file.path(prj_folder, repo, "r_scripts/dist2list.R")) ## from: https://github.com/vmikk/metagMisc/
+# source(file.path(prj_folder, repo, "r_scripts/phyloseq_transform.R")) ## from: https://github.com/vmikk/metagMisc/
+source(file.path(HOME, repo, "r_scripts/dist2list.R")) ## from: https://github.com/vmikk/metagMisc/
+source(file.path(HOME, repo, "r_scripts/phyloseq_transform.R")) ## from: https://github.com/vmikk/metagMisc/
 
 writeLines(" - reading the filtered (OTU-wise) biom file into phyloseq")
 ## both the OTU table and the taxonomic classification are available from the biom file (qiime 1.9)
@@ -96,6 +106,14 @@ taxonomy$tax_id = row.names(taxonomy)
 taxonomy <- relocate(taxonomy, tax_id)
 otu_css_norm = otu_css_norm %>% inner_join(taxonomy, by = "tax_id")
 writeLines(" - writing out the CSS normalized OTU table")
+#fwrite(x = otu_css_norm, file = file.path(prj_folder, outdir, "otu_norm_CSS.csv"))
+otu_css_norm=as.data.frame(otu_css_norm)
+tax_file = "otu_table_filtered.tsv"
+tax = fread(file.path(prj_folder, tax_file), skip = 1, header = TRUE)
+otu_css_norm <- cbind(otu_css_norm, tax$taxonomy)
+names(otu_css_norm)[names(otu_css_norm) == "tax$taxonomy"] <- "taxonomy"
+otu_css_norm <- cbind(otu_css_norm, tax$`#OTU ID`)
+names(otu_css_norm)[names(otu_css_norm) == "tax$`#OTU ID`"] <- "#OTU ID"
 fwrite(x = otu_css_norm, file = file.path(prj_folder, outdir, "otu_norm_CSS.csv"))
 
 otu_relative = transform_sample_counts(otu_tax_sample, function(x) x/sum(x) )
