@@ -16,19 +16,10 @@ library("metagenomeSeq")
 
 ## PARAMETERS
 HOME <- Sys.getenv("HOME")
-<<<<<<< HEAD
 prj_folder = file.path(HOME, "Documents/MILKQUA")
 analysis_folder = "Analysis/milkqua_skinswab/qiime1.9"
 fname = "5.filter_OTUs/otu_table_filtered.biom"
 conf_file = "Config/mapping_milkqua_skinswabs.csv"
-=======
-# prj_folder = file.path(HOME, "Documents/MILKQUA")
-# fname = "dada2_etc/otu_table/otu_table_filtered.biom"
-# conf_file = "dada2_etc/Config/mapping_milkqua_skinswabs.csv"
-prj_folder = file.path(HOME, "Results/SKINSWABS")
-fname = "otu_table_filtered.biom"
-conf_file = "mapping_milkqua_skinswabs.csv"
->>>>>>> 818b2258f5d89dd5dfc57cf7e9128f5544547e35
 min_tot_counts = 500 ## minimum number of total counts per sample to be included in the analysis
 outdir = file.path(analysis_folder, "6.normalize_OTU")
 
@@ -135,10 +126,10 @@ writeLines(" - calculate Bray-Curtis distances")
 distances = distance(otu_tax_sample_norm, method="bray", type = "samples")
 iMDS  <- ordinate(otu_tax_sample_norm, "MDS", distance=distances)
 p <- plot_ordination(otu_tax_sample_norm, iMDS, color="treatment", shape="timepoint")
-ggsave(filename = file.path(prj_folder, outdir, "mds_plot_beta.png"), plot = p, device = "png")
+ggsave(filename = file.path(prj_folder, analysis_folder, "results", "mds_plot_beta.png"), plot = p, device = "png")
 
 writeLines(" - write out distance matrix")
 dd = dist2list(distances, tri = FALSE)
 dx = spread(dd, key = "col", value = "value")
-fwrite(x = dx, file = file.path(prj_folder, outdir, "bray_curtis_distances.csv"))
+fwrite(x = dx, file = file.path(prj_folder, analysis_folder, "results", "bray_curtis_distances.csv"))
 
