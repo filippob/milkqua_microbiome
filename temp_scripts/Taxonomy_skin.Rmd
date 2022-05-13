@@ -209,7 +209,7 @@ mO$treatment <- factor(mO$treatment)
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 D_genus <- mO %>%
-  group_by(genus, treatment) %>%
+  ggroup_by(genus, treatment, `timepoint-symb`) %>%
   summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
   filter(avg_abund>0.005) %>%
   arrange(genus,avg_abund)
@@ -231,7 +231,7 @@ kable(D_genus)
 D_genus$treatment = factor(D_genus$treatment, levels = c("Control", "Treated"), ordered = TRUE)
 
 P <- ggplot(D_genus, aes(x=factor(1), y=avg_abund, fill=genus)) + geom_bar(width=1,stat="identity",position = "fill") + theme(legend.position='none')
-P <- P + facet_grid(~treatment)
+P <- P + facet_grid(`timepoint-symb`~treatment)
 #P <- P + coord_polar(theta='y', start=0) #activate this if you want a piechart
 P <- P + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
 P <- P + guides(fill = guide_legend(title = "Genus")) 
