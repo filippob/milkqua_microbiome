@@ -1,0 +1,4 @@
+This folder is meant to host temporary scripts (e.g. R Markdown ad hoc scripts)
+that are used for specific subanalysis and not recycled
+These scripts are outside of the pipelines and can be removed at any time withouth any harm
+
