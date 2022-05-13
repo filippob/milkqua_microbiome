@@ -26,15 +26,23 @@ library("dplyr")
 #COMPARISON BETWEEN TREATMENTS
 
 ```{r, echo=FALSE}
-metadata <- fread("/home/oem/Results/SKINSWABS/mapping_milkqua_skinswabs.csv")
+basedir="~/Documents/MILKQUA"
+fname = file.path(basedir,"Config/manifest_skinswab.csv")
+metadata <- fread(fname)
 names(metadata)[1] <- "sample"
+
+newt = c("T1","T2","T3")
+oldt = unique(metadata$timepoint)
+metadata$timepoint_recoded = newt[match(metadata$timepoint, oldt)]
+metadata <- rename(metadata, timepoint_orig = timepoint, timepoint = timepoint_recoded)
+
 metadata %>%
   group_by(timepoint,treatment) %>%
   dplyr::summarise(N=n())
 ```
 
 ```{r, echo=FALSE}
-otu <- fread("/home/oem/Results/SKINSWABS/results/otu_norm_CSS.csv")
+otu <- fread("../../Analysis/milkqua_skinswab/qiime1.9/6.normalize_OTU/otu_norm_CSS.csv")
 otu <- otu %>% select(order(colnames(otu)))
 # otu$taxonomy <- paste(otu$Kingdom,",",otu$Phylum,",",otu$Class,",",otu$Order,",", otu$Family,",",otu$Genus,",",otu$Species)
 otu$Phylum <- paste(otu$Kingdom, otu$Phylum, sep = ";")
@@ -112,7 +120,8 @@ otu_genus <- otu_genus[-c(1),]
 ```{r phyla average abundances, echo=FALSE}
 metadata <- metadata[-c(29),]
 metadata_cols = names(metadata)[c(1, 12,14)]
-otu_phylum <- cbind(otu_phylum, treatment=metadata$treatment, `timepoint-symb`=metadata$`timepoint-symb`, sample=metadata$sample)
+otu_phylum$sample = row.names(otu_phylum) 
+otu_phylum <- otu_phylum %>% inner_join(select(metadata, all_of(metadata_cols)), by="sample")
 
 mO <- reshape2::melt(otu_phylum,id.vars = metadata_cols, value.name = "counts", variable.name = "phylum")
 mO <- mO %>%
@@ -127,7 +136,7 @@ mO$counts <- as.numeric(mO$counts)
 mO$treatment <- factor(mO$treatment)
 
 D <- mO %>%
-  group_by(phylum, treatment, `timepoint-symb`) %>%
+  group_by(phylum, treatment, timepoint) %>%
   summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
   filter(avg_abund>0.005) %>%
   arrange(phylum,avg_abund)
