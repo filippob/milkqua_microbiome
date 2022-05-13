@@ -1,0 +1,126 @@
+---
+title: "Alpha_diversity_Skinswab"
+author: "Chiara Gini"
+date: "05/05/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+library("DT")
+library("knitr")
+library("dplyr")
+library("tidyr")
+library("broom")
+library("vegan")
+library("scales")
+library("ggplot2")
+#library("ggpubr")
+# library("madbito")
+library("reshape2")
+library("gghighlight")
+library("data.table")
+library("rmarkdown")
+library("ggrepel")
+library("tibble")
+library("ggplot2")
+```
+
+## Alpha diversity of SKINSWABs samples
+
+From 16S rRNA-gene sequencing of cow SKINSWABs microbiome samples:
+- 2 groups (Treated -milking grease and Thymus capitatus essential oil- vs Untreated -just milking grease-), 3 timepoints (before EO application -T0-, straight after EO application -T1-, 7 days after EO application -T3-)
+
+Total: 48 samples.
+
+Main alpha diversity indexes per group. 
+
+```{r alpha, echo=FALSE}
+metadata <- fread("/home/oem/Results/SKINSWABS/mapping_milkqua_skinswabs.csv")
+#names(metadata)[1] <- "sample"
+metadata = metadata[-29,] ##remove sample 29 because it had a bad reads quality and was dropped during alpha preparation (minimum reads was set 500, 29 had around 200)
+metadata <- tibble::rownames_to_column(metadata, "sample")
+
+alpha <- read.table("~/Results/SKINSWABS/results/alpha.csv", header = TRUE, sep = ",")
+alpha$sample.id <- row.names(alpha)
+alpha$observed_species <- NULL
+
+mAlpha <- reshape2::melt(alpha, id.vars = "sample.id", variable.name = "metric", value.name = "value")
+mAlpha$timepoint <- metadata$`timepoint-symb`[match(mAlpha$sample,metadata$sample)]
+mAlpha$treatment <- metadata$treatment[match(mAlpha$sample,metadata$sample)]
+```
+
+## Averages and plots
+
+```{r pressure, echo=FALSE}
+mAlpha$treatment <- factor(mAlpha$treatment, levels = c("Control","Treated"))
+D <- mAlpha %>%
+  group_by(metric,treatment) %>%
+  summarize(N=n(),avg=round(mean(value),3)) %>%
+  spread(key = metric, value = avg)
+
+d_alpha <- D %>%
+  gather(key = "metric", value = "value", -c(treatment,N)) %>%
+  spread(key = "treatment", value = "value")
+
+fwrite(d_alpha, file = "~/Results/SKINSWABS/results/alpha_SKINSWABS.csv", col.names = TRUE, sep = ",")
+kable(D)
+```
+
+### Boxplots of alpha diversity indexes
+
+#### Treatment by region
+
+```{r, echo=FALSE, fig.height=12, fig.width=12}
+mAlpha <- mAlpha %>% group_by(metric) %>%
+  mutate(scaled_value = rescale(value, to = c(0,100)))
+  
+p <- ggplot(mAlpha, aes(x=treatment,y=scaled_value)) 
+p <- p + geom_boxplot(aes(fill=treatment))
+p <- p + scale_fill_manual(values=c("green3", "orange"))
+p <- p + facet_wrap(~metric, scales = "free")
+p <- p + xlab("Treatment")
+p = p + theme(strip.text = element_text(size = 12),
+              axis.text.x = element_text(angle = 90, size = 8))
+p
+```
+
+## Testing for significance
+
+### Original alpha-diversity index-values - effect of timepoint in SKINSWABS samples
+
+```{r test_alpha, echo=FALSE}
+mAlpha$treatment = as.character(mAlpha$treatment)
+mAlpha$treatment = factor(mAlpha$treatment, levels = c("Control", "Treated"))
+D <- mAlpha %>%
+  group_by(metric) %>%
+  do(tidy(lm(value ~ treatment, data = .))) %>%
+  filter(term != "(Intercept)")
+
+datatable(D, options = list(pageLength=100)) %>% 
+  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+p <- ggplot(data = D, mapping= aes(x=term, y=p.value))
+p <- p + geom_point(aes(color = metric, stroke = 1.5), position=position_jitter(h=0, w=0.25))
+p <- p + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
+p <- p + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
+#p <- p + scale_fill_manual(values=c("green3", "orange", "blue", "red", "yellow", "gray", "rose"))
+p <- p + scale_y_continuous(breaks=pretty_breaks(n=20)) 
+#p <- p + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = TRUE)
+p <- p + coord_trans(y="log2")
+p <- p + theme(axis.text.x = element_text(angle = 90))
+p
+ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_tablewithdots_SKINSWABS.png", width = 4, height = 4, plot = p, device = "png")
+```
+
+```{r}
+#temp <- filter(mAlpha, metric == "chao1")
+# g = lm(value ~ treatment, data = temp)
+# class(g)
+fit = aov(value ~ treatment, data = mAlpha) ## linear model value = mu + treatment + e (y = mu + x + e)
+TukeyHSD(fit, "treatment", ordered = TRUE)
+```
+
