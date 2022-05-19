@@ -26,104 +26,109 @@ library("dplyr")
 #COMPARISON BETWEEN TREATMENTS
 
 ```{r, echo=FALSE}
-basedir="~/Documents/MILKQUA"
-fname = file.path(basedir,"Config/manifest_skinswab.csv")
-metadata <- fread(fname)
+# basedir="~/Documents/MILKQUA"
+# fname = file.path(basedir,"Config/manifest_skinswab.csv")
+# metadata <- fread(fname)
+# names(metadata)[1] <- "sample"
+# newt = c("T1","T2","T3")
+# oldt = unique(metadata$timepoint)
+# metadata$timepoint_recoded = newt[match(metadata$timepoint, oldt)]
+# metadata <- rename(metadata, timepoint_orig = timepoint, timepoint = timepoint_recoded)
+
+metadata <- fread("/home/oem/Results/SKINSWABS/mapping_milkqua_skinswabs.csv")
 names(metadata)[1] <- "sample"
-
-newt = c("T1","T2","T3")
-oldt = unique(metadata$timepoint)
-metadata$timepoint_recoded = newt[match(metadata$timepoint, oldt)]
-metadata <- rename(metadata, timepoint_orig = timepoint, timepoint = timepoint_recoded)
-
 metadata %>%
   group_by(timepoint,treatment) %>%
   dplyr::summarise(N=n())
 ```
 
 ```{r, echo=FALSE}
-otu <- fread("../../Analysis/milkqua_skinswab/qiime1.9/6.normalize_OTU/otu_norm_CSS.csv")
-otu <- otu %>% select(order(colnames(otu)))
-# otu$taxonomy <- paste(otu$Kingdom,",",otu$Phylum,",",otu$Class,",",otu$Order,",", otu$Family,",",otu$Genus,",",otu$Species)
-otu$Phylum <- paste(otu$Kingdom, otu$Phylum, sep = ";")
-otu$Class <- paste(otu$Phylum, otu$Class, sep = ";")
-otu$Order <- paste(otu$Class, otu$Order, sep = ";")
-otu$Family <- paste(otu$Order, otu$Family, sep = ";")
-otu$Genus <- paste(otu$Family, otu$Genus, sep = ";")
-#otu$Species <- paste(otu$Genus, otu$Species, sep = ";")
-otu$tax_id <- NULL
+otu <- fread("/home/oem/Results/SKINSWABS/results/otu_norm_CSS.csv")
+otu2 <- otu %>% select(order(colnames(otu)))
+# otu2$taxonomy <- paste(otu2$Kingdom,",",otu2$Phylum,",",otu2$Class,",",otu2$Order,",", otu2$Family,",",otu2$Genus,",",otu2$Species)
+otu2$Phylum <- paste(otu2$Kingdom, otu2$Phylum, sep = ";")
+otu2$Class <- paste(otu2$Phylum, otu2$Class, sep = ";")
+otu2$Order <- paste(otu2$Class, otu2$Order, sep = ";")
+otu2$Family <- paste(otu2$Order, otu2$Family, sep = ";")
+otu2$Genus <- paste(otu2$Genus, otu2$Species, sep = " ")
+otu2$Genus <- paste(otu2$Family, otu2$Genus, sep = ";")
+#otu2$Species <- paste(otu2$Genus, otu2$Species, sep = ";")
+otu2$tax_id <- NULL
 ```
 
 ###Taxa setup
 
 ```{r taxa setup, echo =FALSE}
-otu_tax =select(otu, -1:-6, -54)
-otu_tax <- otu_tax/colSums(otu_tax)
+otu2_tax =select(otu2, -1:-6, -54)
+otu2_tax <- otu2_tax/colSums(otu2_tax)
 
 ##Phyla
-otu_phylum <- cbind(otu_tax, otu$Phylum)
-colnames(otu_phylum)[48]<- "phyla"
-otu_phylum <- otu_phylum %>% group_by(phyla) %>% summarise_all(funs(sum))
-otu_phylum <- as.data.frame(t(otu_phylum))
-colnames(otu_phylum) <- otu_phylum[1,]
-otu_phylum <- otu_phylum[-c(1),]
-#otu_phylum <- cbind(otu_phylum, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
+otu2_phylum <- cbind(otu2_tax, otu2$Phylum)
+colnames(otu2_phylum)[48]<- "phyla"
+otu2_phylum <- otu2_phylum %>% group_by(phyla) %>% summarise_all(funs(sum))
+otu2_phylum <- as.data.frame(t(otu2_phylum))
+colnames(otu2_phylum) <- otu2_phylum[1,]
+otu2_phylum <- otu2_phylum[-c(1),]
+#otu2_phylum <- cbind(otu2_phylum, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
 
 ## Classes
-otu_Class <- cbind(otu_tax, otu$Class)
-colnames(otu_Class)[48]<- "phyla"
-otu_Class <- otu_Class %>% group_by(phyla) %>% summarise_all(funs(sum))
-otu_Class <- as.data.frame(t(otu_Class))
-colnames(otu_Class) <- otu_Class[1,]
-otu_Class <- otu_Class[-c(1),]
-#otu_Class <- cbind(otu_Class, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
+otu2_Class <- cbind(otu2_tax, otu2$Class)
+colnames(otu2_Class)[48]<- "phyla"
+otu2_Class <- otu2_Class %>% group_by(phyla) %>% summarise_all(funs(sum))
+otu2_Class <- as.data.frame(t(otu2_Class))
+colnames(otu2_Class) <- otu2_Class[1,]
+otu2_Class <- otu2_Class[-c(1),]
+#otu2_Class <- cbind(otu2_Class, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
 
 ## Families
-otu_Order <- cbind(otu_tax, otu$Order)
-colnames(otu_Order)[48]<- "phyla"
-otu_Order <- otu_Order %>% group_by(phyla) %>% summarise_all(funs(sum))
-otu_Order <- as.data.frame(t(otu_Order))
-colnames(otu_Order) <- otu_Order[1,]
-otu_Order <- otu_Order[-c(1),]
-#otu_Order <- cbind(otu_Order, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
+otu2_Order <- cbind(otu2_tax, otu2$Order)
+colnames(otu2_Order)[48]<- "phyla"
+otu2_Order <- otu2_Order %>% group_by(phyla) %>% summarise_all(funs(sum))
+otu2_Order <- as.data.frame(t(otu2_Order))
+colnames(otu2_Order) <- otu2_Order[1,]
+otu2_Order <- otu2_Order[-c(1),]
+#otu2_Order <- cbind(otu2_Order, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
 
 ## Families
-otu_Family <- cbind(otu_tax, otu$Family)
-colnames(otu_Family)[48]<- "phyla"
-otu_Family <- otu_Family %>% group_by(phyla) %>% summarise_all(funs(sum))
-otu_Family <- as.data.frame(t(otu_Family))
-colnames(otu_Family) <- otu_Family[1,]
-otu_Family <- otu_Family[-c(1),]
-#otu_Family <- cbind(otu_Family, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
+otu2_Family <- cbind(otu2_tax, otu2$Family)
+colnames(otu2_Family)[48]<- "phyla"
+otu2_Family <- otu2_Family %>% group_by(phyla) %>% summarise_all(funs(sum))
+otu2_Family <- as.data.frame(t(otu2_Family))
+colnames(otu2_Family) <- otu2_Family[1,]
+otu2_Family <- otu2_Family[-c(1),]
+#otu2_Family <- cbind(otu2_Family, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
 
 ## Genera
-otu_genus <- cbind(otu_tax, otu$Genus)
-colnames(otu_genus)[48]<- "phyla"
-otu_genus <- otu_genus %>% group_by(phyla) %>% summarise_all(funs(sum))
-otu_genus <- as.data.frame(t(otu_genus))
-colnames(otu_genus) <- otu_genus[1,]
-otu_genus <- otu_genus[-c(1),]
-#otu_genus <- cbind(otu_genus, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
+otu2_genus <- cbind(otu2_tax, otu2$Genus)
+colnames(otu2_genus)[48]<- "phyla"
+otu2_genus <- otu2_genus %>% group_by(phyla) %>% summarise_all(funs(sum))
+otu2_genus <- as.data.frame(t(otu2_genus))
+colnames(otu2_genus) <- otu2_genus[1,]
+otu2_genus <- otu2_genus[-c(1),]
+#otu2_genus <- cbind(otu2_genus, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
 
 # ##Species
-# otu_Species <- cbind(otu_tax, otu$Species)
-# colnames(otu_Species)[48]<- "phyla"
-# otu_Species <- otu_Species %>% group_by(phyla) %>% summarise_all(funs(sum))
-# otu_Species <- as.data.frame(t(otu_Species))
-# colnames(otu_Species) <- otu_Species[1,]
-# otu_Species <- otu_Species[-c(1),]
-# #otu_Species <- cbind(otu_Species, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
+# otu2_Species <- cbind(otu2_tax, otu2$Species)
+# colnames(otu2_Species)[48]<- "phyla"
+# otu2_Species <- otu2_Species %>% group_by(phyla) %>% summarise_all(funs(sum))
+# otu2_Species <- as.data.frame(t(otu2_Species))
+# colnames(otu2_Species) <- otu2_Species[1,]
+# otu2_Species <- otu2_Species[-c(1),]
+# #otu2_Species <- cbind(otu2_Species, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
 ```
 
-###Phyla
+###Overall Phyla
 
 ```{r phyla average abundances, echo=FALSE}
 metadata <- metadata[-c(29),]
 metadata_cols = names(metadata)[c(1, 12,14)]
-otu_phylum$sample = row.names(otu_phylum) 
-otu_phylum <- otu_phylum %>% inner_join(select(metadata, all_of(metadata_cols)), by="sample")
+otu2_phylum <- cbind(otu2_phylum, treatment=metadata$treatment, `timepoint-symb`=metadata$`timepoint-symb`, sample=metadata$sample)
+#ALTERNATIVE
+# otu2_phylum$sample = row.names(otu2_phylum) 
+# otu2_phylum <- otu2_phylum %>% inner_join(select(metadata, all_of(metadata_cols)), by="sample")
 
-mO <- reshape2::melt(otu_phylum,id.vars = metadata_cols, value.name = "counts", variable.name = "phylum")
+
+mO <- reshape2::melt(otu2_phylum,id.vars = metadata_cols, value.name = "counts", variable.name = "phylum")
 mO <- mO %>%
   arrange(treatment)
 
@@ -136,7 +141,75 @@ mO$counts <- as.numeric(mO$counts)
 mO$treatment <- factor(mO$treatment)
 
 D <- mO %>%
-  group_by(phylum, treatment, timepoint) %>%
+  group_by(phylum) %>%
+  summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
+  filter(avg_abund>0.005) %>%
+  arrange(phylum,avg_abund)  %>%
+  mutate(taxa = ifelse(relative_cnts > 0.01, taxa, "other"))
+
+phylum <- D %>%
+  group_by(phylum) %>%
+  summarize("s"=sum(avg_abund)) %>%
+  arrange(desc(s)) %>%
+  dplyr::select(phylum,s)
+
+D$phylum <- factor(D$phylum, levels = rev(phylum$phylum[order(phylum$s)]))
+D <- D %>%
+  arrange(phylum)
+
+kable(D)
+```
+
+```{r plot overall phyla, echo=FALSE}
+Pphyla <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=phylum)) + geom_bar(width=1,stat="identity", position = "fill")
+#Pphyla <- Pphyla + facet_grid(`timepoint-symb`~treatment)
+Pphyla <- Pphyla + coord_polar(theta='y', start=0) #activate this if you want a piechart
+Pphyla <- Pphyla + geom_label_repel(aes(label = paste0(avg_abund*100, "%"), force=10))
+Pphyla <- Pphyla + guides(fill = guide_legend(title = "Phyla")) 
+my_palette = get_palette(c("green3","yellow","blue","magenta","cyan","yellow","red","purple","brown", "darkorange1","pink1", "darkorchid1", "seagreen2"), length(unique(D$phylum)))
+Pphyla <- Pphyla + xlab("relative abundances") + ylab("percentages")
+Pphyla <- Pphyla + scale_fill_manual(values = my_palette)
+Pphyla <- Pphyla + theme(text = element_text(size=12),
+                axis.text.x = element_text(size=8),
+               # # # axis.text.y = element_text(size=4),
+               # strip.text = element_text(size = 10),
+               axis.text.y = element_blank(),
+               axis.ticks.y = element_blank(),
+               legend.text=element_text(size=8),
+               legend.title=element_text(size=8)
+)
+print(Pphyla)
+ggsave(Pphyla, height = 8, width = 5, filename ="~/Results/SKINSWABS/results/taxonomy_overall_phylum_piechart_skinswab_tot.png")
+
+D %>% group_by(phylum) %>% summarise(treatment=n())
+D %>% group_by(treatment) %>% summarise(phylum=n())
+```
+
+###Phyla
+
+```{r phyla average abundances, echo=FALSE}
+metadata <- metadata[-c(29),]
+metadata_cols = names(metadata)[c(1, 12,14)]
+otu2_phylum <- cbind(otu2_phylum, treatment=metadata$treatment, `timepoint-symb`=metadata$`timepoint-symb`, sample=metadata$sample)
+#ALTERNATIVE
+# otu2_phylum$sample = row.names(otu2_phylum) 
+# otu2_phylum <- otu2_phylum %>% inner_join(select(metadata, all_of(metadata_cols)), by="sample")
+
+
+mO <- reshape2::melt(otu2_phylum,id.vars = metadata_cols, value.name = "counts", variable.name = "phylum")
+mO <- mO %>%
+  arrange(treatment)
+
+ordered_samples <- metadata %>%
+  arrange(metadata$treatment) %>%
+  dplyr::select(treatment,sample)
+
+mO$sample <- factor(mO$sample, levels = ordered_samples$sample)
+mO$counts <- as.numeric(mO$counts)
+mO$treatment <- factor(mO$treatment)
+
+D <- mO %>%
+  group_by(phylum, treatment, `timepoint-symb`) %>%
   summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
   filter(avg_abund>0.005) %>%
   arrange(phylum,avg_abund)
@@ -162,7 +235,7 @@ p <- p + ylab("sample")
 p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1),axis.text.y = element_text(size=9))
 p <- p + scale_fill_gradient2(low="red",high = "blue")
 p
-#ggsave (p, height = 10, width = 20, filename = "taxonomy_count_rumen.png")
+#ggsave (p, height = 10, width = 20, filename = "taxonomy_count_skinswabs.png")
 ```
 
 
@@ -170,24 +243,24 @@ p
 D$treatment = factor(D$treatment, levels = c("Control", "Treated"), ordered = TRUE)
 
 Pphyla <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=phylum)) + geom_bar(width=1,stat="identity", position = "fill")
-Pphyla <- Pphyla + facet_grid(`timepoint-symb`~treatment)
-#Pphyla <- Pphyla + coord_polar(theta='y', start=0) #activate this if you want a piechart
-Pphyla <- Pphyla + geom_label_repel(aes(label = paste0(avg_abund*100, "%")))
+#Pphyla <- Pphyla + facet_grid(`timepoint-symb`~treatment)
+Pphyla <- Pphyla + coord_polar(theta='y', start=0) #activate this if you want a piechart
+Pphyla <- Pphyla + geom_label_repel(aes(label = paste0(avg_abund*100, "%"), force=10))
 Pphyla <- Pphyla + guides(fill = guide_legend(title = "Phyla")) 
 my_palette = get_palette(c("green3","yellow","blue","magenta","cyan","yellow","red","purple","brown", "darkorange1","pink1", "darkorchid1", "seagreen2"), length(unique(D$phylum)))
 Pphyla <- Pphyla + xlab("relative abundances") + ylab("percentages")
 Pphyla <- Pphyla + scale_fill_manual(values = my_palette)
-Pphyla <- Pphyla + theme(text = element_text(size=10),
-               axis.text.x = element_text(size=8),
-               # axis.text.y = element_text(size=4),
-               strip.text = element_text(size = 8),
+Pphyla <- Pphyla + theme(text = element_text(size=12),
+                axis.text.x = element_text(size=8),
+               # # # axis.text.y = element_text(size=4),
+               # strip.text = element_text(size = 10),
                axis.text.y = element_blank(),
                axis.ticks.y = element_blank(),
-               legend.text=element_text(size=10),
-               legend.title=element_text(size=10))
-
+               legend.text=element_text(size=8),
+               legend.title=element_text(size=8)
+)
 print(Pphyla)
-ggsave(Pphyla, height = 5, width = 5, filename ="~/Results/SKINSWABS/results/taxonomy_phylum_boxplot_skinswab_tot.png")
+ggsave(Pphyla, height = 8, width = 5, filename ="~/Results/SKINSWABS/results/taxonomy_phylum_boxplot_skinswab_tot.png")
 
 D %>% group_by(phylum) %>% summarise(treatment=n())
 D %>% group_by(treatment) %>% summarise(phylum=n())
@@ -201,9 +274,9 @@ TukeyHSD(fit, "treatment", ordered = TRUE)
 ### Genera
 
 ```{r, echo=FALSE}
-otu_genus <- cbind(otu_genus, treatment=metadata$treatment, `timepoint-symb`=metadata$`timepoint-symb`, sample=metadata$sample)
+otu2_genus <- cbind(otu2_genus, treatment=metadata$treatment, `timepoint-symb`=metadata$`timepoint-symb`, sample=metadata$sample)
 
-mO <- reshape2::melt(otu_genus,id.vars = metadata_cols, value.name = "counts", variable.name = "genus")
+mO <- reshape2::melt(otu2_genus,id.vars = metadata_cols, value.name = "counts", variable.name = "genus")
 mO <- mO %>%
   arrange(treatment)
 
@@ -218,9 +291,9 @@ mO$treatment <- factor(mO$treatment)
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 D_genus <- mO %>%
-  ggroup_by(genus, treatment, `timepoint-symb`) %>%
+  group_by(genus, treatment, `timepoint-symb`) %>%
   summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
-  filter(avg_abund>0.005) %>%
+  filter(avg_abund>0.005) %>% #it was 0.005 before
   arrange(genus,avg_abund)
 
 genus <- D_genus %>%
@@ -238,27 +311,26 @@ kable(D_genus)
 
 ```{r}
 D_genus$treatment = factor(D_genus$treatment, levels = c("Control", "Treated"), ordered = TRUE)
+D_genus$genus <- gsub(".*;","", D_genus$genus)
 
-P <- ggplot(D_genus, aes(x=factor(1), y=avg_abund, fill=genus)) + geom_bar(width=1,stat="identity",position = "fill") + theme(legend.position='none')
+P <- ggplot(D_genus, aes(x=factor(1), y=avg_abund, fill=genus)) + geom_bar(width=1,stat="identity",position = "fill")
 P <- P + facet_grid(`timepoint-symb`~treatment)
 #P <- P + coord_polar(theta='y', start=0) #activate this if you want a piechart
-P <- P + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
+#P <- P + geom_label_repel(aes(label = paste0(avg_abund*100, "%")),position=position_stack (vjust=0.5), size=5)
 P <- P + guides(fill = guide_legend(title = "Genus")) 
 my_palette = get_palette(c("green3", "darksalmon", "gold","blue","magenta","cyan","yellow","red","gray","purple","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2", "blueviolet", "darkseagreen3", "gold4", "gainsboro", "cyan3", "bisque", "black", "antiquewhite3"), length(unique(D_genus$genus)))
 P <- P + scale_fill_manual(values = my_palette)
-P <- P + xlab("Relative abundances") + ylab("percentages")
-P <- P + theme(legend.position = "bottom",
-               text = element_text(size=15),
-               axis.text.x = element_text(size=10),
-               # axis.text.y = element_text(size=4),
-               strip.text = element_text(size = 10),
-               axis.text.y = element_blank(),
-               axis.ticks.y = element_blank(),
-               legend.text=element_text(size=15),
-               legend.title=element_text(size=15))
-
+P <- P + xlab("Relative abundances") + ylab("Percentages")
+P <- P + theme(text = element_text(size=15),
+                 axis.text.x = element_text(size=20),
+#                # axis.text.y = element_text(size=4),
+                 strip.text = element_text(size = 20),
+                 axis.text.y = element_blank(),
+                 axis.ticks.y = element_blank(),
+                 legend.text=element_text(size=15),
+                 legend.title=element_text(size=15))
 print(P)
-ggsave(P, height = 12, width = 20, filename ="~/Results/SKINSWABS/results/taxonomy_genus_boxplot_skinswab_tot.png")
+ggsave(P, height = 15, width = 30, filename ="~/Results/SKINSWABS/results/taxonomy_genus_boxplot_skinswab_tot.png")
 
 D_genus %>% group_by(genus) %>% summarise(treatment=n())
 D_genus %>% group_by(treatment) %>% summarise(genus=n())
@@ -279,26 +351,26 @@ TukeyHSD(fit, "treatment", ordered = TRUE)
 ###Relative abundances table
 
 ```{r relative abundances total table}
-otu_genus = subset(otu_genus, select = -c(`timepoint-symb`, treatment, sample))
-otu_phylum = subset(otu_phylum, select = -c(`timepoint-symb`, treatment, sample))
+otu2_genus = subset(otu2_genus, select = -c(`timepoint-symb`, treatment, sample))
+otu2_phylum = subset(otu2_phylum, select = -c(`timepoint-symb`, treatment, sample))
 
-otu_tot <- cbind(otu_phylum, otu_Class, otu_Order, otu_Family, otu_genus) #, otu_Species
-taxa_names <- colnames(otu_tot)
-sample_names <- row.names(otu_tot)
-#otu_tot <- transpose(otu_tot)
-otu_tot <- as.data.frame(t(otu_tot))
-colnames(otu_tot) <- sample_names
+otu2_tot <- cbind(otu2_phylum, otu2_Class, otu2_Order, otu2_Family, otu2_genus) #, otu2_Species
+taxa_names <- colnames(otu2_tot)
+sample_names <- row.names(otu2_tot)
+#otu2_tot <- transpose(otu2_tot)
+otu2_tot <- as.data.frame(t(otu2_tot))
+colnames(otu2_tot) <- sample_names
 taxa_names <- as.data.frame(taxa_names)
-otu_tot$`#OTU ID` <- cbind(taxa_names$taxa_names)
-otu_tot <- otu_tot %>% dplyr::select(`#OTU ID`, everything())
+otu2_tot$`#otu2 ID` <- cbind(taxa_names$taxa_names)
+otu2_tot <- otu2_tot %>% dplyr::select(`#otu2 ID`, everything())
 
-otu_tot <- gather(otu_tot, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
+otu2_tot <- gather(otu2_tot, key = "sample", value ="counts", -`#otu2 ID`) %>% spread(key = `#otu2 ID`, value = counts)
 
-otu_tot$treatment = metadata$treatment[match(otu_tot$sample,metadata$sample)]
-otu_tot$`timepoint-symb`= metadata$`timepoint-symb`[match(otu_tot$sample,metadata$sample)]
-otu <- filter(otu_tot, sample %in% metadata$sample)
+otu2_tot$treatment = metadata$treatment[match(otu2_tot$sample,metadata$sample)]
+otu2_tot$`timepoint-symb`= metadata$`timepoint-symb`[match(otu2_tot$sample,metadata$sample)]
+otu2 <- filter(otu2_tot, sample %in% metadata$sample)
 
-mO <- reshape2::melt(otu,id.vars = metadata_cols, value.name = "counts", variable.name = "taxa")
+mO <- reshape2::melt(otu2,id.vars = metadata_cols, value.name = "counts", variable.name = "taxa")
 
 mO$level <- sapply(mO$taxa, function(x) length(strsplit(as.character(x),";")[[1]]) ) 
 
@@ -323,7 +395,7 @@ mO$new_taxa <- new_taxa
 
 table(mO$level)
 neues <- c("phylum","class","order","family","genus") #,"species"
-altes <- seq(2,6) #2,6 if we want to include species
+altes <- seq(2,6) #2,7 if we want to include species
 mO$level <- neues[match(mO$level,altes)]
 
 ## relative abundances
@@ -463,7 +535,7 @@ p <- p + theme(axis.text.x = element_text(size=8))
 p <- p + theme_bw()
 p <- p + xlab("timepoint-symb`") + ylab("average abundances")
 p
-ggsave (p, height = 13, width = 8, filename = "~/Results/SKINSWABS/results/taxonomy_bubbleplot_rumen.png")
+ggsave (p, height = 13, width = 8, filename = "~/Results/SKINSWABS/results/taxonomy_bubbleplot_skinswabs.png")
 ```
 
 ### Significance of treatments (+ timepoint-symb)
@@ -551,7 +623,7 @@ D0 <- to_save[[3]]
 
 dd <- spread(D0, key = treatment, value = avg_counts)
 temp <- inner_join(DX,dd, by = c("level" = "level", "new_taxa" = "new_taxa", "timepoint-symb"="timepoint-symb"))
-fwrite(temp, file = "skinswabs_significant_otus.csv", col.names = TRUE, sep = ",")
+fwrite(temp, file = "skinswabs_significant_otu2s.csv", col.names = TRUE, sep = ",")
 print (dd)
 ```
 
@@ -610,25 +682,29 @@ q <- q + guides(fill=FALSE) + theme(
 )
 q <- q + xlab("") 
 q
-#ggsave(filename = "~/Results/SKINSWABS/results/heatmap_pvalue_rumen.png", plot = q, device = "png", width = 6, height = 6)
-
+#ggsave(filename = "~/Results/SKINSWABS/results/heatmap_pvalue_skinswabs.png", plot = q, device = "png", width = 6, height = 6)
 
 figure_final <- ggarrange(q, p, widths=c(0.1, 0.1), labels=c("A", "B"), legend = "bottom")
 
 print(figure_final)
-ggsave(filename = "~/Results/SKINSWABS/results/heatmap_rumen.png", plot = figure_final, device = "png", width = 15, height = 12)
+ggsave(filename = "~/Results/SKINSWABS/results/heatmap_skinswabs.png", plot = figure_final, device = "png", width = 15, height = 12)
 ```
 
-### Extracting estimated coefficients for "significant" OTUs
+### Extracting estimated coefficients for "significant" otu2s
 
 ```{r}
-res = data.frame("level"=NULL, "OTU"=NULL, "p_value"=NULL, "Control"=NULL,"Treated"=NULL)
+res = data.frame("level"=NULL, "otu"=NULL, "p_value"=NULL, "Control"=NULL,"Treated"=NULL)
 
-for (name in DX$new_taxa) {
+DX1 <- DX[-c(1:53),]
+DX1$new_taxa <- paste(DX1$new_taxa, "- T", DX1$`timepoint-symb`)
+m1$new_taxa <- paste(m1$new_taxa, "- T", m1$`timepoint-symb`)
+
+for (name in DX1$new_taxa) {
   
-  print(paste("analysing OTU ", name))
-  pval = as.numeric(DX[DX$new_taxa==name,"p.value"])
-  level = DX[DX$new_taxa==name,"level"]
+  print(paste("analysing otu ", name))
+  pval = DX1[DX1$new_taxa==name,"p.value"]
+  level = DX1[DX1$new_taxa==name,"level"]
+  timepoint = DX1[DX1$new_taxa==name, "timepoint-symb"]
   
   ## estimating coefficients
   temp = filter(m1, new_taxa == name)
@@ -643,12 +719,24 @@ for (name in DX$new_taxa) {
   
   ## adding metadata
   coefs["level"] = level
-  coefs["OTU"] = name
+  coefs["otu"] = name
   coefs["p_value"] = pval
+  coefs["timepoint"] = timepoint
 
   # saving results
   res = rbind.data.frame(res, coefs)
 }
+write.csv(res, "~/Results/SKINSWABS/results/res.csv")
+```
 
-write.csv(res, "~/Results/SKINSWABS/results/res.csv", sep = ",")
+```{r}
+p <- ggplot(res, aes(x=otu,y=Treated)) 
+p <- p + geom_point(aes(colour=factor(timepoint), shape=factor(timepoint)), size=3)
+p <- p + scale_fill_manual(values=c("green3", "orange", "blue"))
+p <- p + xlab("Genera with significant variation between treatment and control") + ylab("p-value") + labs(colour="Timepoints", shape="Timepoints")
+p <- p + coord_flip() + ylim(-0.0081, 0.00669)
+p <- p + geom_hline(yintercept=0, linetype="solid", color = "black", size=0.2)
+p = p + theme(strip.text = element_text(size = 4),
+              axis.text.x = element_text(angle = 90, size = 4, hjust=0.95,vjust=0.2))
+ggsave(filename = "~/Results/SKINSWABS/results/dotplot_skinswabs.png", plot = p, device = "png", width = 10, height = 10)
 ```
