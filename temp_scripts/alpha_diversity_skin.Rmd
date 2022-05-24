@@ -64,7 +64,7 @@ d_alpha <- D %>%
   gather(key = "metric", value = "value", -c(treatment,N)) %>%
   spread(key = "treatment", value = "value")
 
-fwrite(d_alpha, file = "~/Results/SKINSWABS/results/alpha_SKINSWABS.csv", col.names = TRUE, sep = ",")
+# fwrite(d_alpha, file = "~/Results/SKINSWABS/results/alpha_SKINSWABS.csv", col.names = TRUE, sep = ",")
 kable(D)
 ```
 
@@ -116,7 +116,7 @@ p <- p + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = TRUE
 p <- p + coord_trans(y="log2")
 p <- p + theme(axis.text.x = element_text(angle = 90))
 p
-ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_tablewithdots_SKINSWABS.png", width = 7, height = 7, plot = p, device = "png")
+#ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_tablewithdots_SKINSWABS.png", width = 7, height = 7, plot = p, device = "png")
 ```
 
 ```{r}
@@ -170,6 +170,8 @@ D <- M %>%
   spread(key = metric, value = avg)
 
 kable(D)
+
+fwrite(D, file = "~/Results/SKINSWABS/results/alpha_SKINSWABS.csv", col.names = TRUE, sep = ",")
 ```
 
 
@@ -207,5 +209,5 @@ p <- p + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALS
 p <- p + coord_trans(y="log2")
 p
 
-ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_tablewithdots_correctedforbaseline_Skinswabs.png", width = 8, height = 8, plot = p, device = "png")
+ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_tablewithdots_correctedforbaseline_Skinswabs.png", width = 6, height = 6, plot = p, device = "png")
 ```
