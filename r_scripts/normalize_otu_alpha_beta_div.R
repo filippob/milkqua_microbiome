@@ -16,14 +16,14 @@ library("metagenomeSeq")
 
 ## PARAMETERS
 HOME <- Sys.getenv("HOME")
-prj_folder = file.path(HOME, "Documents/cremonesi")
-analysis_folder = "results"
-fname = "5.filter_OTUs/otu_table_filtered.biom"
-conf_file = "Config/mapping_rossi_cani.csv"
+prj_folder = file.path(HOME, "Results")
+analysis_folder = "SKINSWABS"
+fname = "otu_table_filtered.biom"
+conf_file = "mapping_milkqua_skinswabs.csv"
 min_tot_counts = 500 ## minimum number of total counts per sample to be included in the analysis
-outdir = file.path(analysis_folder, "6.normalize_OTU")
+outdir = file.path(analysis_folder)
 
-repo = file.path(HOME, "Documents/MILKQUA/milkqua_microbiome")
+repo = file.path(HOME, "milkqua_microbiome")
 # source(file.path(prj_folder, repo, "r_scripts/dist2list.R")) ## from: https://github.com/vmikk/metagMisc/
 # source(file.path(prj_folder, repo, "r_scripts/phyloseq_transform.R")) ## from: https://github.com/vmikk/metagMisc/
 source(file.path(repo, "r_scripts/support_functions/dist2list.R")) ## from: https://github.com/vmikk/metagMisc/
@@ -51,7 +51,7 @@ print(head(taxa))
 
 ## metadata
 writeLines(" - reading the metadata")
-metadata = fread(file.path(prj_folder,conf_file))
+metadata = fread(file.path(prj_folder, analysis_folder,conf_file))
 names(metadata)[1] <- "sample-id"
 if(is.numeric(metadata$`sample-id`)) metadata$`sample-id` = paste("sample",metadata$`sample-id`,sep="-")
 metadata <- as.data.frame(metadata)
@@ -73,6 +73,9 @@ sample_data(otu_tax_sample)
 ## making results folder
 if(!file.exists(file.path(prj_folder, analysis_folder, "results"))) dir.create(file.path(prj_folder, analysis_folder, "results"), showWarnings = FALSE)
 
+## making figures folder
+if(!file.exists(file.path(prj_folder, analysis_folder, "results", "figures"))) dir.create(file.path(prj_folder, analysis_folder, "results", "figures"), showWarnings = FALSE)
+
 ## Alpha diversity
 ## alpha diversity is calculated on the original count data, not normalised 
 ## (see https://www.bioconductor.org/packages/devel/bioc/vignettes/phyloseq/inst/doc/phyloseq-FAQ.html#should-i-normalize-my-data-before-alpha-diversity-analysis)
@@ -83,7 +86,7 @@ alpha$"sample-id" = row.names(alpha)
 alpha = relocate(alpha, `sample-id`)
 fwrite(x = alpha, file = file.path(prj_folder, analysis_folder, "results", "alpha.csv"))
 p <- plot_richness(otu_tax_sample, x="treatment", color="timepoint")
-ggsave(filename = file.path(prj_folder, analysis_folder, "results", "alpha_plot.png"), plot = p, device = "png", width = 11, height = 7)
+ggsave(filename = file.path(prj_folder, analysis_folder, "results","figures", "alpha_plot.png"), plot = p, device = "png", width = 11, height = 7)
 
 ## Preprocessing: e.g. filtering
 ## making normalization folder
@@ -102,7 +105,7 @@ taxonomy <- relocate(taxonomy, tax_id)
 otu_css_norm = otu_css_norm %>% inner_join(taxonomy, by = "tax_id")
 
 writeLines(" - writing out the CSS normalized OTU table")
-fwrite(x = otu_css_norm, file = file.path(prj_folder, outdir, "otu_norm_CSS.csv"))
+fwrite(x = otu_css_norm, file = file.path(prj_folder, outdir, "results", "otu_norm_CSS.csv"))
 
 ## relative abundances
 otu_relative = transform_sample_counts(otu_tax_sample, function(x) x/sum(x) )
@@ -131,7 +134,7 @@ writeLines(" - calculate Bray-Curtis distances")
 distances = distance(otu_tax_sample_norm, method="bray", type = "samples")
 iMDS  <- ordinate(otu_tax_sample_norm, "MDS", distance=distances)
 p <- plot_ordination(otu_tax_sample_norm, iMDS, color="treatment", shape="timepoint")
-ggsave(filename = file.path(prj_folder, analysis_folder, "results", "mds_plot_bray_curtis.png"), plot = p, device = "png")
+ggsave(filename = file.path(prj_folder, analysis_folder, "results", "figures","mds_plot_bray_curtis.png"), plot = p, device = "png")
 
 writeLines(" - write out distance matrix")
 dd = dist2list(distances, tri = FALSE)
@@ -143,7 +146,7 @@ writeLines(" - calculate Euclidean distances")
 distances = distance(otu_tax_sample_norm, method="euclidean", type = "samples")
 iMDS  <- ordinate(otu_tax_sample_norm, "MDS", distance=distances)
 p <- plot_ordination(otu_tax_sample_norm, iMDS, color="treatment", shape="timepoint")
-ggsave(filename = file.path(prj_folder, analysis_folder, "results", "mds_plot_euclidean.png"), plot = p, device = "png")
+ggsave(filename = file.path(prj_folder, analysis_folder, "results","figures", "mds_plot_euclidean.png"), plot = p, device = "png")
 
 writeLines(" - write out euclidean distance matrix")
 dd = dist2list(distances, tri = FALSE)
@@ -161,7 +164,7 @@ writeLines(" - calculate Unifrac distances")
 distances = distance(otu_norm_tree, method="unifrac", type = "samples")
 iMDS  <- ordinate(otu_norm_tree, "MDS", distance=distances)
 p <- plot_ordination(biom1, iMDS, color="treatment", shape="timepoint")
-ggsave(filename = file.path(prj_folder, analysis_folder, "results", "mds_plot_unifrac.png"), plot = p, device = "png")
+ggsave(filename = file.path(prj_folder, analysis_folder, "results", "figures", "figures","mds_plot_unifrac.png"), plot = p, device = "png")
 
 writeLines(" - write out Unifrac distance matrix")
 dd = dist2list(distances, tri = FALSE)
@@ -173,7 +176,7 @@ writeLines(" - calculate weighted Unifrac distances")
 distances = distance(otu_norm_tree, method="wunifrac", type = "samples")
 iMDS  <- ordinate(otu_norm_tree, "MDS", distance=distances)
 p <- plot_ordination(biom1, iMDS, color="treatment", shape="timepoint")
-ggsave(filename = file.path(prj_folder, analysis_folder, "results", "mds_plot_weighted_unifrac.png"), plot = p, device = "png")
+ggsave(filename = file.path(prj_folder, analysis_folder, "results", "figures","mds_plot_weighted_unifrac.png"), plot = p, device = "png")
 
 writeLines(" - write out weighted Unifrac distance matrix")
 dd = dist2list(distances, tri = FALSE)
