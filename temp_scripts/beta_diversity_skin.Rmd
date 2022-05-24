@@ -68,6 +68,12 @@ p2 <- autoplot(prcomp(1-matx0), data=mat_skinswab_1, colour = "treatment", label
 p2
 ggsave("~/Results/SKINSWABS/results/clustering_by_treatment_PCA_skinswab.png")
 ```
+```{r}
+figure_final <- ggarrange(p1, p2, widths=c(1, 1), labels=c("A", "B"), legend = "bottom")
+print(figure_final)
+ggsave("~/Results/SKINSWABS/results/clustering_merged_PCA_skinswab.png", plot = figure_final, width = 8, height = 4)
+```
+
 
 Clustering by treatment (PCA): by timepoints 
 
