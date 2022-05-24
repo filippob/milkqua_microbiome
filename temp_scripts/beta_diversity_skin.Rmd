@@ -81,7 +81,7 @@ matxTP= data.matrix(select(mat_skinswab_1, -c(treatment,timepoint)))
 
 p2 <- autoplot(prcomp(1-matx0), data=mat_skinswab_1, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
 p2
-#ggsave("clustering_by_treatment_PCA_skinswab_T28.png")
+ggsave("~/Results/SKINSWABS/results/clustering_by_treatment_PCA_skinswab_T28.png")
 ```
 
 Time-point after-oil
@@ -92,7 +92,7 @@ matxTP= data.matrix(select(mat_skinswab_1, -c(treatment,timepoint)))
 
 p2 <- autoplot(prcomp(1-matx0), data=mat_skinswab_1, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
 p2
-#ggsave("clustering_by_treatment_PCA_skinswab_T21.png")
+ggsave("~/Results/SKINSWABS/results/clustering_by_treatment_PCA_skinswab_T21.png")
 ```
 
 Time-point 8
@@ -103,7 +103,7 @@ matxTP= data.matrix(select(mat_skinswab_1, -c(treatment,timepoint)))
 
 p2 <- autoplot(prcomp(1-matx0), data=mat_skinswab_1, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
 p2
-#ggsave("clustering_by_treatment_PCA_skinswab_T8.png")
+ggsave("~/Results/SKINSWABS/results/clustering_by_treatment_PCA_skinswab_T8.png")
 ```
 
 ### MDS
@@ -329,7 +329,7 @@ p
 
 if(pandoc_available()) {
   
-  htmlwidgets::saveWidget(as_widget(p), "beta_timepoint_3d.html")
+  htmlwidgets::saveWidget(as_widget(p), "~/Results/SKINSWABS/results/beta_timepoint_3d.html")
 }
 ```
 
