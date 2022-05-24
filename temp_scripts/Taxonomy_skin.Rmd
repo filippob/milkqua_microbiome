@@ -21,6 +21,7 @@ library("data.table")
 library("ggrepel")
 library("tibble")
 library("dplyr")
+library("cowplot")
 ```
  
 #COMPARISON BETWEEN TREATMENTS
@@ -140,6 +141,29 @@ mO$treatment <- factor(mO$treatment)
 ```
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
+Dcore <- mO %>%
+  group_by(phylum) %>%
+  summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
+#  filter(avg_abund>0.005) %>%
+  arrange(phylum,avg_abund)
+phylum <- Dcore %>%
+  group_by(phylum) %>%
+  summarize("s"=sum(avg_abund)) %>%
+  arrange(desc(s)) %>%
+  dplyr::select(phylum,s)
+
+Dcore$phylum <- factor(Dcore$phylum, levels = rev(phylum$phylum[order(phylum$s)]))
+Dcore <- Dcore %>%
+  arrange(phylum)
+
+kable(Dcore)
+
+write.csv(Dcore, "~/Results/SKINSWABS/results/taxonomy_core_microbiota.csv", sep = ",")
+```
+
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 D <- mO %>%
   group_by(phylum) %>%
   summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
@@ -162,12 +186,15 @@ D <- D %>%
   arrange(phylum)
 
 kable(D)
+
 ```
 
 ```{r, echo=FALSE}
 D1 <- aggregate(cbind(D$avg_abund, D$std) ~ phylum, data=D, FUN = sum)
 names(D1)[2] <- "avg_abund"
 names(D1)[3] <- "std"
+kable(D1)
+
 D1$phylum <- paste(D1$phylum,"","(",D1$avg_abund*100,"%",")")
 
 pphylatot <- ggplot(D1, aes(x=factor(1), y=avg_abund, fill=phylum)) + geom_bar(width=1,stat="identity")
@@ -676,7 +703,7 @@ q <- q + scale_fill_gradient(low = "orange", high = "blue")
 q <- q + xlab("Treatments") + ylab("Taxa")
 q <- q + theme(strip.text = element_text(size = 4), 
                strip.text.x = element_text(size = 6),
-               axis.text.y = element_text(size = 5),
+               axis.text.y = element_text(size = 6),
                axis.title = element_text(size = 6))
 q <- q + guides(fill=FALSE) + theme(
   # axis.title.x = element_blank(),
@@ -691,10 +718,10 @@ q
 #ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_heatmap_pvalue_skinswabs.png", plot = q, device = "png", width = 6, height = 6)
 
 
-figure_final <- ggarrange(q, p, widths=c(0.04, 0.1), labels=c("A", "B"), legend = "bottom")
+figure_final <- ggarrange(q, p, widths=c(0.01, 0.02), labels=c("A", "B"), legend = "bottom")
 
 print(figure_final)
-ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_heatmap_skinswabs.png", plot = figure_final, device = "png", width = 15, height = 12)
+ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_heatmap_skinswabs.png", plot = figure_final, device = "png", width = 7, height = 10)
 ```
 
 ### Extracting estimated coefficients for "significant" OTUs
@@ -742,6 +769,18 @@ write.csv(res, "~/Results/SKINSWABS/results/taxonomy_res.csv")
 ```{r}
 fg <- ggplot(res, aes(x=OTU, y=Treated, fill=timepoint)) + geom_bar(width=1,stat="identity")
 fg <- fg + coord_flip()
+fg <- fg + xlab("Behaviour of the Treated against Control baseline, in significant p_values") + ylab("Taxa")
+fg <- fg + theme(axis.text.x = element_text(size = 6),
+               axis.title = element_text(size = 6))
 fg
-ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_barplot_significantOTUS_genera_skinswabs.png", plot = fg, device = "png", width = 12, height = 12)
+ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_barplot_significantOTUS_genera_skinswabs.png", plot = fg, device = "png", width = 8, height = 8)
+
+dragon <- ggdraw() +
+  draw_plot(q, x = 0, y = .5, width = .5, height = .5) +
+  draw_plot(p, x = .5, y = .5, width = .5, height = .5) +
+  draw_plot(fg, x = 0, y = 0, width = 1, height = 0.5) +
+  draw_plot_label(label = c("A", "B", "C"), size = 5,
+                  x = c(0, 0.5, 0), y = c(1, 1, 0.5))
+
+ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_heat+barplot_skinswabs.png", plot = dragon, device = "png", width = 7, height = 10)
 ```
