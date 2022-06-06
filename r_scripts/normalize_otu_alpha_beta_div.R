@@ -46,14 +46,14 @@ colnames(otu) <- paste("sample-",colnames(otu),sep="")
 print(head(otu))
 
 writeLines(" - change the names of taxonomic levels to Kngdom, Class etc.")
-colnames(taxa) <- c("Kingdom","Phylum","Class","Order","Family","Genus","Species")
+colnames(taxa) <- c("Kingdom","Phylum","Class","Order","Family","Genus","Species") #if number does not fit, add "" as blank spaces to solve the problem
 print(head(taxa))
 
 ## metadata
 writeLines(" - reading the metadata")
 metadata = fread(file.path(prj_folder, analysis_folder,conf_file))
 names(metadata)[1] <- "sample-id"
-if(is.numeric(metadata$`sample-id`)) metadata$`sample-id` = paste("sample",metadata$`sample-id`,sep="-")
+if(is.numeric(metadata$`sample-id`)) metadata$`sample-id` = paste("sample",metadata$`sample-id`,sep="-") # in case your sample-id are not only numeric, remove or comment if(is.numeric(metadata$`sample-id`))
 metadata <- as.data.frame(metadata)
 row.names(metadata) <- metadata$`sample-id`
 metadata$`sample-id` <- NULL
