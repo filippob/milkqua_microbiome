@@ -56,8 +56,14 @@ otu <- fread(fname)
 
 ## Core microobiota
 
+We want to identify the OTU (at any given taxonomic level) that are shared by the majority of the samples. To this aim, we set a threshold (e.g. $95\% = 0.95$) and proceed to calculate the proportion of samples where each OTU (e.g. each phylum, each genus etc.) is not absent:
 
+- we group by `OTU` (e.g. phylum) **and** `sample`
+- we sum the corresponding counts (e.g. all OTUs belonging to each phylum in any sample)
+- we count how many such sums are zero/non-zero and take the ratio over the total n. of samples
+- we filter based on this ratio (non-zero samples / all samples) and the desired threshold
 
+ 
 ```{r taxa setup, echo =FALSE}
 threshold = 0.95
 ```
@@ -72,66 +78,23 @@ core = temp %>% group_by(Phylum, sample) %>%
 
 
 temp = filter(temp, Phylum %in% core$Phylum)
-
-## Genera
-otu_genus <- cbind(otu_tax, otu$Genus)
-colnames(otu_genus)[48]<- "phyla"
-otu_genus <- otu_genus %>% group_by(phyla) %>% summarise_all(funs(sum))
-otu_genus <- as.data.frame(t(otu_genus))
-colnames(otu_genus) <- otu_genus[1,]
-otu_genus <- otu_genus[-c(1),]
-#otu_genus <- cbind(otu_genus, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
-
-# ##Species
-# otu_Species <- cbind(otu_tax, otu$Species)
-# colnames(otu_Species)[48]<- "phyla"
-# otu_Species <- otu_Species %>% group_by(phyla) %>% summarise_all(funs(sum))
-# otu_Species <- as.data.frame(t(otu_Species))
-# colnames(otu_Species) <- otu_Species[1,]
-# otu_Species <- otu_Species[-c(1),]
-# #otu_Species <- cbind(otu_Species, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
 ```
 
-### Core microbiota as phyla
+### Phylum core microbiota
+
+Adding metadata to the phylum core microbiota data:
 
 ```{r phyla average abundances, echo=FALSE}
-metadata <- metadata[-c(29),]
-metadata_cols = names(metadata)[c(1, 12,13)]
-otu_phylum$sample = row.names(otu_phylum) 
-otu_phylum <- otu_phylum %>% inner_join(select(metadata, all_of(metadata_cols)), by="sample")
-
-mO <- reshape2::melt(otu_phylum,id.vars = metadata_cols, value.name = "counts", variable.name = "phylum")
-mO <- mO %>%
-  arrange(treatment)
-
-ordered_samples <- metadata %>%
-  arrange(metadata$treatment) %>%
-  dplyr::select(treatment,sample)
-
-mO$sample <- factor(mO$sample, levels = ordered_samples$sample)
-mO$counts <- as.numeric(mO$counts)
-mO$treatment <- factor(mO$treatment)
+temp$timepoint <- metadata$timepoint[match(temp$sample, metadata$sample)]
+temp$treatment <- metadata$treatment[match(temp$sample, metadata$sample)]
 ```
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-Dcore <- mO %>%
-  group_by(phylum) %>%
-  summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
-#  filter(avg_abund>0.005) %>%
-  arrange(phylum,avg_abund)
-phylum <- Dcore %>%
-  group_by(phylum) %>%
-  summarize("s"=sum(avg_abund)) %>%
-  arrange(desc(s)) %>%
-  dplyr::select(phylum,s)
-
-Dcore$phylum <- factor(Dcore$phylum, levels = rev(phylum$phylum[order(phylum$s)]))
-Dcore <- Dcore %>%
-  arrange(phylum)
-
-kable(Dcore)
-
-#write.csv(Dcore, "~/Results/SKINSWABS/results/taxonomy_core_microbiota.csv", sep = ",")
+x = temp %>%
+  group_by(timepoint) %>%
+  dplyr::mutate(tot = sum(counts)) %>%
+  group_by(timepoint, Phylum) %>%
+  dplyr::summarise(phyltot = sum(counts), proportion = phyltot/tot)
 ```
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
