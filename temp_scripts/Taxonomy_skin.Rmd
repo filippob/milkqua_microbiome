@@ -44,6 +44,8 @@ metadata <- rename(metadata, timepoint_orig = timepoint, timepoint = timepoint_r
 metadata %>%
   group_by(timepoint,treatment) %>%
   dplyr::summarise(N=n())
+
+metadata$treatment <- toupper(metadata$treatment)
 ```
 
 #### reading the normalised OTU table
@@ -66,7 +68,7 @@ We want to identify the OTU (at any given taxonomic level) that are shared by th
 
  
 ```{r taxa setup, echo =FALSE}
-threshold = 0.95
+threshold = 0.99
 ```
 
 ```{r core_micro, echo =FALSE}
@@ -112,9 +114,10 @@ x %>%
 ```{r, fig.height=8, fig.width=10}
 p <- ggplot(x, aes(x=factor(1), y=proportion, fill=Phylum)) + geom_bar(width=1,stat="identity")
 p <- p + coord_polar(theta='y') #activate this if you want a piechart
+p <- p + geom_label(aes(label = 100*proportion), show.legend = FALSE, size = 3)
+# p <- p + geom_label_repel(aes(label = paste0(proportion*100, "%")), position=position_stack (vjust=0.4), size=3, show.legend = F, force = 0.6,  max.overlaps = 10)
 p <- p + facet_wrap(~timepoint, nrow = 3)
 p <- p + scale_fill_brewer(palette = "Set1") 
-p <- p + geom_label_repel(aes(label = paste0(proportion*100, "%")), position=position_stack (vjust=0.4), size=3, show.legend = F, force = 0.6,  max.overlaps = 10)
 p <- p + guides(fill = guide_legend(title = "Phyla")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
 p <- p + xlab("Relative abundances") + ylab("Percentages")
 p <- p + theme(text = element_text(size=8),
@@ -131,40 +134,63 @@ p
 
 #### Core microbiota: family, genus etc. continue if needed
 
-
 ## Correction for baseline
 
+In our case it is not practical to follow the same subject (animal) from T1 to T3 (some animals have data on multiple quarters); therefore we must adopt a correction strategy based on average counts at baseline:
+
+- first, sum all counts by OTU level (e.g. many OTUs belonging to the same phylum)
+- then calculate average counts at baseline (together for treated and controls: they're supposed to be equivalent at T1 --> no treatment yet !)
+- finally, subtract average at baseline from all counts: in this way, the average at T1 will be zero for both treatments and controls, while averages at later timepoints will reflect relative shifts in the experimental groups
+- corrected counts can be rescaled to be more easily comparable
+
 ```{r}
-bl_medie <- mO %>%
-  filter(timepoint=="before_oil") %>%
-  group_by(phylum,treatment) %>%
-  summarize(media_bl=mean(counts))
+temp = select(otu, contains("sample"), Phylum) %>% 
+  gather(key = "sample", value = "counts", -Phylum) %>%
+  group_by(Phylum, sample) %>%
+  summarise(tot = sum(counts))
 
-bl_counts <- mO %>%
-  group_by(phylum,treatment) %>%
-  filter(timepoint=="before_oil") %>%
-  arrange(phylum) %>%
-  rename(value.bl = counts)
+temp$timepoint <- metadata$timepoint[match(temp$sample, metadata$sample)]
+temp$treatment <- metadata$treatment[match(temp$sample, metadata$sample)]
+```
 
-M <- merge(mO,bl_counts[,c(1,4,5)],by=c("phylum","sample"),all.x = TRUE)
-M1 <- M%>%
-  filter(!is.na(M$value.bl))
+```{r}
+bl = filter(temp, timepoint == "T1") %>% 
+  group_by(Phylum, treatment) %>%
+  summarise(bl = mean(tot))
+```
 
-M2 <- M %>%
-  filter(is.na(value.bl)) %>%
-  mutate(value.bl=replace(value.bl,is.na(value.bl),right_join(bl_medie, ., by =c("phylum","treatment"))$media_bl))
 
-M <- rbind.data.frame(M1,M2)  
+```{r}
+temp <- temp %>% 
+  inner_join(bl, by = c("Phylum" = "Phylum", "treatment" = "treatment")) %>%
+  mutate(corrected_counts = tot - bl)
+```
 
-M <- M %>%
-  mutate(corrected_counts=counts-value.bl) %>%
-  filter(counts!=0) %>%
-  arrange(sample)
 
-M <- M %>%
-  group_by(phylum) %>%
+```{r}
+temp <- temp %>%
+  group_by(Phylum) %>%
   mutate(scaled_counts=scales::rescale(corrected_counts,c(0,100)))
 ```
+
+
+#### Sanity check plot
+
+Is baseline really at 0?
+
+```{r}
+dd <- temp %>%
+  group_by(Phylum, timepoint, treatment) %>%
+  summarise(avg = mean(corrected_counts))
+
+p <- ggplot(data=dd, aes(x=timepoint, y=avg, group=treatment)) +
+  geom_line(aes(colour=treatment)) +
+  geom_point()
+p <- p + facet_wrap(~Phylum, scales = "free")
+p
+```
+
+
 
 ###Phyla for treatment and timepoints
 
