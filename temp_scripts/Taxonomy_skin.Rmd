@@ -10,95 +10,68 @@ editor_options:
 ```{r setup, include=FALSE}
 library("DT")
 library("knitr")
-library("tidyr")
 library("broom")
 library("vegan")
 library("ggpubr")
+library("tibble")
 library("ggplot2")
+library("ggrepel")
+library("cowplot")
 library("reshape2")
 library("tidyverse")
 library("data.table")
-library("ggrepel")
-library("tibble")
-library("dplyr")
-library("cowplot")
 ```
  
-#COMPARISON BETWEEN TREATMENTS
+# COMPARISON BETWEEN TREATMENTS
+
+## SET UP
+
+#### reading the metadata
 
 ```{r, echo=FALSE}
-# basedir="~/Documents/MILKQUA"
-# fname = file.path(basedir,"Config/manifest_skinswabs.csv")
-# metadata <- fread(fname)
-# names(metadata)[1] <- "sample"
-# 
-# newt = c("T1","T2","T3")
-# oldt = unique(metadata$timepoint)
-# metadata$timepoint_recoded = newt[match(metadata$timepoint, oldt)]
-# metadata <- rename(metadata, timepoint_orig = timepoint, timepoint = timepoint_recoded)
-
-metadata <- fread("/home/oem/Results/SKINSWABS/mapping_milkqua_skinswabs.csv")
+basedir="~/Documents/MILKQUA"
+prjdir = "Analysis/milkqua_skinswab/qiime1.9"
+fname = file.path(basedir,"Config/manifest_skinswab.csv")
+metadata <- fread(fname)
 names(metadata)[1] <- "sample"
+
+newt = c("T1","T2","T3")
+oldt = unique(metadata$timepoint)
+metadata$timepoint_recoded = newt[match(metadata$timepoint, oldt)]
+metadata <- rename(metadata, timepoint_orig = timepoint, timepoint = timepoint_recoded)
 
 metadata %>%
   group_by(timepoint,treatment) %>%
   dplyr::summarise(N=n())
 ```
 
+#### reading the normalised OTU table
+
+- !! **sample n. 29 has been removed** when filtering for sequencing quality !!
+
 ```{r, echo=FALSE}
-otu <- fread("~/Results/SKINSWABS/results/otu_norm_CSS.csv")
-otu <- otu %>% select(order(colnames(otu)))
-# otu$taxonomy <- paste(otu$Kingdom,",",otu$Phylum,",",otu$Class,",",otu$Order,",", otu$Family,",",otu$Genus,",",otu$Species)
-otu$Phylum <- paste(otu$Kingdom, otu$Phylum, sep = ";")
-otu$Class <- paste(otu$Phylum, otu$Class, sep = ";")
-otu$Order <- paste(otu$Class, otu$Order, sep = ";")
-otu$Family <- paste(otu$Order, otu$Family, sep = ";")
-otu$Genus <- paste(otu$Family, otu$Genus, sep = ";")
-#otu$Species <- paste(otu$Genus, otu$Species, sep = ";")
-otu$tax_id <- NULL
+fname = file.path(basedir, prjdir, "6.normalize_OTU/otu_norm_CSS.csv")
+otu <- fread(fname)
 ```
 
-###Taxa setup
+## Core microobiota
+
+
 
 ```{r taxa setup, echo =FALSE}
-otu_tax =select(otu, -1:-6, -54)
-otu_tax <- otu_tax/colSums(otu_tax)
+threshold = 0.95
+```
 
-##Phyla
-otu_phylum <- cbind(otu_tax, otu$Phylum)
-colnames(otu_phylum)[48]<- "phyla"
-otu_phylum <- otu_phylum %>% group_by(phyla) %>% summarise_all(funs(sum))
-otu_phylum <- as.data.frame(t(otu_phylum))
-colnames(otu_phylum) <- otu_phylum[1,]
-otu_phylum <- otu_phylum[-c(1),]
-#otu_phylum <- cbind(otu_phylum, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
+```{r core_micro, echo =FALSE}
+temp = select(otu, contains("sample-"), Phylum) %>% gather(key = "sample", value = "counts", -Phylum)
+core = temp %>% group_by(Phylum, sample) %>%
+  dplyr::summarise(tot = sum(counts)) %>%
+  group_by(Phylum) %>%
+  dplyr::summarise(N=n(), zeros = sum(tot == 0), ratio = (1-zeros/N)) %>%
+  filter(ratio >= threshold)
 
-## Classes
-otu_Class <- cbind(otu_tax, otu$Class)
-colnames(otu_Class)[48]<- "phyla"
-otu_Class <- otu_Class %>% group_by(phyla) %>% summarise_all(funs(sum))
-otu_Class <- as.data.frame(t(otu_Class))
-colnames(otu_Class) <- otu_Class[1,]
-otu_Class <- otu_Class[-c(1),]
-#otu_Class <- cbind(otu_Class, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
 
-## Families
-otu_Order <- cbind(otu_tax, otu$Order)
-colnames(otu_Order)[48]<- "phyla"
-otu_Order <- otu_Order %>% group_by(phyla) %>% summarise_all(funs(sum))
-otu_Order <- as.data.frame(t(otu_Order))
-colnames(otu_Order) <- otu_Order[1,]
-otu_Order <- otu_Order[-c(1),]
-#otu_Order <- cbind(otu_Order, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
-
-## Families
-otu_Family <- cbind(otu_tax, otu$Family)
-colnames(otu_Family)[48]<- "phyla"
-otu_Family <- otu_Family %>% group_by(phyla) %>% summarise_all(funs(sum))
-otu_Family <- as.data.frame(t(otu_Family))
-colnames(otu_Family) <- otu_Family[1,]
-otu_Family <- otu_Family[-c(1),]
-#otu_Family <- cbind(otu_Family, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
+temp = filter(temp, Phylum %in% core$Phylum)
 
 ## Genera
 otu_genus <- cbind(otu_tax, otu$Genus)
