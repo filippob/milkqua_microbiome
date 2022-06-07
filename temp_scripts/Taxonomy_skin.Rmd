@@ -14,6 +14,7 @@ library("broom")
 library("vegan")
 library("ggpubr")
 library("tibble")
+library("janitor")
 library("ggplot2")
 library("ggrepel")
 library("cowplot")
@@ -54,7 +55,7 @@ fname = file.path(basedir, prjdir, "6.normalize_OTU/otu_norm_CSS.csv")
 otu <- fread(fname)
 ```
 
-## Core microobiota
+## Core microbiota
 
 We want to identify the OTU (at any given taxonomic level) that are shared by the majority of the samples. To this aim, we set a threshold (e.g. $95\% = 0.95$) and proceed to calculate the proportion of samples where each OTU (e.g. each phylum, each genus etc.) is not absent:
 
@@ -98,8 +99,9 @@ x = temp %>%
   unique()
 ```
 
+Make tables and plots of the phylum core microbiota over time: 
+
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-library("janitor")
 x %>%
   group_by(timepoint, Phylum) %>%
   summarise(avg = mean(proportion)) %>%
@@ -127,6 +129,7 @@ p <- p + theme(text = element_text(size=8),
 p
 ```
 
+#### Core microbiota: family, genus etc. continue if needed
 
 
 ## Correction for baseline
