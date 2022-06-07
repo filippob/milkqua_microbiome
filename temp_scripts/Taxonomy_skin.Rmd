@@ -32,6 +32,8 @@ library("data.table")
 ```{r, echo=FALSE}
 basedir="~/Documents/MILKQUA"
 prjdir = "Analysis/milkqua_skinswab/qiime1.9"
+outdir = "results"
+
 fname = file.path(basedir,"Config/manifest_skinswab.csv")
 metadata <- fread(fname)
 names(metadata)[1] <- "sample"
@@ -159,7 +161,6 @@ bl = filter(temp, timepoint == "T1") %>%
   summarise(bl = mean(tot))
 ```
 
-
 ```{r}
 temp <- temp %>% 
   inner_join(bl, by = c("Phylum" = "Phylum", "treatment" = "treatment")) %>%
@@ -172,7 +173,6 @@ temp <- temp %>%
   group_by(Phylum) %>%
   mutate(scaled_counts=scales::rescale(corrected_counts,c(0,100)))
 ```
-
 
 #### Sanity check plot
 
@@ -190,529 +190,51 @@ p <- p + facet_wrap(~Phylum, scales = "free")
 p
 ```
 
+#### Additional plots and tables (e.g. bubble chart etc.) if desired (@chiara)
 
+## Effect of treatment
 
-###Phyla for treatment and timepoints
-
-```{r}
-D <- M %>%
-  group_by(phylum, treatment, timepoint) %>%
-  summarise(N=n(), avg_abund = round(mean(corrected_counts),4), std = round(sd(corrected_counts),3)) %>%
-  filter(avg_abund>0.005) %>%
-  arrange(phylum,avg_abund)
-
-oldc <- D$phylum[D$avg_abund < 0.01]
-newc <- rep("Other", length(oldc))
-vec <- newc[match(D$phylum,oldc)]
-D$phylum <- ifelse(D$phylum %in% oldc, "Other", as.character(D$phylum))
-
-phylum <- D %>%
-  group_by(phylum) %>%
-  summarize("s"=sum(avg_abund)) %>%
-  arrange(desc(s)) %>%
-  dplyr::select(phylum,s)
-
-D$phylum <- factor(D$phylum, levels = rev(phylum$phylum[order(phylum$s)]))
-D <- D %>%
-  arrange(phylum)
-
-kable(D)
-```
-
-```{r phyla avg abund tile plot, echo=FALSE}
-p <- ggplot(mO, aes(x=phylum,y=as.factor(sample),fill=counts))
-p <- p + geom_tile()
-p <- p + facet_wrap(treatment~timepoint, scales = "free_y")
-p <- p + ylab("sample")
-p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1),axis.text.y = element_text(size=9))
-p <- p + scale_fill_gradient2(low="red",high = "blue")
-p
-##ggsave (p, height = 10, width = 20, filename = "~/Results/SKINSWABS/results/taxonomy_count_skinswabs.png")
-```
-
-
-```{r plot phyla, echo=FALSE}
-D$timepoint <- factor(D$timepoint, levels=c("after_oil", "8"))
-D$treatment = factor(D$treatment, levels = c("Control", "Treated"), ordered = TRUE)
-
-Pphyla <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=phylum)) + geom_bar(width=1,stat="identity", position = "fill")
-Pphyla <- Pphyla + facet_grid(treatment~timepoint)
-#Pphyla <- Pphyla + coord_polar(theta='y', start=0) #activate this if you want a piechart
-#Pphyla <- Pphyla + geom_label_repel(aes(label = paste0(avg_abund*100, "%")))
-Pphyla <- Pphyla + guides(fill = guide_legend(title = "Phyla")) 
-my_palette = get_palette(c("green3","yellow","blue","magenta","cyan","yellow","red","purple","brown", "darkorange1","pink1", "darkorchid1", "seagreen2"), length(unique(D$phylum)))
-Pphyla <- Pphyla + xlab("relative abundances") + ylab("percentages")
-Pphyla <- Pphyla + scale_fill_manual(values = my_palette)
-Pphyla <- Pphyla + theme(text = element_text(size=10),
-               axis.text.x = element_text(size=8),
-               # axis.text.y = element_text(size=4),
-               strip.text = element_text(size = 8),
-               axis.text.y = element_blank(),
-               axis.ticks.y = element_blank(),
-               legend.text=element_text(size=10),
-               legend.title=element_text(size=10))
-
-print(Pphyla)
-#ggsave(Pphyla, height = 5, width = 5, filename ="~/Results/SKINSWABS/results/taxonomy_phylum_boxplot_skinswabs_tot.png")
-
-D %>% group_by(phylum) %>% summarise(treatment=n())
-D %>% group_by(treatment) %>% summarise(phylum=n())
-```
-
-```{r}
-fit = aov(avg_abund ~ treatment, data = D) ## linear model value = mu + treatment + e (y = mu + x + e)
-TukeyHSD(fit, "treatment", ordered = TRUE)
-```
-
-### Genera
-
-```{r, echo=FALSE}
-otu_genus <- cbind(otu_genus, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
-
-mO <- reshape2::melt(otu_genus,id.vars = metadata_cols, value.name = "counts", variable.name = "genus")
-mO <- mO %>%
-  arrange(treatment)
-
-ordered_samples <- metadata %>%
-  arrange(metadata$treatment) %>%
-  dplyr::select(treatment,sample)
-
-mO$sample <- factor(mO$sample, levels = ordered_samples$sample)
-mO$counts <- as.numeric(mO$counts)
-mO$treatment <- factor(mO$treatment)
-```
-
-## Correction for baseline
-
-```{r}
-bl_medie <- mO %>%
-  filter(timepoint=="before_oil") %>%
-  group_by(genus,treatment) %>%
-  summarize(media_bl=mean(counts))
-
-bl_counts <- mO %>%
-  group_by(genus,treatment) %>%
-  filter(timepoint=="before_oil") %>%
-  arrange(genus) %>%
-  rename(value.bl = counts)
-
-M <- merge(mO,bl_counts[,c(1,4,5)],by=c("genus","sample"),all.x = TRUE)
-M1 <- M%>%
-  filter(!is.na(M$value.bl))
-
-M2 <- M %>%
-  filter(is.na(value.bl)) %>%
-  mutate(value.bl=replace(value.bl,is.na(value.bl),right_join(bl_medie, ., by =c("genus","treatment"))$media_bl))
-
-M <- rbind.data.frame(M1,M2)  
-
-M <- M %>%
-  mutate(corrected_counts=counts-value.bl) %>%
-  filter(counts!=0) %>%
-  arrange(sample)
-
-M <- M %>%
-  group_by(genus) %>%
-  mutate(scaled_counts=scales::rescale(corrected_counts,c(0,100)))
-```
-
-
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-mO <- M
-
-D_genus <- mO %>%
-  group_by(genus, treatment, timepoint) %>%
-  summarise(N=n(), avg_abund = round(mean(corrected_counts),4), std = round(sd(corrected_counts),3)) %>%
-  filter(avg_abund>0.005) %>%
-  arrange(genus,avg_abund)
-
-oldc <- D_genus$genus[D_genus$avg_abund < 0.01]
-newc <- rep("Other", length(oldc))
-vec <- newc[match(D_genus$genus,oldc)]
-D_genus$genus <- ifelse(D_genus$genus %in% oldc, "Other", as.character(D_genus$genus))
-
-genus <- D_genus %>%
-  group_by(genus) %>%
-  summarize("s"=sum(avg_abund)) %>%
-  arrange(desc(s)) %>%
-  dplyr::select(genus,s)
-
-D_genus$genus <- factor(D_genus$genus, levels = rev(genus$genus[order(genus$s)]))
-D_genus <- D_genus %>%
-  arrange(genus)
-
-##D_genus <- na.omit(D_genus)
-
-kable(D_genus)
-```
-
-```{r}
-D_genus$treatment = factor(D_genus$treatment, levels = c("Control", "Treated"), ordered = TRUE)
-D_genus$genus = gsub(".*;","",D_genus$genus)
-D_genus$timepoint <- factor(D_genus$timepoint, levels=c("after_oil", "8"))
-
-P <- ggplot(D_genus, aes(x=factor(1), y=avg_abund, fill=genus)) + geom_bar(width=1,stat="identity",position = "fill") + theme(legend.position='none')
-P <- P + facet_grid(treatment~timepoint)
-#P <- P + coord_polar(theta='y', start=0) #activate this if you want a piechart
-#P <- P + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
-P <- P + guides(fill = guide_legend(title = "Genus")) 
-my_palette = get_palette(c("green3", "darksalmon", "gold","blue","magenta","cyan","yellow","red","gray","purple","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2", "blueviolet", "darkseagreen3", "gold4", "gainsboro", "cyan3", "bisque", "black", "antiquewhite3"), length(unique(D_genus$genus)))
-P <- P + scale_fill_manual(values = my_palette)
-P <- P + xlab("Relative abundances") + ylab("percentages")
-P <- P + theme(legend.position = "bottom",
-               text = element_text(size=15),
-               axis.text.x = element_text(size=10),
-               # axis.text.y = element_text(size=4),
-               strip.text = element_text(size = 10),
-               axis.text.y = element_blank(),
-               axis.ticks.y = element_blank(),
-               legend.text=element_text(size=10),
-               legend.title=element_text(size=10))
-
-print(P)
-#ggsave(P, height = 6, width = 12, filename ="~/Results/SKINSWABS/results/taxonomy_genus_boxplot_skinswabs_tot.png")
-
-D_genus %>% group_by(genus) %>% summarise(treatment=n())
-D_genus %>% group_by(treatment) %>% summarise(genus=n())
-```
-
-
-```{r}
-fit = aov(avg_abund ~ treatment, data = D_genus) ## linear model value = mu + treatment + e (y = mu + x + e)
-TukeyHSD(fit, "treatment", ordered = TRUE)
-```
-###combined plots
-``` {r}
-# pxc <- ggarrange(Pphyla, P, labels = c("Phyla", "Genera"), nrow = 1, ncol = 2, legend = "right", font.label = list(size=30), hjust = 0,  vjust = 0)
-# pxc
-##ggsave(pxc, height = 30, width = 20, filename ="taxa_plots_combined.png")
-```
-
-###Relative abundances table
-
-```{r relative abundances total table}
-otu_genus = subset(otu_genus, select = -c(timepoint, treatment))
-otu_phylum = subset(otu_phylum, select = -c(timepoint, treatment, sample))
-
-otu_tot <- cbind(otu_phylum, otu_Class, otu_Order, otu_Family, otu_genus) #, otu_Species
-taxa_names <- colnames(otu_tot)
-rownames(otu_tot) <- otu_tot[,1357]
-sample_names <- row.names(otu_tot)
-#otu_tot <- transpose(otu_tot)
-otu_tot <- as.data.frame(t(otu_tot))
-colnames(otu_tot) <- sample_names
-taxa_names <- as.data.frame(taxa_names)
-otu_tot$`#OTU ID` <- cbind(taxa_names$taxa_names)
-otu_tot <- otu_tot %>% dplyr::select(`#OTU ID`, everything())
-otu_tot <- otu_tot [-1357,]
-
-otu_tot <- gather(otu_tot, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
-
-otu_tot$treatment = metadata$treatment[match(otu_tot$sample,metadata$sample)]
-otu_tot$timepoint= metadata$timepoint[match(otu_tot$sample,metadata$sample)]
-otu <- filter(otu_tot, sample %in% metadata$sample)
-
-mO <- reshape2::melt(otu,id.vars = metadata_cols, value.name = "counts", variable.name = "taxa")
-mO$counts <- as.numeric(mO$counts)
-```
-
-```{r relative abundance corrected for baseline}
-bl_medie <- mO %>%
-  filter(timepoint=="before_oil") %>%
-  group_by(taxa,treatment) %>%
-  summarize(media_bl=mean(counts))
-
-bl_counts <- mO %>%
-  group_by(taxa,treatment) %>%
-  filter(timepoint=="before_oil") %>%
-  arrange(taxa) %>%
-  rename(value.bl = counts)
-
-M <- merge(mO,bl_counts[,c(1,4,5)],by=c("taxa","sample"),all.x = TRUE)
-M1 <- M%>%
-  filter(!is.na(M$value.bl))
-
-M2 <- M %>%
-  filter(is.na(value.bl)) %>%
-  mutate(value.bl=replace(value.bl,is.na(value.bl),right_join(bl_medie, ., by =c("taxa","treatment"))$media_bl))
-
-M <- rbind.data.frame(M1,M2)  
-
-M <- M %>%
-  mutate(corrected_counts=counts-value.bl) %>%
-  filter(counts!=0) %>%
-  arrange(sample)
-
-M <- M %>%
-  group_by(taxa) %>%
-  mutate(scaled_counts=scales::rescale(corrected_counts,c(0,100)))
-```
-
-```{r relative abundance effective calculation}
-mO <- M
-
-mO$level <- sapply(mO$taxa, function(x) length(strsplit(as.character(x),";")[[1]]) ) 
-
-get_taxa <- function(x,n) {
-  
-  z <- strsplit(x, split = ";")
-  res = lapply(z, function(x) x[n])
-  return(unlist(res))
-}
-
-new_taxa <- c(NULL)
-for (i in seq_along(mO$corrected_counts)) {
-  
-  arg1 = as.character(mO$taxa[i])
-  arg2 = ifelse(mO$level[i] <= 6, mO$level[i], 6)
-  
-  rr = get_taxa(arg1,arg2)
-  new_taxa <- c(new_taxa,rr)
-}
-
-mO$new_taxa <- new_taxa
-
-table(mO$level)
-neues <- c("phylum","class","order","family","genus") #,"species"
-altes <- seq(2,6) #2,6 if we want to include species
-mO$level <- neues[match(mO$level,altes)]
-
-## relative abundances
-#mO$scaled_counts <- as.numeric(mO$scaled_counts)
-
-mO <- mO %>%
-  group_by(level,sample) %>%
-  mutate(tot = sum(scaled_counts), rel_abundance = scaled_counts/tot)
-
-#mO <- mO[!grepl("0", mO$rel_abundance),]
-
-D <- mO %>%
-  group_by(level,new_taxa,treatment,timepoint) %>%
-  summarise(avg_abund = round(mean(rel_abundance),4), std = round(sd(rel_abundance),3)
-            )
-```
-
-A table of relative abundances (and standard deviations) per taxa and treatment:
-
-```{r, tab2, echo=FALSE}
-D <- na.omit(D)
-D <- D %>%
-  group_by(new_taxa,timepoint,treatment) %>%
-  filter(avg_abund > 0.01) %>%
-  arrange(level,desc(avg_abund))
-
-kable(D)
-```
-A table of relative abundances in % (and standard deviations) per taxa 
-
-```{r, echo=FALSE}
-D <- na.omit(D)
-D <- D %>%
-  group_by(level) %>%
-  filter(avg_abund > 0.01) %>%
-  arrange(level,desc(avg_abund*100))
-
-kable(D)
-```
-
-Same results, but in wide-format (treatments on the horizontal axis): relative abundances (no standard deviations):
-
-```{r, echo=FALSE}
-D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus")) # ,"species"
-
-D0 <- D %>%
-  dplyr::select(-c(std)) %>%
-  spread(treatment,avg_abund)
-
-# D0[is.na(D0)] <- ""
-
-bg.picker <- function(z) {
-  
-  if(is.na(z)) {return(NULL)}
-  if(is.numeric(z)) {
-    
-    if(z > 0.05 & z <= 0.10) {return("pink")}
-    if(z > 0.10) {return("yellow")}
-  }
-}
-
-library("formattable")
-formattable(D0, list(
-  
-  `Treated` = color_tile("white","green"),
-  `Control` = color_tile("white","deepskyblue")
-  # `3 PR` = color_tile("white","yellow"),
-  # `4 PR` = color_tile("white","pink"),
-  # `5 PR` = color_tile("white","yellow"),
-  # `6 PR` = formatter("span",
-  #                 style = x ~ style(
-  #                   "border-radius" = "4px",
-  #                   "padding-right" = "4px",
-  #                   "background-color" = sapply(x, bg.picker))
-  #                 )
-))
-
-```
-
-**timepoint**
-
-```{r, echo=FALSE}
-D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus")) #,"species"
-
-D0 <- D %>%
-  select(-c(std)) %>%
-  spread(timepoint,avg_abund)
-
-# D0[is.na(D0)] <- ""
-
-bg.picker <- function(z) {
-  
-  if(is.na(z)) {return(NULL)}
-  if(is.numeric(z)) {
-    
-    if(z > 0.05 & z <= 0.10) {return("pink")}
-    if(z > 0.10) {return("yellow")}
-  }
-}
-
-library("formattable")
-formattable(D0, list(
-  
-  `1` = color_tile("white","yellow"),
-  `2` = color_tile("white","pink"),
-  `3` = color_tile("white","yellow")
-  # `5 PR` = color_tile("white","yellow"),
-  # `6 PR` = formatter("span",
-  #                 style = x ~ style(
-  #                   "border-radius" = "4px",
-  #                   "padding-right" = "4px",
-  #                   "background-color" = sapply(x, bg.picker))
-  #                 )
-))
-
-```
-
-
-Finally,a bubble chart to visualize relative abundances per taxa and treatment:
-
-```{r, echo=FALSE, fig.height = 14, fig.width = 10}
-taxa <- D %>%
-  group_by(level,new_taxa,timepoint) %>%
-  summarize("s"=sum(avg_abund)) %>%
-  arrange(desc(s)) %>% #originally was arrange(desc(level, s)) but stopped working reporting that desc() must be called with exactly one argument
-  dplyr::select(level,new_taxa,s)
-
-taxa <- taxa %>%
-  group_by(level) %>%
-  arrange(level,s)
-
-p <- ggplot(D, aes(x = treatment, y = new_taxa))
-p <- p + geom_point(aes(size = avg_abund, colour = treatment), alpha = 0.4)
-p <- p + facet_grid(level~timepoint, scales = "free", space = "free")
-p <- p + scale_color_manual(values = c("blue", "coral","magenta","cyan","yellow", "green", "coral",  "#E7B800", "#FC4E07"))
-p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1))
-p <- p + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
-p <- p + theme(axis.text.x = element_text(size=8))
-p <- p + theme_bw()
-p <- p + xlab("timepoint-symb`") + ylab("average abundances")
-p
-#ggsave (p, height = 13, width = 8, filename = "~/Results/SKINSWABS/results/taxonomy_bubbleplot_skinswabs.png")
-```
-
-### Significance of treatments (+ timepoint-symb)
- 
-The significance of differences between treatments (Control vs Treated with Essential Oil) was evaluated using a linear model (ANOVA) that included the effect of timepoints:
- 
-$$
-counts_{ikj} = \mu + timepoint_k + treatment_j + e_{ikj}
-$$
-This way, the variability due to region is removed when assessing the effect of treatments.
- 
-```{r, echo=FALSE}
-m1 <- mO %>%
-  filter(!is.na(level)) %>%
-  arrange(level,treatment)
-
-m1 <- na.omit(m1)
-m1$new_taxa <- paste(m1$new_taxa, m1$treatment, m1$timepoint)
-
-D <- m1 %>%
-  group_by(level, new_taxa) %>%
-  do(tidy(anova(lm(corrected_counts ~ timepoint+treatment, data = .)))) %>%
-  filter(term == "treatment")
-
-D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus"))
-D <- D %>%
-  arrange(level,new_taxa)
-
-datatable(D, options = list(pageLength=100)) %>%
-  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
-
-#write.csv(D, "~/Results/SKINSWABS/results/taxonomy_correctedforbaseline_one.csv")
-```
-
-### Significance of treatments (per timepoint)
-
-The significance of differences between treatments (Control vs Treated) was evaluated using a linear model (ANOVA) that included the effect of time-points:
+The significance of differences between treatments (oil vs non-oil) was evaluated using a linear model (ANOVA) that included the effect of timepoint and treatments:
 
 $$
-counts_{ij} = \mu + treatment_j + e_{ij}
+counts_{ikjt} = \mu + timepoint_{k(j)} + treatment_{t(j)} + e_{ikjt}
 $$
 
 this way, the variability due to region is removed when assessing the effect of treatments.
 
-```{r, echo=FALSE}
-m1 <- mO %>%
-  arrange(level,treatment)
+```{r lm, echo=FALSE, warning=FALSE, message=FALSE}
+library("lmerTest")
 
-dd_counts <- mO %>%
-  group_by(level, new_taxa,timepoint,treatment) %>%
-  # summarise(avg = mean(counts)) %>%
-  summarise(avg = mean(rel_abundance)) %>%
-  spread(key = "treatment", value = "avg")
+mm <- filter(temp, timepoint != "T1")
 
-group_by(dd_counts, level) %>% summarise(tot = sum(Treated))
-
-D <- m1 %>%
-  group_by(level, new_taxa, timepoint) %>%
-  do(tidy(anova(lm(counts ~ treatment, data = .)))) %>%
+D <- mm %>%
+  group_by(Phylum) %>%
+  do(tidy(anova(lm(corrected_counts ~ timepoint + treatment, data=.)))) %>%
   filter(term == "treatment")
-
-D$level  <- factor(D$level,levels = c("phylum","class","order","family","genus")) #, "species"
-D <- D %>%
-  arrange(level,new_taxa)
 
 datatable(D, options = list(pageLength=100)) %>% 
   formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
 
+fname = file.path(basedir, outdir, "significant_phylum.csv")
+filter(D, p.value <= 0.05) %>% select(c(Phylum,term,p.value)) %>% fwrite(file = fname, sep = ",", col.names = TRUE)
 ```
 
 ```{r, echo=FALSE}
-DX <- D %>%
-  filter(`p.value` <= 0.05) %>%
-  dplyr::select(c(level,new_taxa, timepoint, `p.value`)) %>%
-  arrange(level,`p.value`)
+dd <- temp %>%
+  group_by(Phylum,timepoint,treatment) %>%
+  summarise(avg = mean(tot)) %>%
+  spread(key = treatment, value = avg)
 
-D0 <- mO %>%
-  dplyr::group_by(level,new_taxa, timepoint,treatment) %>%
-  dplyr::summarise(avg_counts = mean(counts))
+d0 <- select(D, c(Phylum, p.value))
 
-to_save = list(D,DX,D0)
-save(to_save, file = "~/Results/SKINSWABS/results/taxonomy_correctedforbaseline_skinswabs_tot.RData")
+dd <- dd %>% inner_join(d0, by = c("level" = "level", "new_taxa" = "new_taxa"))
+dd$level <- factor(dd$level, levels = c("phylum","class","order","family","genus"))
 
-load("~/Results/SKINSWABS/results/taxonomy_correctedforbaseline_skinswabs_tot.RData")
-D <- to_save[[1]]
-DX <- to_save[[2]]
-D0 <- to_save[[3]]
-
-dd <- spread(D0, key = treatment, value = avg_counts)
-temp <- inner_join(DX,dd, by = c("level" = "level", "new_taxa" = "new_taxa", "timepoint"="timepoint"))
-#fwrite(temp, file = "~/Results/SKINSWABS/results/taxonomy_skinswabs_significant_otus.csv", col.names = TRUE, sep = ",")
-print (dd)
-
-# temp$new_taxa <- paste(temp$new_taxa,", Timepoint:", temp$timepoint)
-# temp <- temp %>% filter(level == "genus")
+to_save = list(D,dd,d0)
+save(to_save, file = "taxonomy_group.RData")
 ```
+
+
 
 ```{r, echo=FALSE, warning=FALSE}
 load("~/Results/SKINSWABS/results/taxonomy_skinswabs_tot.RData")
