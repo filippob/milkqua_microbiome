@@ -93,72 +93,41 @@ temp$treatment <- metadata$treatment[match(temp$sample, metadata$sample)]
 x = temp %>%
   group_by(timepoint) %>%
   dplyr::mutate(tot = sum(counts)) %>%
-  group_by(timepoint, Phylum) %>%
-  dplyr::summarise(phyltot = sum(counts), proportion = phyltot/tot)
+  dplyr::group_by(timepoint, Phylum) %>%
+  dplyr::summarise(phyltot = sum(counts), proportion = round(phyltot/tot, 3)) %>%
+  unique()
 ```
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-D <- mO %>%
-  group_by(phylum) %>%
-  summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
-#  filter(avg_abund>0.005) %>%
-  arrange(phylum,avg_abund)
-
-oldc <- D$phylum[D$avg_abund < 0.02]
-newc <- rep("Other", length(oldc))
-vec <- newc[match(D$phylum,oldc)]
-D$phylum <- ifelse(D$phylum %in% oldc, "Other", as.character(D$phylum))
-
-phylum <- D %>%
-  group_by(phylum) %>%
-  summarize("s"=sum(avg_abund)) %>%
-  arrange(desc(s)) %>%
-  dplyr::select(phylum,s)
-
-D$phylum <- factor(D$phylum, levels = rev(phylum$phylum[order(phylum$s)]))
-D <- D %>%
-  arrange(phylum)
-
-kable(D)
+library("janitor")
+x %>%
+  group_by(timepoint, Phylum) %>%
+  summarise(avg = mean(proportion)) %>%
+  spread(key = timepoint, value = avg) %>%
+   adorn_totals("row") 
 ```
 
-```{r, echo=FALSE}
-D1 <- aggregate(cbind(D$avg_abund, D$std) ~ phylum, data=D, FUN = sum)
-names(D1)[2] <- "avg_abund"
-names(D1)[3] <- "std"
-kable(D1)
-
-D1$phylum <- paste(D1$phylum,"","(",D1$avg_abund*100,"%",")")
-
-pphylatot <- ggplot(D1, aes(x=factor(1), y=avg_abund, fill=phylum)) + geom_bar(width=1,stat="identity")
-#pphylatot <- pphylatot + facet_grid(N~treatment)
-pphylatot <- pphylatot + coord_polar(theta='y') #activate this if you want a piechart
-pphylatot <- pphylatot + scale_fill_brewer(palette = "Set1") 
-# pphylatot <- pphylatot + geom_label(aes(label = paste0(avg_abund*100, "%")), position = position_stack(vjust = 0.4), col = "white")
-pphylatot <- pphylatot + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.4), size=3, show.legend = F, force = 0.6,  max.overlaps = 10)
-pphylatot <- pphylatot + guides(fill = guide_legend(title = "Phyla")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-panel.background = element_blank())
-
-#my_palette = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","brown", "darkorange1","pink1", "darkorchid1", "seagreen2"), length(unique(D$phylum)))
-pphylatot <- pphylatot + xlab("Relative abundances") + ylab("Percentages")
-#pphylatot <- pphylatot + scale_fill_manual(values = my_palette)
-pphylatot <- pphylatot + theme(text = element_text(size=10),
-               #axis.text.x = element_text(size=8),
-               # axis.text.y = element_text(size=4),
+```{r, fig.height=8, fig.width=10}
+p <- ggplot(x, aes(x=factor(1), y=proportion, fill=Phylum)) + geom_bar(width=1,stat="identity")
+p <- p + coord_polar(theta='y') #activate this if you want a piechart
+p <- p + facet_wrap(~timepoint, nrow = 3)
+p <- p + scale_fill_brewer(palette = "Set1") 
+p <- p + geom_label_repel(aes(label = paste0(proportion*100, "%")), position=position_stack (vjust=0.4), size=3, show.legend = F, force = 0.6,  max.overlaps = 10)
+p <- p + guides(fill = guide_legend(title = "Phyla")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
+p <- p + xlab("Relative abundances") + ylab("Percentages")
+p <- p + theme(text = element_text(size=8),
                strip.text = element_text(size = 8),
                axis.text.y = element_blank(),
                axis.text.x = element_blank(),
                axis.ticks = element_blank(), 
                axis.ticks.y = element_blank(),
                axis.ticks.x = element_blank(),
-               legend.text=element_text(size=10),
-               legend.title=element_text(size=10))
-
-print(pphylatot)
-#ggsave(pphylatot, height = 3, width = 5, filename ="~/Results/SKINSWABS/results/taxonomy_phylum_piechart_skinswabs_tot.png")
-# 
-# D %>% group_by(phylum) %>% summarise(treatment=n())
+               legend.text=element_text(size=6),
+               legend.title=element_text(size=6))
+p
 ```
+
+
 
 ## Correction for baseline
 
