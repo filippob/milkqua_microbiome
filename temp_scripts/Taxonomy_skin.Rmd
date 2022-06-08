@@ -2,8 +2,10 @@
 title: "Taxonomy_Skinswabs"
 author: "Chiara Gini"
 date: "24/05/2022"
-output: html_document
-editor_options: 
+output:
+  html_document: default
+  pdf_document: default
+editor_options:
   chunk_output_type: inline
 ---
 
@@ -22,7 +24,12 @@ library("reshape2")
 library("tidyverse")
 library("data.table")
 ```
- 
+
+# CURRENTLY MISSING:
+
+- boxplots with avg_abundances corrected for baseline
+- barplots for all the taxa combined together
+
 # COMPARISON BETWEEN TREATMENTS
 
 ## SET UP
@@ -68,35 +75,36 @@ otu <- fread(fname)
 
 ## Core microbiota
 
-We want to identify the OTU (at any given taxonomic level) that are shared by the majority of the samples. To this aim, we set a threshold (e.g. $95\% = 0.95$) and proceed to calculate the proportion of samples where each OTU (e.g. each phylum, each genus etc.) is not absent:
+We want to identify the OTU (at any given taxonomic level) that are shared by the majority of the samples. To this aim, we set a threshold (e.g. $95\% = 0.95$) and proceed to calculate the proportion of samples where each OTU (e.g. each Genus, each Genus etc.) is not absent:
 
-- we group by `OTU` (e.g. phylum) **and** `sample`
-- we sum the corresponding counts (e.g. all OTUs belonging to each phylum in any sample)
+- we group by `OTU` (e.g. Genus) **and** `sample`
+- we sum the corresponding counts (e.g. all OTUs belonging to each Genus in any sample)
 - we count how many such sums are zero/non-zero and take the ratio over the total n. of samples
 - we filter based on this ratio (non-zero samples / all samples) and the desired threshold
 
+**NOTE: the following scripts fits perfectly for every taxa level, but only when singularly run: you will need to run every level separately, by changing the name of the taxa inside the scripts. It can be easily done via Find+Replace function in RStudio (search symbol in the bar above). Careful: in some cases levels are empty: this is currently a problem to be solved.**
  
 ```{r taxa setup, echo =FALSE}
 threshold = 0.99
 ```
 
 ```{r core_micro, echo =FALSE}
-temp = select(otu, contains("sample-"), Phylum) %>% gather(key = "sample", value = "counts", -Phylum)
-core = temp %>% group_by(Phylum, sample) %>%
+temp = select(otu, contains("sample-"), Genus) %>% gather(key = "sample", value = "counts", -Genus)
+core = temp %>% group_by(Genus, sample) %>%
   dplyr::summarise(tot = sum(counts)) %>%
-  group_by(Phylum) %>%
+  group_by(Genus) %>%
   dplyr::summarise(N=n(), zeros = sum(tot == 0), ratio = (1-zeros/N)) %>%
   filter(ratio >= threshold)
 
 
-temp = filter(temp, Phylum %in% core$Phylum)
+temp = filter(temp, Genus %in% core$Genus)
 ```
 
-### Phylum core microbiota
+### Genus core microbiota
 
-Adding metadata to the Phylum core microbiota data:
+Adding metadata to the Genus core microbiota data:
 
-```{r phyla average abundances, echo=FALSE}
+```{r Genus average abundances, echo=FALSE}
 temp$timepoint <- metadata$timepoint[match(temp$sample, metadata$sample)]
 temp$treatment <- metadata$treatment[match(temp$sample, metadata$sample)]
 ```
@@ -105,29 +113,29 @@ temp$treatment <- metadata$treatment[match(temp$sample, metadata$sample)]
 x = temp %>%
   group_by(timepoint) %>%
   dplyr::mutate(tot = sum(counts)) %>%
-  dplyr::group_by(timepoint, Phylum) %>%
+  dplyr::group_by(timepoint, Genus) %>%
   dplyr::summarise(phyltot = sum(counts), proportion = round(phyltot/tot, 3)) %>%
   unique()
 ```
 
-Make tables and plots of the Phylum core microbiota over time: 
+Make tables and plots of the Genus core microbiota over time: 
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 x %>%
-  group_by(timepoint, Phylum) %>%
+  group_by(timepoint, Genus) %>%
   summarise(avg = mean(proportion)) %>%
   spread(key = timepoint, value = avg) %>%
    adorn_totals("row") 
 ```
 
 ```{r, fig.height=8, fig.width=10}
-p <- ggplot(x, aes(x=factor(1), y=proportion, fill=Phylum)) + geom_bar(width=1,stat="identity")
+p <- ggplot(x, aes(x=factor(1), y=proportion, fill=Genus)) + geom_bar(width=1,stat="identity")
 p <- p + coord_polar(theta='y') #activate this if you want a piechart
 p <- p + geom_label(aes(label = 100*proportion), show.legend = FALSE, size = 3)
 # p <- p + geom_label_repel(aes(label = paste0(proportion*100, "%")), position=position_stack (vjust=0.4), size=3, show.legend = F, force = 0.6,  max.overlaps = 10)
 p <- p + facet_wrap(~timepoint)
 # p <- p + scale_fill_brewer(palette = "Set1") 
-p <- p + guides(fill = guide_legend(title = "Phyla")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
+p <- p + guides(fill = guide_legend(title = "Genus")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
 p <- p + xlab("Relative abundances") + ylab("Percentages")
 p <- p + theme(text = element_text(size=8),
                strip.text = element_text(size = 8),
@@ -140,25 +148,24 @@ p <- p + theme(text = element_text(size=8),
                legend.title=element_text(size=6))
 p
 
-#ggsave(filename = file.path(basedir, prjdir, outdir, "taxonomy_Phylum_piechart_skinswabs_wbaseline.png"), plot = p, device = "png", width = 14, height = 7)
+#ggsave(filename = file.path(basedir, prjdir, outdir, "taxonomy_Genus_piechart_skinswabs_wbaseline.png"), plot = p, device = "png", width = 14, height = 7)
 ```
 
-#### Core microbiota: family, genus etc. continue if needed = replace Phylum with Genus or whatevere you are interested in. Careful: blank spaces can suggest that it was not possible to identify that taxa level. --> solve this problem?
+#### Core microbiota: family, Genus etc. continue if needed = replace Genus with Genus or whatevere you are interested in. Careful: blank spaces can suggest that it was not possible to identify that taxa level. --> solve this problem?
 
 ## Correction for baseline
 
 In our case it is not practical to follow the same subject (animal) from T1 to T3 (some animals have data on multiple quarters); therefore we must adopt a correction strategy based on average counts at baseline:
 
-- first, sum all counts by OTU level (e.g. many OTUs belonging to the same phylum)
+- first, sum all counts by OTU level (e.g. many OTUs belonging to the same Genus)
 - then calculate average counts at baseline (together for treated and controls: they're supposed to be equivalent at T1 --> no treatment yet !)
 - finally, subtract average at baseline from all counts: in this way, the average at T1 will be zero for both treatments and controls, while averages at later timepoints will reflect relative shifts in the experimental groups
 - corrected counts can be rescaled to be more easily comparable
 
 ```{r}
-temp = select(otu, contains("sample"), Phylum #, Genus, Kingdom, Species, Class, Order, Family
-              )%>% gather(key = "sample", value = "counts", -Phylum #, -Genus, -Kingdom, -Species, -Class, -Order, -Family
-                          ) %>%  group_by(Phylum #, Genus, Kingdom, Species, Class, Order, Family
-                                          , sample) %>%
+temp = select(otu, contains("sample"), Genus) %>% 
+  gather(key = "sample", value = "counts", -Genus) %>%
+  group_by(Genus, sample) %>%
   summarise(tot = sum(counts))
 
 temp$timepoint <- metadata$timepoint[match(temp$sample, metadata$sample)]
@@ -167,23 +174,20 @@ temp$treatment <- metadata$treatment[match(temp$sample, metadata$sample)]
 
 ```{r}
 bl = filter(temp, timepoint == "T1") %>% 
-  group_by(Phylum, # Genus, Kingdom, Species, Class, Order, Family, 
-           treatment) %>%
+  group_by(Genus, treatment) %>%
   summarise(bl = mean(tot))
 ```
 
 ```{r}
 temp <- temp %>% 
-  inner_join(bl, by = c("Phylum" = "Phylum", #"Genus"="Genus", "Kingdom"="Kingdom", "Species"="Species", "Class"="Class", "Order"="Order", "Family"="Family", 
-                        "treatment" = "treatment")) %>%
+  inner_join(bl, by = c("Genus" = "Genus", "treatment" = "treatment")) %>%
   mutate(corrected_counts = tot - bl)
 ```
 
 
 ```{r}
 temp <- temp %>%
-  group_by(Phylum #, Genus, Kingdom, Species, Class, Order, Family
-           ) %>%
+  group_by(Genus) %>%
   mutate(scaled_counts=scales::rescale(corrected_counts,c(0,100)))
 ```
 
@@ -193,48 +197,19 @@ Is baseline really at 0?
 
 ```{r}
 dd <- temp %>%
-  group_by(Phylum, # Genus, Kingdom, Species, Class, Order, Family, 
-           timepoint, treatment) %>%
+  group_by(Genus, timepoint, treatment) %>%
   summarise(avg = mean(corrected_counts))
 
 p <- ggplot(data=dd, aes(x=timepoint, y=avg, group=treatment)) +
   geom_line(aes(colour=treatment)) +
   geom_point()
-p <- p + facet_wrap(~Phylum, scales = "free") #change desidered taxa level after in "facet_wrap(~" 
+p <- p + facet_wrap(~Genus, scales = "free") 
 p
+
+#ggsave(filename = file.path(basedir, prjdir, outdir, "taxonomy_Genus_baseline_check.png"), plot = p, device = "png", width = 20, height = 20)
 ```
-
-
-
-
-
 
 #### Additional plots and tables (e.g. bubble chart etc.) if desired (@chiara)
-
-```{r phyla average abundances, echo=FALSE}
-D <- temp %>%
-  group_by(Phylum) %>%
-  summarise(N=n(), avg_abund = round(mean(tot),4)*0.01, std = round(sd(tot),3)) %>%
-#  filter(avg_abund>0.005) %>%
-  arrange(Phylum,avg_abund)
-
-oldc <- D$Phylum[D$avg_abund < 0.02]
-newc <- rep("Other", length(oldc))
-vec <- newc[match(D$Phylum,oldc)]
-D$Phylum <- ifelse(D$Phylum %in% oldc, "Other", as.character(D$Phylum))
-
-Phylum <- D %>%
-  group_by(Phylum) %>%
-  summarize("s"=sum(avg_abund)) %>%
-  arrange(desc(s)) %>%
-  dplyr::select(Phylum,s)
-
-D$Phylum <- factor(D$Phylum, levels = rev(Phylum$Phylum[order(Phylum$s)]))
-D <- D %>%
-  arrange(Phylum)
-
-kable(D)
-```
 
 ## Effect of treatment
 
@@ -252,7 +227,7 @@ library("lmerTest")
 mm <- filter(temp, timepoint != "T1")
 
 D <- mm %>%
-  group_by(Phylum, Genus, Kingdom, Species, Class, Order, Family) %>%
+  group_by(Genus) %>%
   do(tidy(anova(lm(corrected_counts ~ timepoint + treatment, data=.)))) %>%
   filter(term == "treatment")
 
@@ -260,19 +235,18 @@ datatable(D, options = list(pageLength=100)) %>%
   formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
 
 fname = file.path(basedir, prjdir, outdir, "significant_taxa.csv")
-filter(D, p.value <= 0.05) %>% select(c(Phylum,term,p.value)) %>% fwrite(file = fname, sep = ",", col.names = TRUE)
+filter(D, p.value <= 0.05) %>% select(c(Genus,term,p.value)) %>% fwrite(file = fname, sep = ",", col.names = TRUE)
 ```
 
 ```{r, echo=FALSE}
 dd <- temp %>%
-  group_by(Phylum, Genus, Kingdom, Species, Class, Order, Family,timepoint,treatment) %>%
+  group_by(Genus,timepoint,treatment) %>%
   summarise(avg = mean(tot)) %>%
   spread(key = treatment, value = avg)
 
-d0 <- select(D, c(Phylum, Genus, Kingdom, Species, Class, Order, Family, p.value))
+d0 <- select(D, c(Genus, p.value))
 
-dd <- dd %>% inner_join(d0, by = c("Phylum" = "Phylum", "Genus"="Genus", "Kingdom"="Kingdom", "Species"="Species", "Class"="Class", "Order"="Order", "Family"="Family"))
-#dd$level <- factor(dd$level, levels = c("Phylum","Class","Order","Family","Genus"))
+dd <- dd %>% inner_join(d0, by = c("Genus" = "Genus"))
 
 to_save = list(D,dd,d0)
 fname = file.path(basedir, prjdir, outdir, "taxonomy_group.RData")
@@ -287,35 +261,32 @@ D0 <- to_save[[3]]
 
 Dna <- DX[!(is.na(DX$Genus) | DX$Genus==""), ]
 Dna <- filter(Dna, p.value < 0.05)
+
+## remember here to comment the taxonomic level you are using
 Dna$Phylum <- NULL
-Dna$Kingdom<- NULL
-Dna$Species<- NULL
-Dna$Order<- NULL
-Dna$Family<- NULL
+Dna$Kingdom <- NULL
+Dna$Species <- NULL
+Dna$Order <- NULL
+Dna$Family <- NULL
+#Dna$Genus <- NULL
 Dna$Class<- NULL
 Dna$ControlvsTreated <- (Dna$CONTROL-Dna$TREATED)
-Dna$CONTROL<-NULL
-Dna$TREATED<-NULL
-Dna <- Dna %>% gather(Genus, p.value)
-
-DnaT1 <- subset(Dna, timepoint == "T1")
+Dna$CONTROL <-NULL
+Dna$TREATED <-NULL
 
 p <- ggplot(Dna, aes(x=p.value, y=Genus, fill=p.value))
-p
 p <- p + geom_bar(width=1,stat="identity", position = "fill")
 p <- p + scale_fill_gradient(low = "orange", high = "blue")
-p
-p <- p + xlab("pvalue") + ylab("Genera")
+p <- p + xlab("pvalue") + ylab("Genus")
 p
 
-
-ggsave(filename = file.path(basedir, prjdir, outdir, "barplot_pvalues2.png"), plot = p, device = "png", width = 8, height = 15)
+#ggsave(filename = file.path(basedir, prjdir, outdir, "barplot_pvalues2.png"), plot = p, device = "png", width = 8, height = 15)
 ```
 
 ```{r}
 fg <- ggplot(Dna, aes(x=Genus, y=ControlvsTreated, fill=timepoint)) + geom_bar(width=1,stat="identity")
 fg <- fg + coord_flip()
-fg <- fg + ylab("Behaviour of the Treated against Control baseline, in significant p_values") + xlab("Taxa")
+fg <- fg + ylab("Behaviour of the Treated against Control, in significant p_values") + xlab("Taxa")
 fg <- fg + theme(axis.text.x = element_text(size = 6),
                axis.title = element_text(size = 6))
 fg
@@ -324,12 +295,8 @@ fg
 ```
 
 ```{r}
-dragon <- ggdraw() +
-  draw_plot(q, x = 0, y = .5, width = .5, height = .5) +
-  draw_plot(p, x = .5, y = .5, width = .5, height = .5) +
-  draw_plot(fg, x = 0, y = 0, width = 1, height = 0.5) +
-  draw_plot_label(label = c("A", "B", "C"), size = 5,
-                  x = c(0, 0.5, 0), y = c(1, 1, 0.5))
-dragon
+figure_final <- ggarrange(p, fg, widths=c(1, 1), labels=c("A", "B"), legend = "bottom")
+
+print(figure_final)
 #ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_heat+barplot_skinswabs.png", plot = dragon, device = "png", width = 7, height = 10)
 ```
