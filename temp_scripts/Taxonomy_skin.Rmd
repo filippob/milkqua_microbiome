@@ -30,11 +30,18 @@ library("data.table")
 #### reading the metadata
 
 ```{r, echo=FALSE}
-basedir="~/Documents/MILKQUA"
-prjdir = "Analysis/milkqua_skinswab/qiime1.9"
+# basedir="~/Documents/MILKQUA"
+# prjdir = "Analysis/milkqua_skinswab/qiime1.9"
+# outdir = "results"
+# 
+# fname = file.path(basedir,"Config/manifest_skinswab.csv")
+# metadata <- fread(fname)
+
+basedir="~/Results"
+prjdir = "SKINSWABS"
 outdir = "results"
 
-fname = file.path(basedir,"Config/manifest_skinswab.csv")
+fname = file.path(basedir, prjdir, "mapping_milkqua_skinswabs.csv")
 metadata <- fread(fname)
 names(metadata)[1] <- "sample"
 
@@ -55,7 +62,7 @@ metadata$treatment <- toupper(metadata$treatment)
 - !! **sample n. 29 has been removed** when filtering for sequencing quality !!
 
 ```{r, echo=FALSE}
-fname = file.path(basedir, prjdir, "6.normalize_OTU/otu_norm_CSS.csv")
+fname = file.path(basedir, prjdir, outdir, "otu_norm_CSS.csv")
 otu <- fread(fname)
 ```
 
@@ -87,7 +94,7 @@ temp = filter(temp, Phylum %in% core$Phylum)
 
 ### Phylum core microbiota
 
-Adding metadata to the phylum core microbiota data:
+Adding metadata to the Phylum core microbiota data:
 
 ```{r phyla average abundances, echo=FALSE}
 temp$timepoint <- metadata$timepoint[match(temp$sample, metadata$sample)]
@@ -103,7 +110,7 @@ x = temp %>%
   unique()
 ```
 
-Make tables and plots of the phylum core microbiota over time: 
+Make tables and plots of the Phylum core microbiota over time: 
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 x %>%
@@ -118,8 +125,8 @@ p <- ggplot(x, aes(x=factor(1), y=proportion, fill=Phylum)) + geom_bar(width=1,s
 p <- p + coord_polar(theta='y') #activate this if you want a piechart
 p <- p + geom_label(aes(label = 100*proportion), show.legend = FALSE, size = 3)
 # p <- p + geom_label_repel(aes(label = paste0(proportion*100, "%")), position=position_stack (vjust=0.4), size=3, show.legend = F, force = 0.6,  max.overlaps = 10)
-p <- p + facet_wrap(~timepoint, nrow = 3)
-p <- p + scale_fill_brewer(palette = "Set1") 
+p <- p + facet_wrap(~timepoint)
+# p <- p + scale_fill_brewer(palette = "Set1") 
 p <- p + guides(fill = guide_legend(title = "Phyla")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
 p <- p + xlab("Relative abundances") + ylab("Percentages")
 p <- p + theme(text = element_text(size=8),
@@ -132,9 +139,11 @@ p <- p + theme(text = element_text(size=8),
                legend.text=element_text(size=6),
                legend.title=element_text(size=6))
 p
+
+#ggsave(filename = file.path(basedir, prjdir, outdir, "taxonomy_Phylum_piechart_skinswabs_wbaseline.png"), plot = p, device = "png", width = 14, height = 7)
 ```
 
-#### Core microbiota: family, genus etc. continue if needed
+#### Core microbiota: family, genus etc. continue if needed = replace Phylum with Genus or whatevere you are interested in. Careful: blank spaces can suggest that it was not possible to identify that taxa level. --> solve this problem?
 
 ## Correction for baseline
 
@@ -146,9 +155,10 @@ In our case it is not practical to follow the same subject (animal) from T1 to T
 - corrected counts can be rescaled to be more easily comparable
 
 ```{r}
-temp = select(otu, contains("sample"), Phylum) %>% 
-  gather(key = "sample", value = "counts", -Phylum) %>%
-  group_by(Phylum, sample) %>%
+temp = select(otu, contains("sample"), Phylum #, Genus, Kingdom, Species, Class, Order, Family
+              )%>% gather(key = "sample", value = "counts", -Phylum #, -Genus, -Kingdom, -Species, -Class, -Order, -Family
+                          ) %>%  group_by(Phylum #, Genus, Kingdom, Species, Class, Order, Family
+                                          , sample) %>%
   summarise(tot = sum(counts))
 
 temp$timepoint <- metadata$timepoint[match(temp$sample, metadata$sample)]
@@ -157,20 +167,23 @@ temp$treatment <- metadata$treatment[match(temp$sample, metadata$sample)]
 
 ```{r}
 bl = filter(temp, timepoint == "T1") %>% 
-  group_by(Phylum, treatment) %>%
+  group_by(Phylum, # Genus, Kingdom, Species, Class, Order, Family, 
+           treatment) %>%
   summarise(bl = mean(tot))
 ```
 
 ```{r}
 temp <- temp %>% 
-  inner_join(bl, by = c("Phylum" = "Phylum", "treatment" = "treatment")) %>%
+  inner_join(bl, by = c("Phylum" = "Phylum", #"Genus"="Genus", "Kingdom"="Kingdom", "Species"="Species", "Class"="Class", "Order"="Order", "Family"="Family", 
+                        "treatment" = "treatment")) %>%
   mutate(corrected_counts = tot - bl)
 ```
 
 
 ```{r}
 temp <- temp %>%
-  group_by(Phylum) %>%
+  group_by(Phylum #, Genus, Kingdom, Species, Class, Order, Family
+           ) %>%
   mutate(scaled_counts=scales::rescale(corrected_counts,c(0,100)))
 ```
 
@@ -180,17 +193,48 @@ Is baseline really at 0?
 
 ```{r}
 dd <- temp %>%
-  group_by(Phylum, timepoint, treatment) %>%
+  group_by(Phylum, # Genus, Kingdom, Species, Class, Order, Family, 
+           timepoint, treatment) %>%
   summarise(avg = mean(corrected_counts))
 
 p <- ggplot(data=dd, aes(x=timepoint, y=avg, group=treatment)) +
   geom_line(aes(colour=treatment)) +
   geom_point()
-p <- p + facet_wrap(~Phylum, scales = "free")
+p <- p + facet_wrap(~Phylum, scales = "free") #change desidered taxa level after in "facet_wrap(~" 
 p
 ```
 
+
+
+
+
+
 #### Additional plots and tables (e.g. bubble chart etc.) if desired (@chiara)
+
+```{r phyla average abundances, echo=FALSE}
+D <- temp %>%
+  group_by(Phylum) %>%
+  summarise(N=n(), avg_abund = round(mean(tot),4)*0.01, std = round(sd(tot),3)) %>%
+#  filter(avg_abund>0.005) %>%
+  arrange(Phylum,avg_abund)
+
+oldc <- D$Phylum[D$avg_abund < 0.02]
+newc <- rep("Other", length(oldc))
+vec <- newc[match(D$Phylum,oldc)]
+D$Phylum <- ifelse(D$Phylum %in% oldc, "Other", as.character(D$Phylum))
+
+Phylum <- D %>%
+  group_by(Phylum) %>%
+  summarize("s"=sum(avg_abund)) %>%
+  arrange(desc(s)) %>%
+  dplyr::select(Phylum,s)
+
+D$Phylum <- factor(D$Phylum, levels = rev(Phylum$Phylum[order(Phylum$s)]))
+D <- D %>%
+  arrange(Phylum)
+
+kable(D)
+```
 
 ## Effect of treatment
 
@@ -208,155 +252,84 @@ library("lmerTest")
 mm <- filter(temp, timepoint != "T1")
 
 D <- mm %>%
-  group_by(Phylum) %>%
+  group_by(Phylum, Genus, Kingdom, Species, Class, Order, Family) %>%
   do(tidy(anova(lm(corrected_counts ~ timepoint + treatment, data=.)))) %>%
   filter(term == "treatment")
 
 datatable(D, options = list(pageLength=100)) %>% 
   formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
 
-fname = file.path(basedir, outdir, "significant_phylum.csv")
+fname = file.path(basedir, prjdir, outdir, "significant_taxa.csv")
 filter(D, p.value <= 0.05) %>% select(c(Phylum,term,p.value)) %>% fwrite(file = fname, sep = ",", col.names = TRUE)
 ```
 
 ```{r, echo=FALSE}
 dd <- temp %>%
-  group_by(Phylum,timepoint,treatment) %>%
+  group_by(Phylum, Genus, Kingdom, Species, Class, Order, Family,timepoint,treatment) %>%
   summarise(avg = mean(tot)) %>%
   spread(key = treatment, value = avg)
 
-d0 <- select(D, c(Phylum, p.value))
+d0 <- select(D, c(Phylum, Genus, Kingdom, Species, Class, Order, Family, p.value))
 
-dd <- dd %>% inner_join(d0, by = c("level" = "level", "new_taxa" = "new_taxa"))
-dd$level <- factor(dd$level, levels = c("phylum","class","order","family","genus"))
+dd <- dd %>% inner_join(d0, by = c("Phylum" = "Phylum", "Genus"="Genus", "Kingdom"="Kingdom", "Species"="Species", "Class"="Class", "Order"="Order", "Family"="Family"))
+#dd$level <- factor(dd$level, levels = c("Phylum","Class","Order","Family","Genus"))
 
 to_save = list(D,dd,d0)
-save(to_save, file = "taxonomy_group.RData")
+fname = file.path(basedir, prjdir, outdir, "taxonomy_group.RData")
+save(to_save, file = fname)
 ```
 
-
-
 ```{r, echo=FALSE, warning=FALSE}
-load("~/Results/SKINSWABS/results/taxonomy_skinswabs_tot.RData")
+load(fname)
 D <- to_save[[1]]
 DX <- to_save[[2]]
 D0 <- to_save[[3]]
 
-D0 <- mutate(D0, avg_counts = avg_counts+1) %>% spread(key = treatment, value = avg_counts)
+Dna <- DX[!(is.na(DX$Genus) | DX$Genus==""), ]
+Dna <- filter(Dna, p.value < 0.05)
+Dna$Phylum <- NULL
+Dna$Kingdom<- NULL
+Dna$Species<- NULL
+Dna$Order<- NULL
+Dna$Family<- NULL
+Dna$Class<- NULL
+Dna$ControlvsTreated <- (Dna$CONTROL-Dna$TREATED)
+Dna$CONTROL<-NULL
+Dna$TREATED<-NULL
+Dna <- Dna %>% gather(Genus, p.value)
 
-D1 <- DX %>%
-  inner_join(D0, by = c("level" = "level", "new_taxa" = "new_taxa", "timepoint"="timepoint")) %>%
-  mutate(p.value = -log10(p.value)) %>%
-  gather(key = "treatment", value = "counts", -c(level,new_taxa,timepoint, p.value))
+DnaT1 <- subset(Dna, timepoint == "T1")
 
-D1$level <- factor(D1$level, levels = c("phylum","class","order","family","genus")) #, "species"
-
-D1 <- D1 %>% group_by(level) %>% mutate(tot = sum(counts), relab = counts/tot)
-
-p <- ggplot(D1, aes(x = treatment, y = new_taxa))
-p <- p + geom_tile(aes(fill = relab), colour = "white")
-p <- p + theme(legend.position="bottom")
-p <- p + facet_grid(level~timepoint, scales = "free",  space = "free")
-p <- p + xlab("Treatments") + ylab("Taxa")
+p <- ggplot(Dna, aes(x=p.value, y=Genus, fill=p.value))
+p
+p <- p + geom_bar(width=1,stat="identity", position = "fill")
 p <- p + scale_fill_gradient(low = "orange", high = "blue")
-p <- p + theme(strip.text.y = element_text(size = 5), 
-               strip.text.x = element_text(size = 6),
-               # axis.text.y = element_text(size = 4),
-               axis.text.x = element_text(size = 6),
-               axis.title = element_text(size = 6))
-p <- p + guides(fill="none") + theme(axis.title.y = element_blank(),
-                                     axis.text.y = element_blank(),
-                                     axis.ticks.y = element_blank())
+p
+p <- p + xlab("pvalue") + ylab("Genera")
 p
 
-dd <- D1 %>% mutate(variable = "p-value")
 
-q <- ggplot(dd, aes(x = factor(1), y = new_taxa, group=level))
-q <- q + geom_tile(aes(fill = p.value), colour = "white")
-q <- q + theme(legend.position="bottom")
-q <- q + facet_grid(level~variable, space="free", scales = "free_y")
-q <- q + scale_fill_gradient(low = "orange", high = "blue")
-q <- q + xlab("Treatments") + ylab("Taxa")
-q <- q + theme(strip.text = element_text(size = 4), 
-               strip.text.x = element_text(size = 6),
-               axis.text.y = element_text(size = 6),
-               axis.title = element_text(size = 6))
-q <- q + guides(fill=FALSE) + theme(
-  # axis.title.x = element_blank(),
-  # axis.text.x=element_blank(),
-  # axis.ticks.x=element_blank(),
-  strip.text.y = element_blank(),
-  # axis.text.x = element_blank()
-  axis.text.x = element_text(size = 6)
-)
-q <- q + xlab("") 
-q
-##ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_heatmap_pvalue_skinswabs.png", plot = q, device = "png", width = 6, height = 6)
-
-
-figure_final <- ggarrange(q, p, widths=c(0.01, 0.02), labels=c("A", "B"), legend = "bottom")
-
-print(figure_final)
-#ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_heatmap_skinswabs.png", plot = figure_final, device = "png", width = 7, height = 10)
-```
-
-### Extracting estimated coefficients for "significant" OTUs
-
-```{r}
-res = data.frame("level"=NULL, "OTU"=NULL, "p_value"=NULL, "Control"=NULL,"Treated"=NULL)
-
-DX <- DX %>% filter(level == "genus")
-m1 <- m1 %>% filter(level=="genus")
-DX$new_taxa <- paste(DX$new_taxa,", Timepoint:", DX$timepoint)
-m1$new_taxa <- paste(m1$new_taxa,", Timepoint:", m1$timepoint)
-
-
-for (name in DX$new_taxa) {
-  
-  print(paste("analysing OTU ", name))
-  pval = as.numeric(DX[DX$new_taxa==name,"p.value"])
-  level = DX[DX$new_taxa==name,"level"]
-  tpoint = DX[DX$new_taxa==name, "timepoint"]
-  
-  ## estimating coefficients
-  temp = filter(m1, new_taxa == name)
-  temp$treatment <- factor(temp$treatment, levels = c("Control","Treated"))
-  g = lm(counts ~ treatment, data = temp)
-  
-  ## extracting coefficients
-  coefs = g$coefficients
-  coefs = coefs[!grepl("(Intercept)", names(coefs))]
-  names(coefs) = gsub("treatment","",names(coefs))
-  coefs = as.data.frame(t(coefs))
-  
-  ## adding metadata
-  coefs["level"] = level
-  coefs["OTU"] = name
-  coefs["p_value"] = pval
-  coefs["timepoint"] = tpoint
-
-  # saving results
-  res = rbind.data.frame(res, coefs)
-}
-
-#write.csv(res, "~/Results/SKINSWABS/results/taxonomy_res.csv")
+ggsave(filename = file.path(basedir, prjdir, outdir, "barplot_pvalues2.png"), plot = p, device = "png", width = 8, height = 15)
 ```
 
 ```{r}
-fg <- ggplot(res, aes(x=OTU, y=Treated, fill=timepoint)) + geom_bar(width=1,stat="identity")
+fg <- ggplot(Dna, aes(x=Genus, y=ControlvsTreated, fill=timepoint)) + geom_bar(width=1,stat="identity")
 fg <- fg + coord_flip()
-fg <- fg + xlab("Behaviour of the Treated against Control baseline, in significant p_values") + ylab("Taxa")
+fg <- fg + ylab("Behaviour of the Treated against Control baseline, in significant p_values") + xlab("Taxa")
 fg <- fg + theme(axis.text.x = element_text(size = 6),
                axis.title = element_text(size = 6))
 fg
-#ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_barplot_significantOTUS_genera_skinswabs.png", plot = fg, device = "png", width = 8, height = 8)
 
+# ggsave(filename = file.path(basedir, prjdir, outdir, "barplot_significantOTUsbehaviour.png"), plot = fg, device = "png", width = 15, height = 40)
+```
+
+```{r}
 dragon <- ggdraw() +
   draw_plot(q, x = 0, y = .5, width = .5, height = .5) +
   draw_plot(p, x = .5, y = .5, width = .5, height = .5) +
   draw_plot(fg, x = 0, y = 0, width = 1, height = 0.5) +
   draw_plot_label(label = c("A", "B", "C"), size = 5,
                   x = c(0, 0.5, 0), y = c(1, 1, 0.5))
-
+dragon
 #ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_heat+barplot_skinswabs.png", plot = dragon, device = "png", width = 7, height = 10)
 ```
