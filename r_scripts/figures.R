@@ -459,9 +459,9 @@ p <- p + guides(fill='none') + theme(axis.title.y = element_blank(),
 p
 
 ####
-ddx <- temp %>%
-  select(-flag) %>%
-  spread(key = treatment, value = rescaled_abundance)
+#ddx <- temp %>%
+#  select(-flag) %>%
+#  spread(key = treatment, value = rescaled_abundance)
 
 ddx <- filter(dd, timepoint == "dry-off", p.value <= 0.05) %>% mutate(variable = "p-value")
 
