@@ -424,6 +424,70 @@ figure_final <- ggarrange(q, p, widths=c(0.25, 0.75),
 ggsave(filename = "figures/heatmap.png", plot = figure_final, device = "png", width = 8, height = 12)
 ggsave(filename = "figures/heatmap.pdf", plot = figure_final, device = "pdf", width = 8, height = 12)
 
+#########################################
+## FIGURE 3: BARPLOT OF SIGNIFICANT OTUs
+#########################################
+
+## version of the script that instead of producing the heatmap of relative abundances
+## plots the (normalised) count difference between treated and controls, for each significant OTU
+## !! WARNING: can only be used when there are two groups to contrast !!
+
+load("taxonomy_group.RData")
+D <- to_save[[1]]
+dd <- to_save[[2]]
+d0 <- to_save[[3]]
+
+temp <- filter(dd, `p.value` <= 0.05) %>% gather(key = "treatment", value = "abundance", -c(level,new_taxa,timepoint,`p.value`))
+temp <- temp %>% group_by(level) %>%
+  mutate(rescaled_abundance = scales::rescale(abundance, to = c(0,100))) %>%
+  select(-abundance) %>%
+  spread(key = "treatment", value = "rescaled_abundance") %>%
+  mutate(diff = antibiotic - teat_sealant, flag = ifelse(diff > 0, "increase", "decrease"))
+
+
+p <- ggplot(temp, aes(x = diff, y = new_taxa)) + geom_col(aes(fill=flag))
+p <- p + facet_grid(level~timepoint, space="free", scales = "free_y")
+p <- p + scale_fill_manual(values=c("#E69F00", "#56B4E9"))
+p <- p + theme(strip.text.y = element_text(size = 6), 
+               strip.text.x = element_text(size = 7),
+               # axis.text.y = element_text(size = 4),
+               axis.text.x = element_text(size = 7),
+               axis.title = element_text(size = 9))
+p <- p + guides(fill='none') + theme(axis.title.y = element_blank(),
+                                     axis.text.y = element_blank(),
+                                     axis.ticks.y = element_blank())
+p
+
+####
+#ddx <- temp %>%
+#  select(-flag) %>%
+#  spread(key = treatment, value = rescaled_abundance)
+
+ddx <- filter(dd, timepoint == "dry-off", p.value <= 0.05) %>% mutate(variable = "p-value")
+
+q <- ggplot(ddx, aes(x = factor(1), y = new_taxa, group=level))
+q <- q + geom_tile(aes(fill = -log10(p.value)), colour = "white")
+q <- q + facet_grid(level~variable, space="free", scales = "free_y")
+q <- q + scale_fill_gradient(low = "yellow", high = "darkred")
+q <- q + theme(strip.text = element_text(size = 7), 
+               strip.text.x = element_text(size = 6),
+               axis.text.y = element_text(size = 6),
+               axis.title = element_text(size = 9))
+q <- q + guides(fill='none') + theme(
+  # axis.title.x = element_blank(),
+  # axis.text.x=element_blank(),
+  # axis.ticks.x=element_blank(),
+  strip.text.y = element_blank(),
+  # axis.text.x = element_blank()
+  axis.text.x = element_text(size = 6)
+)
+q <- q + xlab("") 
+q
+
+figure_final <- ggarrange(q, p, widths=c(0.25, 0.75), 
+                          labels=c("A", "B"))
+
+ggsave(filename = "figures/significant_asv.png", plot = figure_final, device = "png", width = 7, height = 7.5)
 
 ##########################
 ## FIGURE 1S (rarefaction)

@@ -1,0 +1,253 @@
+---
+title: "Alpha_diversity_Skinswabs"
+author: "Chiara Gini"
+date: "24/05/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+library("DT")
+library("knitr")
+library("dplyr")
+library("tidyr")
+library("broom")
+library("vegan")
+library("scales")
+library("ggplot2")
+#library("ggpubr")
+# library("madbito")
+library("reshape2")
+library("gghighlight")
+library("data.table")
+library("rmarkdown")
+library("ggrepel")
+library("tibble")
+library("ggplot2")
+```
+
+## Alpha diversity of SKINSWABs samples
+
+From 16S rRNA-gene sequencing of cow SKINSWABs microbiome samples:
+- 2 groups (Treated -milking grease and Thymus capitatus essential oil- vs Untreated -just milking grease-), 3 timepoints (before EO application -T0-, straight after EO application -T1-, 7 days after EO application -T3-)
+
+Total: 48 samples.
+
+Main alpha diversity indexes per group. 
+
+```{r alpha, echo=FALSE}
+metadata <- fread("/home/oem/Results/SKINSWABS/mapping_milkqua_skinswabs.csv")
+#names(metadata)[1] <- "sample"
+metadata = metadata[-29,] ##remove sample 29 because it had a bad reads quality and was dropped during alpha preparation (minimum reads was set 500, 29 had around 200)
+metadata <- tibble::rownames_to_column(metadata, "sample")
+
+alpha <- read.table("~/Results/SKINSWABS/results/alpha.csv", header = TRUE, sep = ",")
+alpha$sample.id <- row.names(alpha)
+alpha$observed_species <- NULL
+
+mAlpha <- reshape2::melt(alpha, id.vars = "sample.id", variable.name = "metric", value.name = "value")
+mAlpha$timepoint <- metadata$timepoint[match(mAlpha$sample,metadata$sample)]
+mAlpha$treatment <- metadata$treatment[match(mAlpha$sample,metadata$sample)]
+mAlpha$timepoint[mAlpha$timepoint == "before_oil" ] <- "T0" 
+mAlpha$timepoint[mAlpha$timepoint == "after_oil" ] <- "T1" 
+mAlpha$timepoint[mAlpha$timepoint == "8" ] <- "T2" 
+```
+
+## Averages and plots
+
+```{r pressure, echo=FALSE}
+mAlpha$treatment <- factor(mAlpha$treatment, levels = c("Control","Treated"))
+D <- mAlpha %>%
+  group_by(metric,treatment) %>%
+  summarize(N=n(),avg=round(mean(value),3)) %>%
+  spread(key = metric, value = avg)
+
+d_alpha <- D %>%
+  gather(key = "metric", value = "value", -c(treatment,N)) %>%
+  spread(key = "treatment", value = "value")
+
+fwrite(d_alpha, file = "~/Results/SKINSWABS/results/alpha_SKINSWABS.csv", col.names = TRUE, sep = ",")
+kable(D)
+```
+
+### Boxplots of alpha diversity indexes
+
+#### Treatment by region
+
+```{r, echo=FALSE, fig.height=12, fig.width=12}
+mAlpha <- mAlpha %>% group_by(metric) %>%
+  mutate(scaled_value = rescale(value, to = c(0,100)))
+  
+p <- ggplot(mAlpha, aes(x=timepoint,y=scaled_value)) 
+p <- p + geom_boxplot(aes(fill=treatment))
+p <- p + scale_fill_manual(values=c("green3", "orange"))
+p <- p + facet_wrap(~metric, scales = "free")
+p <- p + xlab("Treatment")
+p = p + theme(strip.text = element_text(size = 12),
+              axis.text.x = element_text(angle = 90, size = 8))
+p
+```
+
+## Testing for significance
+
+### Original alpha-diversity index-values - effect of timepoint in SKINSWABS samples
+
+```{r test_alpha, echo=FALSE}
+mAlpha$treatment = as.character(mAlpha$treatment)
+mAlpha$treatment = factor(mAlpha$treatment, levels = c("Control", "Treated"))
+
+D <- mAlpha %>%
+  group_by(metric, timepoint) %>%
+  do(tidy(lm(value ~ treatment, data = .))) %>%
+  filter(term != "(Intercept)")
+
+datatable(D, options = list(pageLength=100)) %>% 
+  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+D$timepoint <- factor(D$timepoint, levels=c("T0", "T1", "T2"))
+
+p <- ggplot(data = D, mapping= aes(x=timepoint, y=p.value))
+p <- p + geom_point(aes(color = metric, stroke = 1.5), position=position_jitter(h=0, w=0.2))
+p <- p + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
+p <- p + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
+#p <- p + scale_fill_manual(values=c("green3", "orange", "blue", "red", "yellow", "gray", "rose"))
+p <- p + scale_y_continuous(breaks=pretty_breaks(n=20)) 
+p <- p + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = TRUE)
+p <- p + coord_trans(y="log2")
+p <- p + theme(axis.text.x = element_text(angle = 90))
+p
+ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_TIMEPOINT_tablewithdots_SKINSWABS.png", width = 7, height = 7, plot = p, device = "png")
+```
+
+```{r}
+#temp <- filter(mAlpha, metric == "chao1")
+# g = lm(value ~ treatment, data = temp)
+# class(g)
+fit = aov(value ~ treatment, data = mAlpha) ## linear model value = mu + treatment + e (y = mu + x + e)
+TukeyHSD(fit, "treatment", ordered = TRUE)
+```
+
+## Correction for baseline
+
+```{r}
+## Correction for baseline
+bl_medie <- mAlpha %>%
+  filter(timepoint=="T0") %>%
+  group_by(metric,treatment) %>%
+  summarize(media_bl=mean(value))
+  
+bl_counts <- mAlpha %>%
+  group_by(metric,treatment) %>%
+  filter(timepoint=="T0") %>%
+  arrange(metric) %>%
+  rename(value.bl = value)
+
+M <- merge(mAlpha,bl_counts[,c(1,2,3)],by=c("metric","sample.id"),all.x = TRUE)
+M1 <- M%>%
+  filter(!is.na(M$value.bl))
+
+
+M2 <- M %>%
+  filter(is.na(value.bl)) %>%
+  mutate(value.bl=replace(value.bl,is.na(value.bl),right_join(bl_medie, ., by =c("metric","treatment"))$media_bl))
+
+M <- rbind.data.frame(M1,M2)  
+
+M <- M %>%
+  mutate(corrected_counts=value-value.bl) %>%
+  filter(value!=0) %>%
+  arrange(sample.id)
+
+M <- M %>%
+  group_by(metric) %>%
+  mutate(scaled_counts=scales::rescale(corrected_counts,c(0,100)))
+```
+
+```{r, echo=FALSE}
+D <- M %>%
+  group_by(metric,treatment,timepoint) %>%
+  summarize(avg=mean(corrected_counts)) %>%
+  spread(key = metric, value = avg)
+
+kable(D)
+
+fwrite(D, file = "~/Results/SKINSWABS/results/alpha_SKINSWABS.csv", col.names = TRUE, sep = ",")
+```
+
+
+```{r, echo=FALSE}
+mD <- melt(D, id.vars = c("timepoint","treatment"), variable.name = "metric")
+
+mD$timepoint <- factor(mD$timepoint, levels=c("T0", "T1", "T2"))
+p <- ggplot(mD, aes(x=timepoint,y=value, group=treatment)) + geom_point(aes(colour=treatment))
+p <- p + geom_line(aes(colour=treatment))
+p <- p + facet_wrap(~metric, scales = "free_y")
+p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+p  
+
+ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_curves_SKINSWABS.png", width = 7, height = 7, plot = p, device = "png")
+```
+
+```{r test_alpha_bl, echo=FALSE}
+D <- M %>%
+  filter(timepoint != "T0") %>%
+  group_by(metric, timepoint) %>%
+  do(tidy(lm(value ~ treatment, data = .))) %>%
+  filter(term != "(Intercept)")
+
+datatable(D, options = list(pageLength=100)) %>% 
+  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+D$timepoint <- factor(D$timepoint, levels=c("T0", "T1", "T2"))
+
+p1 <- ggplot(data = D, mapping= aes(x=timepoint, y=p.value))
+p1 <- p1 + geom_point(aes(color = metric, stroke = 1), position=position_jitter(h=0, w=0.27))
+p1 <- p1 + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
+p1 <- p1 + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
+p1 <- p1 + scale_y_continuous(breaks=pretty_breaks(n=20)) 
+#p1 <- p1 + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
+p1 <- p1 +  theme(legend.key.size = unit(0.05, 'cm'))
+p1 <- p1 + coord_trans(y="log2")
+p1
+
+ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_tablewithdots_TIMEPOINT_correctedforbaseline_Skinswabs.png", width = 6, height = 8, plot = p1, device = "png")
+```
+
+```{r test_alpha_bl_tr, echo=FALSE}
+D <- M %>%
+  filter(treatment != "Control") %>%
+  group_by(metric, treatment) %>%
+  do(tidy(lm(value ~ timepoint, data = .))) %>%
+  filter(term != "(Intercept)")
+
+datatable(D, options = list(pageLength=100)) %>% 
+  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+D$treatment <- factor(D$treatment, levels=c("Control", "Treated"))
+
+p2 <- ggplot(data = D, mapping= aes(x=treatment, y=p.value))
+p2 <- p2 + geom_point(aes(color = metric, stroke = 1, shape = term), position=position_jitter(h=0, w=0.27))
+p2 <- p2 + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
+p2 <- p2 + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
+p2 <- p2 +  theme(legend.key.size = unit(0.05, 'cm'))
+p2 <- p2 + scale_y_continuous(breaks=pretty_breaks(n=20)) 
+#p2 <- p2 + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
+p2 <- p2 + coord_trans(y="log2")
+p2
+
+ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_tablewithdots_TREATMENT_correctedforbaseline_Skinswabs.png", width = 6, height = 8, plot = p2, device = "png")
+```
+
+```{r}
+figure_final <- ggarrange(p1, p2, widths=c(1, 1), heights=c(1,1),  labels=c("A", "B"))
+print(figure_final)
+
+ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_tablewithdots_correctedforbaseline_Skinswabs.png", plot = figure_final, device = "png")
+```
