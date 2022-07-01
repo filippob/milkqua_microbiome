@@ -2,8 +2,10 @@
 title: "Taxonomy_Skinswabs"
 author: "Chiara Gini"
 date: "24/05/2022"
-output: html_document
-editor_options: 
+output:
+  html_document: default
+  pdf_document: default
+editor_options:
   chunk_output_type: inline
 ---
 
@@ -22,7 +24,11 @@ library("reshape2")
 library("tidyverse")
 library("data.table")
 ```
- 
+
+# CURRENTLY MISSING:
+
+- boxplots with avg_abundances corrected for baseline
+
 # COMPARISON BETWEEN TREATMENTS
 
 ## SET UP
@@ -30,15 +36,22 @@ library("data.table")
 #### reading the metadata
 
 ```{r, echo=FALSE}
-basedir="~/Documents/MILKQUA"
-prjdir = "Analysis/milkqua_skinswab/qiime1.9"
+# basedir="~/Documents/MILKQUA"
+# prjdir = "Analysis/milkqua_skinswab/qiime1.9"
+# outdir = "results"
+# 
+# fname = file.path(basedir,"Config/manifest_skinswab.csv")
+# metadata <- fread(fname)
+
+basedir="~/Results"
+prjdir = "SKINSWABS"
 outdir = "results"
 
-fname = file.path(basedir,"Config/manifest_skinswab.csv")
+fname = file.path(basedir, prjdir, "mapping_milkqua_skinswabs.csv")
 metadata <- fread(fname)
 names(metadata)[1] <- "sample"
 
-newt = c("T1","T2","T3")
+newt = c("T0","T1","T2")
 oldt = unique(metadata$timepoint)
 metadata$timepoint_recoded = newt[match(metadata$timepoint, oldt)]
 metadata <- rename(metadata, timepoint_orig = timepoint, timepoint = timepoint_recoded)
@@ -48,6 +61,8 @@ metadata %>%
   dplyr::summarise(N=n())
 
 metadata$treatment <- toupper(metadata$treatment)
+metadata$treatment[metadata$treatment == "CONTROL"] <- "Control"
+metadata$treatment[metadata$treatment == "TREATED"] <- "Treated"
 ```
 
 #### reading the normalised OTU table
@@ -55,19 +70,20 @@ metadata$treatment <- toupper(metadata$treatment)
 - !! **sample n. 29 has been removed** when filtering for sequencing quality !!
 
 ```{r, echo=FALSE}
-fname = file.path(basedir, prjdir, "6.normalize_OTU/otu_norm_CSS.csv")
+fname = file.path(basedir, prjdir, outdir, "otu_norm_CSS.csv")
 otu <- fread(fname)
 ```
 
 ## Core microbiota
 
-We want to identify the OTU (at any given taxonomic level) that are shared by the majority of the samples. To this aim, we set a threshold (e.g. $95\% = 0.95$) and proceed to calculate the proportion of samples where each OTU (e.g. each phylum, each genus etc.) is not absent:
+We want to identify the OTU (at any given taxonomic level) that are shared by the majority of the samples. To this aim, we set a threshold (e.g. $95\% = 0.95$) and proceed to calculate the proportion of samples where each OTU (e.g. each Phylum, each Phylum etc.) is not absent:
 
-- we group by `OTU` (e.g. phylum) **and** `sample`
-- we sum the corresponding counts (e.g. all OTUs belonging to each phylum in any sample)
+- we group by `OTU` (e.g. Phylum) **and** `sample`
+- we sum the corresponding counts (e.g. all OTUs belonging to each Phylum in any sample)
 - we count how many such sums are zero/non-zero and take the ratio over the total n. of samples
 - we filter based on this ratio (non-zero samples / all samples) and the desired threshold
 
+**NOTE: the following scripts fits perfectly for every taxa level, but only when singularly run: you will need to run every level separately, by changing the name of the taxa inside the scripts. It can be easily done via Find+Replace function in RStudio (search symbol in the bar above). Careful: in some cases levels are empty: this is currently a problem to be solved.**
  
 ```{r taxa setup, echo =FALSE}
 threshold = 0.99
@@ -87,41 +103,47 @@ temp = filter(temp, Phylum %in% core$Phylum)
 
 ### Phylum core microbiota
 
-Adding metadata to the phylum core microbiota data:
+Adding metadata to the Phylum core microbiota data:
 
-```{r phyla average abundances, echo=FALSE}
+```{r Phylum average abundances, echo=FALSE}
 temp$timepoint <- metadata$timepoint[match(temp$sample, metadata$sample)]
 temp$treatment <- metadata$treatment[match(temp$sample, metadata$sample)]
 ```
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 x = temp %>%
-  group_by(timepoint) %>%
+  group_by(timepoint, treatment) %>%
   dplyr::mutate(tot = sum(counts)) %>%
-  dplyr::group_by(timepoint, Phylum) %>%
+  dplyr::group_by(timepoint, Phylum, treatment) %>%
   dplyr::summarise(phyltot = sum(counts), proportion = round(phyltot/tot, 3)) %>%
-  unique()
+ unique() 
 ```
 
-Make tables and plots of the phylum core microbiota over time: 
+Make tables and plots of the Phylum core microbiota over time: 
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 x %>%
-  group_by(timepoint, Phylum) %>%
+  group_by(timepoint, Phylum, treatment) %>%
   summarise(avg = mean(proportion)) %>%
   spread(key = timepoint, value = avg) %>%
    adorn_totals("row") 
+
+kable(x)
+#write.csv(x, file.path(basedir, prjdir, outdir, "skinswab_Phylum_core_microbiota.csv"), sep = ",")
 ```
 
 ```{r, fig.height=8, fig.width=10}
 p <- ggplot(x, aes(x=factor(1), y=proportion, fill=Phylum)) + geom_bar(width=1,stat="identity")
+#p <- ggplot(x, aes(x=timepoint, y=treatment, fill=Phylum)) + geom_bar(width=1,stat="identity")
 p <- p + coord_polar(theta='y') #activate this if you want a piechart
-p <- p + geom_label(aes(label = 100*proportion), show.legend = FALSE, size = 3)
-# p <- p + geom_label_repel(aes(label = paste0(proportion*100, "%")), position=position_stack (vjust=0.4), size=3, show.legend = F, force = 0.6,  max.overlaps = 10)
-p <- p + facet_wrap(~timepoint, nrow = 3)
-p <- p + scale_fill_brewer(palette = "Set1") 
-p <- p + guides(fill = guide_legend(title = "Phyla")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
+p  <- p + geom_label(aes(label = 100*proportion), show.legend = FALSE, size = 3)
+p <- p + geom_label_repel(aes(label = paste0(proportion*100, "%")), position=position_stack (vjust=0.4), size=3, show.legend = F, force = 0.6,  max.overlaps = 10)
+p <- p + facet_wrap(treatment~timepoint)
+# p <- p + scale_fill_brewer(palette = "Set1") 
+p <- p + guides(fill = guide_legend(title = "Phylum")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
 p <- p + xlab("Relative abundances") + ylab("Percentages")
+my_palette = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple","brown", "darkorange1","pink1", "darkorchid1", "seagreen2"), length(unique(x$Phylum)))
+p <- p + scale_fill_manual(values = my_palette)
 p <- p + theme(text = element_text(size=8),
                strip.text = element_text(size = 8),
                axis.text.y = element_blank(),
@@ -132,15 +154,17 @@ p <- p + theme(text = element_text(size=8),
                legend.text=element_text(size=6),
                legend.title=element_text(size=6))
 p
+
+#ggsave(filename = file.path(basedir, prjdir, outdir, "taxonomy_Phylum_piechart_skinswabs_wbaseline.png"), plot = p, device = "png", width = 7, height = 5)
 ```
 
-#### Core microbiota: family, genus etc. continue if needed
+#### Core microbiota: Phylum, Phylum etc. continue if needed = replace Phylum with Phylum or whatevere you are interested in. Careful: blank spaces can suggest that it was not possible to identify that taxa level. --> solve this problem?
 
 ## Correction for baseline
 
 In our case it is not practical to follow the same subject (animal) from T1 to T3 (some animals have data on multiple quarters); therefore we must adopt a correction strategy based on average counts at baseline:
 
-- first, sum all counts by OTU level (e.g. many OTUs belonging to the same phylum)
+- first, sum all counts by OTU level (e.g. many OTUs belonging to the same Phylum)
 - then calculate average counts at baseline (together for treated and controls: they're supposed to be equivalent at T1 --> no treatment yet !)
 - finally, subtract average at baseline from all counts: in this way, the average at T1 will be zero for both treatments and controls, while averages at later timepoints will reflect relative shifts in the experimental groups
 - corrected counts can be rescaled to be more easily comparable
@@ -186,8 +210,81 @@ dd <- temp %>%
 p <- ggplot(data=dd, aes(x=timepoint, y=avg, group=treatment)) +
   geom_line(aes(colour=treatment)) +
   geom_point()
-p <- p + facet_wrap(~Phylum, scales = "free")
+p <- p + facet_wrap(~Phylum, scales = "free") 
 p
+
+#ggsave(filename = file.path(basedir, prjdir, outdir, "taxonomy_Phylum_baseline_check.png"), plot = p, device = "png", width = 20, height = 20)
+```
+
+```{r}
+de <- temp %>%
+  group_by(timepoint, treatment) %>%
+  dplyr::mutate(tot = sum(scaled_counts)) %>%
+  dplyr::group_by(timepoint, Phylum, treatment) %>%
+  dplyr::summarise(phyltot = sum(scaled_counts), proportion = round(phyltot/tot, 3)) %>%
+ unique() 
+
+de <- de %>%
+  filter(proportion>0.01)
+
+de$treatment[de$timepoint == "T0"] <- "Control"
+
+
+de %>%
+  group_by(timepoint, Phylum, treatment) %>%
+  summarise(avg = mean(proportion)) %>%
+  spread(key = timepoint, value = avg) %>%
+   adorn_totals("row")
+
+kable(de)
+
+
+t12 <- subset(de, timepoint!="T0")
+  
+p <- ggplot(t12, aes(x=factor(1), y=proportion, fill=Phylum)) + geom_bar(width=1,stat="identity", position = "fill")
+#p <- ggplot(x, aes(x=timepoint, y=treatment, fill=Phylum)) + geom_bar(width=1,stat="identity")
+#p <- p + coord_polar(theta='y') #activate this if you want a piechart
+#p  <- p + geom_label(aes(label = 100*proportion), show.legend = FALSE, size = 3)
+#p <- p + geom_label_repel(aes(label = paste0(proportion*100, "%")), position=position_stack (vjust=0.4), size=3, show.legend = F, force = 0.6,  max.overlaps = 10)
+p <- p + facet_grid(treatment ~ timepoint)
+p <- p + guides(fill = guide_legend(title = "Phylum")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
+p <- p + xlab("Relative abundances") + ylab("Percentages")
+my_palette2 = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple","brown", "darkorange1","pink1", "darkorchid1", "seagreen2", "#ffb6db", "#490092","#006ddb","#b66dff","#6db6ff","#b6dbff", "#920000","#924900","#db6d00","#24ff24","#ffff6d"), length(unique(t12$Phylum)))
+p <- p + scale_fill_manual(values = my_palette2)
+p <- p + theme(text = element_text(size=8),
+               strip.text = element_text(size = 8),
+               axis.text.y = element_blank(),
+               axis.text.x = element_blank(),
+               axis.ticks = element_blank(), 
+               axis.ticks.y = element_blank(),
+               axis.ticks.x = element_blank(),
+               legend.text=element_text(size=6),
+               legend.title=element_text(size=6))
+p
+
+t0 <- subset(de, timepoint=="T0")
+
+q <- ggplot(t0, aes(x=factor(1), y=proportion, fill=Phylum)) + geom_bar(width=1,stat="identity", position = "fill")
+#p <- p + coord_polar(theta='y') #activate this if you want a piechart
+q  <- q + facet_grid(treatment ~ timepoint)
+q  <- q + guides(fill = guide_legend(title = "Phylum")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
+q  <- q + xlab("Relative abundances") + ylab("Percentages")
+my_palette2 = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple","brown", "darkorange1","pink1", "darkorchid1", "seagreen2", "#ffb6db", "#490092","#006ddb","#b66dff","#6db6ff","#b6dbff", "#920000","#924900","#db6d00","#24ff24","#ffff6d"), length(unique(t0$Phylum)))
+q  <- q + scale_fill_manual(values = my_palette2)
+q  <- q + theme(text = element_text(size=8),
+               strip.text = element_text(size = 8),
+               legend.position="none",
+               axis.text.y = element_blank(),
+               axis.text.x = element_blank(),
+               axis.ticks = element_blank(), 
+               axis.ticks.y = element_blank(),
+               axis.ticks.x = element_blank(),
+               legend.text=element_blank(),
+               legend.title=element_blank())
+q
+
+figure_final_comp <- ggarrange(q, p, widths=c(0.25, 0.75), heights=c(1,1))
+print(figure_final_comp)
 ```
 
 #### Additional plots and tables (e.g. bubble chart etc.) if desired (@chiara)
@@ -215,7 +312,7 @@ D <- mm %>%
 datatable(D, options = list(pageLength=100)) %>% 
   formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
 
-fname = file.path(basedir, outdir, "significant_phylum.csv")
+fname = file.path(basedir, prjdir, outdir, "significant_taxa_Phylum.csv")
 filter(D, p.value <= 0.05) %>% select(c(Phylum,term,p.value)) %>% fwrite(file = fname, sep = ",", col.names = TRUE)
 ```
 
@@ -227,136 +324,64 @@ dd <- temp %>%
 
 d0 <- select(D, c(Phylum, p.value))
 
-dd <- dd %>% inner_join(d0, by = c("level" = "level", "new_taxa" = "new_taxa"))
-dd$level <- factor(dd$level, levels = c("phylum","class","order","family","genus"))
+dd <- dd %>% inner_join(d0, by = c("Phylum" = "Phylum"))
 
 to_save = list(D,dd,d0)
-save(to_save, file = "taxonomy_group.RData")
+fname = file.path(basedir, prjdir, outdir, "taxonomy_group_Phylum.RData")
+save(to_save, file = fname)
 ```
 
-
-
 ```{r, echo=FALSE, warning=FALSE}
-load("~/Results/SKINSWABS/results/taxonomy_skinswabs_tot.RData")
+load(fname)
 D <- to_save[[1]]
 DX <- to_save[[2]]
 D0 <- to_save[[3]]
 
-D0 <- mutate(D0, avg_counts = avg_counts+1) %>% spread(key = treatment, value = avg_counts)
+Dna <- DX[!(is.na(DX$Phylum) | DX$Phylum==""), ]
+Dna <- filter(Dna, p.value < 0.05)
+## remember here to comment the taxonomic level you are using
+#Dna$Phylum <- NULL
+Dna$Kingdom <- NULL
+Dna$Species <- NULL
+Dna$Class <- NULL
+Dna$Phylum <- NULL
+Dna$Phylum <- NULL
+Dna$ControlvsTreated <- (Dna$CONTROL-Dna$TREATED)
+Dna$CONTROL <-NULL
+Dna$TREATED <-NULL
+write.csv(Dna, file.path(basedir, prjdir, outdir, "skinswab_Phylum_significance&behaviour.csv"), sep = ",")
 
-D1 <- DX %>%
-  inner_join(D0, by = c("level" = "level", "new_taxa" = "new_taxa", "timepoint"="timepoint")) %>%
-  mutate(p.value = -log10(p.value)) %>%
-  gather(key = "treatment", value = "counts", -c(level,new_taxa,timepoint, p.value))
-
-D1$level <- factor(D1$level, levels = c("phylum","class","order","family","genus")) #, "species"
-
-D1 <- D1 %>% group_by(level) %>% mutate(tot = sum(counts), relab = counts/tot)
-
-p <- ggplot(D1, aes(x = treatment, y = new_taxa))
-p <- p + geom_tile(aes(fill = relab), colour = "white")
-p <- p + theme(legend.position="bottom")
-p <- p + facet_grid(level~timepoint, scales = "free",  space = "free")
-p <- p + xlab("Treatments") + ylab("Taxa")
-p <- p + scale_fill_gradient(low = "orange", high = "blue")
-p <- p + theme(strip.text.y = element_text(size = 5), 
-               strip.text.x = element_text(size = 6),
-               # axis.text.y = element_text(size = 4),
-               axis.text.x = element_text(size = 6),
-               axis.title = element_text(size = 6))
-p <- p + guides(fill="none") + theme(axis.title.y = element_blank(),
-                                     axis.text.y = element_blank(),
-                                     axis.ticks.y = element_blank())
-p
-
-dd <- D1 %>% mutate(variable = "p-value")
-
-q <- ggplot(dd, aes(x = factor(1), y = new_taxa, group=level))
+q <- ggplot(Dna, aes(x = factor(1), y = Phylum))
 q <- q + geom_tile(aes(fill = p.value), colour = "white")
-q <- q + theme(legend.position="bottom")
-q <- q + facet_grid(level~variable, space="free", scales = "free_y")
-q <- q + scale_fill_gradient(low = "orange", high = "blue")
-q <- q + xlab("Treatments") + ylab("Taxa")
-q <- q + theme(strip.text = element_text(size = 4), 
-               strip.text.x = element_text(size = 6),
-               axis.text.y = element_text(size = 6),
-               axis.title = element_text(size = 6))
-q <- q + guides(fill=FALSE) + theme(
-  # axis.title.x = element_blank(),
-  # axis.text.x=element_blank(),
-  # axis.ticks.x=element_blank(),
-  strip.text.y = element_blank(),
-  # axis.text.x = element_blank()
-  axis.text.x = element_text(size = 6)
-)
-q <- q + xlab("") 
+q <- q + scale_fill_gradient(low = "orange", high = "blue", limits=c(0,0.05), guide = "none")
+q <- q + xlab("pvalue") + ylab("Phylum")
+q <- q + theme(axis.text.x = element_text(size = 6), 
+             axis.ticks = element_blank(), 
+             axis.title.x = element_text(size=10),
+             axis.title.y = element_text(size=10))
 q
-##ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_heatmap_pvalue_skinswabs.png", plot = q, device = "png", width = 6, height = 6)
 
-
-figure_final <- ggarrange(q, p, widths=c(0.01, 0.02), labels=c("A", "B"), legend = "bottom")
-
-print(figure_final)
-#ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_heatmap_skinswabs.png", plot = figure_final, device = "png", width = 7, height = 10)
-```
-
-### Extracting estimated coefficients for "significant" OTUs
-
-```{r}
-res = data.frame("level"=NULL, "OTU"=NULL, "p_value"=NULL, "Control"=NULL,"Treated"=NULL)
-
-DX <- DX %>% filter(level == "genus")
-m1 <- m1 %>% filter(level=="genus")
-DX$new_taxa <- paste(DX$new_taxa,", Timepoint:", DX$timepoint)
-m1$new_taxa <- paste(m1$new_taxa,", Timepoint:", m1$timepoint)
-
-
-for (name in DX$new_taxa) {
-  
-  print(paste("analysing OTU ", name))
-  pval = as.numeric(DX[DX$new_taxa==name,"p.value"])
-  level = DX[DX$new_taxa==name,"level"]
-  tpoint = DX[DX$new_taxa==name, "timepoint"]
-  
-  ## estimating coefficients
-  temp = filter(m1, new_taxa == name)
-  temp$treatment <- factor(temp$treatment, levels = c("Control","Treated"))
-  g = lm(counts ~ treatment, data = temp)
-  
-  ## extracting coefficients
-  coefs = g$coefficients
-  coefs = coefs[!grepl("(Intercept)", names(coefs))]
-  names(coefs) = gsub("treatment","",names(coefs))
-  coefs = as.data.frame(t(coefs))
-  
-  ## adding metadata
-  coefs["level"] = level
-  coefs["OTU"] = name
-  coefs["p_value"] = pval
-  coefs["timepoint"] = tpoint
-
-  # saving results
-  res = rbind.data.frame(res, coefs)
-}
-
-#write.csv(res, "~/Results/SKINSWABS/results/taxonomy_res.csv")
+ggsave(filename = file.path(basedir, prjdir, outdir, "barplot_pvalues.png"), plot = q, device = "png", width = 8, height = 15)
 ```
 
 ```{r}
-fg <- ggplot(res, aes(x=OTU, y=Treated, fill=timepoint)) + geom_bar(width=1,stat="identity")
+fg <- ggplot(Dna, aes(x=Phylum, y=ControlvsTreated, fill=timepoint)) + geom_bar(width=1,stat="identity")
 fg <- fg + coord_flip()
-fg <- fg + xlab("Behaviour of the Treated against Control baseline, in significant p_values") + ylab("Taxa")
+fg <- fg + ylab("Behaviour Treated vs. Control") + xlab("Taxa")
 fg <- fg + theme(axis.text.x = element_text(size = 6),
-               axis.title = element_text(size = 6))
+                 axis.text.y = element_blank(),
+                 axis.ticks = element_blank(),
+                 legend.position = "none",
+                 axis.title.x = element_text(size=10),
+               axis.title.y = element_blank())
 fg
-#ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_barplot_significantOTUS_genera_skinswabs.png", plot = fg, device = "png", width = 8, height = 8)
 
-dragon <- ggdraw() +
-  draw_plot(q, x = 0, y = .5, width = .5, height = .5) +
-  draw_plot(p, x = .5, y = .5, width = .5, height = .5) +
-  draw_plot(fg, x = 0, y = 0, width = 1, height = 0.5) +
-  draw_plot_label(label = c("A", "B", "C"), size = 5,
-                  x = c(0, 0.5, 0), y = c(1, 1, 0.5))
+# ggsave(filename = file.path(basedir, prjdir, outdir, "barplot_significantOTUsbehaviour.png"), plot = fg, device = "png", width = 15, height = 40)
+```
 
-#ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_heat+barplot_skinswabs.png", plot = dragon, device = "png", width = 7, height = 10)
+```{r}
+figure_final <- ggarrange(q, fg, widths=c(0.5, 0.8), heights=c(1,1))
+print(figure_final)
+
+ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_heat+barplot_skinswabs_Phylum_pval.png", plot = figure_final, device = "png", width = 15, height = 10)
 ```

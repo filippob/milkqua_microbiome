@@ -9,16 +9,17 @@
 ## setting up the environment
 currpath=$(pwd)
 project_home="$HOME/MILKQUA"
-data_folder1="data/JRGYP"
+data_folder1="data/mock-sequences"
 data_folder2=""
 output_dir="temp/temp_fastq"
 #sing_container="${project_home}/Qiime1.9.sif"
 #sing_container="/gpfs/software/Container/qiime_docker:fischuu-qiime-1.9.1.sif"
 temp_folder="temp/temp_fastq"
 sample_start1=1 #first sample to use (in the sequence)
-sample_end1=6 #last sample to use (in the sequence)
+sample_end1=3 #last sample to use (in the sequence)
 sample_start2=10 #first sample to use (in the sequence)
 sample_end2=12 #last sample to use (in the sequence)
+prefix="ock" # prefix to remove from sample file names (if any: !! usually this is left empty !!)
 
 cd $currpath
 echo "project folder is $project_home"
@@ -42,7 +43,7 @@ echo " - copying relevant fastq files from data folder 1"
 for i in $(seq ${sample_start1} ${sample_end1}); 
 do
 	echo "file ${data_folder1}/${i}_"
-	cp ${data_folder1}/${i}_*.fastq.gz ${project_home}/${temp_folder}
+	cp ${data_folder1}/*ock_${i}_*.fastq.gz ${project_home}/${temp_folder}
 done
 
 if [ ! ${data_folder2} == "" ]; then
@@ -51,6 +52,15 @@ if [ ! ${data_folder2} == "" ]; then
 	do
 		echo "file ${data_folder2}/${i}_"
         	cp ${data_folder2}/${i}_*.fastq.gz ${project_home}/${temp_folder}
+	done
+fi
+
+if [ ! $prefix == "" ]; then
+	cd ${project_home}/${temp_folder}
+	for i in  *"${prefix}"*.gz;
+	do 
+		echo "renaming file $i"
+		mv "$i" "${i#*_}";
 	done
 fi
 
