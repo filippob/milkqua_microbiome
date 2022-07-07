@@ -35,7 +35,7 @@ make_comparison = function(btstr_data,index) {
   names(btstr_data)[2] = "index"
   names(btstr_data)[3] = "treatment"
   
-  fit = lm(index ~ treatment, data = btstr_data)
+  fit = lm(index ~ timepoint+treatment, data = btstr_data)
   
   ## retrieve results
   coefficient = as.numeric(coef(fit)[2])
@@ -48,18 +48,18 @@ make_comparison = function(btstr_data,index) {
 
 res = data.frame("index"=NULL, "stat"=NULL, "pval"=NULL, "coef"=NULL)
 
-for (i in 1:100) {
+for (i in 1:10) {
   
   print(paste("bootstrap replicate n.", i))
-  temp = boot_sample(alpha, "ACE")
+  temp = boot_sample(alpha, "Shannon")
   temp$treatment <- metadata$treatment[match(temp$`sample-id`,metadata$`sample-id`)]
   temp$timepoint <- metadata$timepoint[match(temp$`sample-id`,metadata$`sample-id`)]
-  # temp = baseline_correction(temp, "ACE")
+  # temp = baseline_correction(temp, "Shannon")
   
   temp=as.data.frame(temp)
-  names(temp)[names(temp) == "ACE" ] <- "value" 
+  names(temp)[names(temp) == "Shannon" ] <- "value" 
   temp <- temp %>%
-    add_column(metric = "ACE")
+    add_column(metric = "Shannon")
   
   bl_medie <- temp %>%
     filter(timepoint=="T0") %>%
@@ -72,13 +72,6 @@ for (i in 1:100) {
     arrange(metric) %>%
     rename(value.bl = value)
 
-  # M <- merge(temp,bl_counts, by= "sample-id")
-  # names(M)[names(M) == "treatment.x"] <- "treatment" 
-  # names(M)[names(M) == "timepoint.x"] <- "timepoint"  
-  # M$timepoint.y <- NULL
-  # M$treatment.y <- NULL
-  # M <- merge(M, bl_medie, by="treatment") 
-  
   M <- merge(temp,bl_counts[,c(1,2)],by="sample-id", all.x = T)
   M1 <- M%>%
     filter(!is.na(M$value.bl))
@@ -99,9 +92,15 @@ for (i in 1:100) {
     mutate(scaled_counts=scales::rescale(corrected_counts,c(0,100)))
 
   
-  temp = make_comparison(temp, "ACE")
+  temp = make_comparison(temp, "Shannon")
   res = bind_rows(res, temp)
 }
 
+res = res[order(res$pval, decreasing = TRUE),]
+print(paste("p-value median is", median(res$pval)))
+print(paste("p-value statistic is", median(res$stat)))
+
+png("barplot.png")
 barplot(height = res$pval)
+dev.off()
 
