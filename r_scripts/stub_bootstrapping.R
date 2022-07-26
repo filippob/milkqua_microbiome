@@ -11,7 +11,7 @@ outdir = file.path(analysis_folder)
 
 metadata = fread (file.path(prj_folder, analysis_folder, conf_file))
 metadata$`sample-id` <- gsub('-', '.', metadata$`sample-id`)
-alpha = fread(file.path(prj_folder, analysis_folder, fname))
+alpha = fread(file.path(prj_folder, analysis_folder, fname)) ##sample 29 was removed
 
 ## Correction for baseline
 
@@ -52,17 +52,12 @@ M <- M %>%
   group_by(metric) %>%
   mutate(scaled_counts=scales::rescale(corrected_counts,c(0,100)))
 
-# Balpha <- M %>% filter(timepoint == "T1") # options are T1 and T2
-# Balpha <- Balpha %>% filter (metric == "Shannon") # options are "Observed", "Chao1", "se.chao1","ACE","se.ACE","Shannon","Simpson","InvSimpson","Fisher"
-# Balpha <- Balpha %>% spread(metric, corrected_counts)
 M <- M[-c(3,6,8)]
 
 alpe <- M %>% spread(metric, corrected_counts)
 alpe <- alpe[alpe$timepoint != "T0",]
 
 Indexes <- colnames(alpe[4:12])
-Timepoints <- c("T1", "T2")
-
 
 ## bootstrapping
 
@@ -103,26 +98,35 @@ res = data.frame("index"=NULL, "stat"=NULL, "pval"=NULL, "coef"=NULL, "timepoint
 
 for (k in Indexes) {
 
-for (i in 1:1000) {
-  
-  print(paste("bootstrap replicate n.", i))
-  temp = boot_sample(alpe, k)
-  
-  temp1 = temp[temp$timepoint == "T1", ] 
-  temp1 = make_comparison(temp1, k)
-  temp1['Timepoint'] = 'T1'
-  res = bind_rows(res, temp1)
-  
-  temp2 = temp[temp$timepoint == "T2", ] 
-  temp2 = make_comparison(temp2, k)
-  temp2['Timepoint'] = 'T2'
-  res = bind_rows(res, temp2)
-
-}
+  for (i in 1:1000) {
+    
+      print(paste("bootstrap replicate n.", i))
+      temp = boot_sample(alpe, k)
+      temp1 = temp[temp$timepoint == "T1", ] 
+      print(nrow(temp1))
+    
+        if (length(table(temp1$treatment)) == 2 & min(table(temp1$treatment)) >= 4) {
+      
+          temp1 = make_comparison(temp1, k)
+          temp1['Timepoint'] = 'T1'
+          res = bind_rows(res, temp1)
+        }
+      
+      temp2 = temp[temp$timepoint == "T2", ]
+      print(nrow(temp2))
+      
+        if (length(table(temp2$treatment)) == 2 & min(table(temp2$treatment)) >= 4) {
+          
+          temp2 = make_comparison(temp2, k)
+          temp2['Timepoint'] = 'T2'
+          res = bind_rows(res, temp2)
+        } 
+     } # 1000 replicates loop
+} #index loop
 
 write.csv(res, "~/Results/SKINSWABS/results/Bootstrap_res.csv")
 
-}
+
 
 ## create graph and observations
 
