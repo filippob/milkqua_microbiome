@@ -1,5 +1,5 @@
 ---
-title: "Untitled"
+title: "Alpha_bootstrapping_Skinswabs"
 author: "Chiara Gini"
 date: "7/13/2022"
 output: html_document
@@ -39,19 +39,24 @@ Total: 47 samples.
 Main alpha diversity indexes per group. 
 
 
-
 ```{r}
-project_folder = "/home/filippo/Documents/MILKQUA"
-analysis_folder = "Analysis/milkqua_skinswab/qiime1.9"
-fname = file.path(project_folder, "Config/manifest_skinswab.csv")
+# project_folder = "/home/filippo/Documents/MILKQUA"
+# analysis_folder = "Analysis/milkqua_skinswab/qiime1.9"
+# fname = file.path(project_folder, "Config/manifest_skinswab.csv")
+
+project_folder = "/home/oem/Results/SKINSWABS"
+analysis_folder = "results/"
+fname = file.path(project_folder, "manifest_skinswab.csv")
+
 metadata <- fread(fname)
 metadata = filter(metadata, `sample-id` != "sample-29")
 metadata <- tibble::rownames_to_column(metadata, "sample")
 metadata$treatment = stringr::str_to_title(metadata$treatment)
 
-fname = file.path(project_folder, analysis_folder, "results/alpha.csv")
+fname = file.path(project_folder, analysis_folder, "alpha.csv")
 alpha <- fread(fname)
 alpha = select(alpha, -c(se.chao1, se.ACE))
+alpha$`sample-id` <- gsub("\\.", "-", alpha$`sample-id`)
 
 mAlpha <- reshape2::melt(alpha, id.vars = "sample-id", variable.name = "metric", value.name = "value")
 mAlpha$timepoint <- metadata$timepoint[match(mAlpha$`sample-id`,metadata$`sample-id`)]
@@ -138,7 +143,7 @@ D <- M %>%
 
 kable(D)
 
-fname = file.path(project_folder, analysis_folder, "results/alpha_bl_corrected.csv")
+fname = file.path(project_folder, analysis_folder, "alpha_bl_corrected.csv")
 fwrite(D, file = fname, col.names = TRUE, sep = ",")
 ```
 
@@ -241,7 +246,11 @@ ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_indices_Skinsw
 D <- M %>%
   filter(timepoint != "T0") %>%
   group_by(metric) %>%
+<<<<<<< HEAD
   do(tidy(lm(corrected_counts ~ timepoint + treatment, data = .))) %>%
+=======
+  do(tidy(lm(corrected_counts ~ timepoint+treatment, data = .))) %>%
+>>>>>>> bb23097b16d254e40e641429d514714b0d8c3065
   filter(term != "(Intercept)")
 
 datatable(D, options = list(pageLength=100)) %>% 
@@ -253,7 +262,11 @@ datatable(D, options = list(pageLength=100)) %>%
 ## grafico configurazione  base
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
+<<<<<<< HEAD
 # D$timepoint <- factor(D$timepoint, levels=c("T0", "T1", "T2"))
+=======
+#D$timepoint <- factor(D$timepoint, levels=c("T0", "T1", "T2"))
+>>>>>>> bb23097b16d254e40e641429d514714b0d8c3065
 
 p1 <- ggplot(data = D, mapping= aes(x=term, y=p.value))
 p1 <- p1 + geom_point(aes(color = metric, stroke = 1, shape = metric), position=position_jitter(h=0, w=0.27))
@@ -285,7 +298,11 @@ boot_sample = function(data,index) {
 ```
 
 ```{r}
+<<<<<<< HEAD
 indices <- colnames(alpha)[-1]
+=======
+indices <- colnames(alpha)[2]
+>>>>>>> bb23097b16d254e40e641429d514714b0d8c3065
 
 M0 = filter(M[-c(3,6,8)], timepoint != "T0")
 
@@ -317,13 +334,20 @@ for (k in indices) {
       spread(key = timepoint, value = N)
     
     t1 = pull(tbl,T1)
+<<<<<<< HEAD
     ctrl_t1 <- sum(sum(t1>0, na.rm = TRUE) == 2, min(t1, na.rm = TRUE) > 3) == 2
     t2 = pull(tbl,T2)
     ctrl_t2 <-  sum(sum(t2>0, na.rm = TRUE) == 2, min(t2, na.rm = TRUE) > 3) == 2
+=======
+    ctrl_t1 <- sum(sum(t1>0) == 3, min(t1) > 3) == 3
+    t2 = pull(tbl,T2)
+    ctrl_t2 <-  sum(sum(t2>0) == 3, min(t2) > 3) == 3
+>>>>>>> bb23097b16d254e40e641429d514714b0d8c3065
     
     if (ctrl_t1 & ctrl_t2) {
-      
+     
      tmp <- temp %>%
+<<<<<<< HEAD
       group_by(metric) %>%
       do(tidy(lm(corrected_counts ~ timepoint + treatment, data = .))) %>%
       filter(term != "(Intercept)") 
@@ -342,11 +366,31 @@ for (k in indices) {
         do(tidy(lm(corrected_counts ~ treatment, data = .))) %>%
         filter(term != "(Intercept)") 
     } 
+=======
+       group_by(metric) %>%
+       do(tidy(lm(corrected_counts ~ timepoint+treatment, data = .))) %>%
+       filter(term != "(Intercept)") 
+     } else if (ctrl_t1 == TRUE & ctrl_t2 == FALSE) {
+    
+       tmp <- temp %>%
+         filter(timepoint == "T1") %>%
+         group_by(metric) %>%
+         do(tidy(lm(corrected_counts ~ timepoint+treatment, data = .))) %>%
+         filter(term != "(Intercept)")
+      } else if (ctrl_t1 == FALSE & ctrl_t2 == TRUE) {
+    
+       tmp <- temp %>%
+         filter(timepoint == "T2") %>%
+         group_by(metric) %>%
+         do(tidy(lm(corrected_counts ~ timepoint+treatment, data = .))) %>%
+         filter(term != "(Intercept)")
+     }
+>>>>>>> bb23097b16d254e40e641429d514714b0d8c3065
     res = bind_rows(res, tmp)
   }   # bootstrap replicates
 } # indices
 
-write.csv(res, "~/Results/SKINSWABS/results/Bootstrap_res_Fisher.csv")
+#write.csv(res, "~/Results/SKINSWABS/results/Bootstrap_res_Observed.csv")
 
 ```
 
@@ -384,7 +428,7 @@ px
 ## grafico boostrapping
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-p2 <- ggplot(data = res, mapping= aes(x=timepoint, y=p.value))
+p2 <- ggplot(data = res, mapping= aes(x=term, y=p.value))
 p2 <- p2 + geom_point(aes(color = metric, stroke = 1, shape = metric), position=position_jitter(h=0, w=0.27))
 p2 <- p2 + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
 p2 <- p2 + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
@@ -396,11 +440,11 @@ p2 <- p2 +  theme(legend.key.size = unit(0.05, 'cm'))
 p2 <- p2 + coord_trans(y="log2")
 p2
 
-Fisher <- p2
+#Fisher <- p2
 
-print(Fisher)
+#print(Fisher)
 
-ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_tablewithdots_TIMEPOINT_correctedforbaseline_Skinswabs_Fisher.png", width = 6, height = 8, plot = p2, device = "png")
+#ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_tablewithdots_TIMEPOINT_correctedforbaseline_Skinswabs_Fisher.png", width = 6, height = 8, plot = p2, device = "png")
 ```
 
 
@@ -408,10 +452,10 @@ ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_tablewithdots_
 
 ```{r}
 R <- res %>%
-  group_by(timepoint) %>%
+  group_by(term) %>%
   filter(p.value<0.05) 
 
-table(R['timepoint'])
+table(R['term'])
 
 ```
 ## merge plots together
