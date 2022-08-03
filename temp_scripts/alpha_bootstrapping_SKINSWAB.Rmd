@@ -13,6 +13,7 @@ library("tidyr")
 library("broom")
 library("vegan")
 library("scales")
+library("stringr")
 library("ggplot2")
 #library("ggpubr")
 # library("madbito")
@@ -40,22 +41,57 @@ Main alpha diversity indexes per group.
 
 
 ```{r}
-metadata <- fread("/home/oem/Results/SKINSWABS/mapping_milkqua_skinswabs.csv")
-metadata = metadata[-29,] 
+project_folder = "/home/filippo/Documents/MILKQUA"
+analysis_folder = "Analysis/milkqua_skinswab/qiime1.9"
+fname = file.path(project_folder, "Config/manifest_skinswab.csv")
+metadata <- fread(fname)
+metadata = filter(metadata, `sample-id` != "sample-29")
 metadata <- tibble::rownames_to_column(metadata, "sample")
+metadata$treatment = stringr::str_to_title(metadata$treatment)
 
-alpha <- read.table("~/Results/SKINSWABS/results/alpha.csv", header = TRUE, sep = ",")
-alpha$sample.id <- row.names(alpha)
-alpha$observed_species <- NULL
+fname = file.path(project_folder, analysis_folder, "results/alpha.csv")
+alpha <- fread(fname)
+alpha = select(alpha, -c(se.chao1, se.ACE))
 
-# indices <- colnames(alpha)[2:10]
-
-mAlpha <- reshape2::melt(alpha, id.vars = "sample.id", variable.name = "metric", value.name = "value")
-mAlpha$timepoint <- metadata$timepoint[match(mAlpha$sample,metadata$sample)]
-mAlpha$treatment <- metadata$treatment[match(mAlpha$sample,metadata$sample)]
+mAlpha <- reshape2::melt(alpha, id.vars = "sample-id", variable.name = "metric", value.name = "value")
+mAlpha$timepoint <- metadata$timepoint[match(mAlpha$`sample-id`,metadata$`sample-id`)]
+mAlpha$treatment <- metadata$treatment[match(mAlpha$`sample-id`,metadata$`sample-id`)]
 mAlpha$timepoint[mAlpha$timepoint == "before_oil" ] <- "T0" 
 mAlpha$timepoint[mAlpha$timepoint == "after_oil" ] <- "T1" 
 mAlpha$timepoint[mAlpha$timepoint == "8" ] <- "T2" 
+```
+
+## Effect of treatment within timepoint
+
+(T0 is removed because we are not interested in differences before the application of the treatment)
+
+```{r test_alpha_bl, echo=FALSE}
+D <- mAlpha %>%
+  filter(timepoint != "T0") %>%
+  group_by(metric, timepoint) %>%
+  do(tidy(lm(value ~ treatment, data = .))) %>%
+  filter(term != "(Intercept)")
+
+datatable(D, options = list(pageLength=100)) %>% 
+  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+D$timepoint <- factor(D$timepoint, levels=c("T0", "T1", "T2"))
+
+p <- ggplot(data = D, mapping= aes(x=timepoint, y=p.value))
+p <- p + geom_point(aes(color = metric, stroke = 1, shape = metric), position=position_jitter(h=0, w=0.27))
+p <- p + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
+p <- p + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
+p <- p + scale_y_continuous(breaks=pretty_breaks(n=20)) 
+p <- p + scale_color_manual(values = c("#f8766d", "#d39200", "#93aa00", "#00ba38", "#00c19f", "#00b9e3", "#619cff", "#db72fb", "#ff61c3"))
+p <- p + scale_shape_manual(values = c(0, 1, 2, 23, 3,4,7, 8, 10))
+#p1 <- p1 + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
+p <- p +  theme(legend.key.size = unit(0.05, 'cm'))
+p <- p + coord_trans(y="log2")
+p
+
+#ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_tablewithdots_TIMEPOINT_correctedforbaseline_Skinswabs.png", width = 6, height = 8, plot = p1, device = "png")
 ```
 
 ## Correction for baseline
@@ -72,10 +108,9 @@ bl_counts <- mAlpha %>%
   arrange(metric) %>%
   rename(value.bl = value)
 
-M <- merge(mAlpha,bl_counts[,c(1,2,3)],by=c("metric","sample.id"),all.x = TRUE)
+M <- merge(mAlpha,bl_counts[,c(1,2,3)],by=c("metric","sample-id"),all.x = TRUE)
 M1 <- M%>%
   filter(!is.na(M$value.bl))
-
 
 M2 <- M %>%
   filter(is.na(value.bl)) %>%
@@ -86,13 +121,14 @@ M <- rbind.data.frame(M1,M2)
 M <- M %>%
   mutate(corrected_counts=value-value.bl) %>%
   filter(value!=0) %>%
-  arrange(sample.id)
+  arrange(`sample-id`)
 
 M <- M %>%
   group_by(metric) %>%
   mutate(scaled_counts=scales::rescale(corrected_counts,c(0,100)))
 ```
-##alpha indices
+
+## alpha indices
 
 ```{r, echo=FALSE}
 D <- M %>%
@@ -102,10 +138,11 @@ D <- M %>%
 
 kable(D)
 
-fwrite(D, file = "~/Results/SKINSWABS/results/alpha_SKINSWABS.csv", col.names = TRUE, sep = ",")
+fname = file.path(project_folder, analysis_folder, "results/alpha_bl_corrected.csv")
+fwrite(D, file = fname, col.names = TRUE, sep = ",")
 ```
 
-##Linear model test
+## Linear model test
 
 ```{r test_alpha_bl, echo=FALSE}
 D <- M %>%
