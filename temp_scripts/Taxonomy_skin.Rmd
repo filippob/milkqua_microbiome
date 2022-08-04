@@ -106,15 +106,18 @@ temp = filter(temp, Phylum %in% core$Phylum)
 Adding metadata to the Phylum core microbiota data:
 
 ```{r Phylum average abundances, echo=FALSE}
+temp <- temp %>% group_by(sample, Phylum) %>% summarize(counts= sum(counts))
+
 temp$timepoint <- metadata$timepoint[match(temp$sample, metadata$sample)]
 temp$treatment <- metadata$treatment[match(temp$sample, metadata$sample)]
+temp <- filter(temp, treatment == "Control")
 ```
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 x = temp %>%
-  group_by(timepoint, treatment) %>%
+  group_by(timepoint) %>%
   dplyr::mutate(tot = sum(counts)) %>%
-  dplyr::group_by(timepoint, Phylum, treatment) %>%
+  dplyr::group_by(timepoint, Phylum) %>%
   dplyr::summarise(phyltot = sum(counts), proportion = round(phyltot/tot, 3)) %>%
  unique() 
 ```
@@ -123,7 +126,7 @@ Make tables and plots of the Phylum core microbiota over time:
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 x %>%
-  group_by(timepoint, Phylum, treatment) %>%
+  group_by(timepoint, Phylum) %>%
   summarise(avg = mean(proportion)) %>%
   spread(key = timepoint, value = avg) %>%
    adorn_totals("row") 
@@ -132,59 +135,90 @@ kable(x)
 write.csv(x, file.path(basedir, prjdir, outdir, "skinswab_Phylum_core_microbiota.csv"), sep = ",")
 ```
 
+```{r}
+vv <- temp %>%
+  group_by(Phylum) %>%
+  do(tidy(anova(lm(counts ~ timepoint, data=.)))) %>%
+  filter(term == "timepoint")
+
+kable(vv)
+```
+
 ```{r, fig.height=8, fig.width=10}
-x$treatment[x$timepoint == "T0"] <- "Control"
-
-t0 <- subset(x, timepoint=="T0")
-t0 <- t0 %>% group_by(Phylum) %>% summarise(timepoint, treatment, Mean_Proportion = mean(proportion))
-
-q <- ggplot(t0, aes(x=factor(1), y=Mean_Proportion, fill=Phylum)) + geom_bar(width=1,stat="identity", position = "fill")
-#p <- p + coord_polar(theta='y') #activate this if you want a piechart
-q  <- q + facet_grid(treatment ~ timepoint)
+q <- ggplot(x, aes(x=factor(1), y=proportion, fill=Phylum)) + geom_bar(width=1,stat="identity", position = "fill")
+q <- q + coord_polar(theta='y') #activate this if you want a piechart
+q  <- q + facet_grid( ~ timepoint)
 q  <- q + guides(fill = guide_legend(title = "Phylum")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
 q  <- q + xlab("Relative abundances") + ylab("Percentages")
-my_palette2 = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","purple","brown", "darkorange1","pink1", "darkorchid1", "seagreen2", "#ffb6db", "#490092","#006ddb","#b66dff","#6db6ff","#b6dbff", "#920000","#924900","#db6d00","#24ff24","#ffff6d"), length(unique(t0$Phylum)))
+my_palette2 = get_palette(c("green3","purple","brown", "darkorange1","pink1", "seagreen2", "#ffb6db", "#490092","#006ddb","#b66dff","#6db6ff","#b6dbff", "#920000","#924900","gold","blue","magenta","cyan","yellow","red","#db6d00","#24ff24","#ffff6d"), length(unique(x$Phylum)))
 q  <- q + scale_fill_manual(values = my_palette2)
 q  <- q + theme(text = element_text(size=8),
                strip.text = element_text(size = 8),
-               legend.position="none",
                axis.text.y = element_blank(),
                axis.text.x = element_blank(),
-               axis.ticks = element_blank(), 
-               axis.ticks.y = element_blank(),
-               axis.ticks.x = element_blank(),
-               legend.text=element_blank(),
-               legend.title=element_blank())
-q
-
-t12 <- subset(x, timepoint!="T0")
-#write.csv(t12, file.path(basedir, prjdir, outdir, "skinswab_Phylum_core_microbiota_woT0.csv"), sep = ",")
-  
-p <- ggplot(t12, aes(x=factor(1), y=proportion, fill=Phylum)) + geom_bar(width=1,stat="identity", position = "fill")
-#p <- ggplot(x, aes(x=timepoint, y=treatment, fill=Phylum)) + geom_bar(width=1,stat="identity")
-#p <- p + coord_polar(theta='y') #activate this if you want a piechart
-#p  <- p + geom_label(aes(label = 100*proportion), show.legend = FALSE, size = 3)
-#p <- p + geom_label_repel(aes(label = paste0(proportion*100, "%")), position=position_stack (vjust=0.4), size=3, show.legend = F, force = 0.6,  max.overlaps = 10)
-p <- p + facet_grid(treatment ~ timepoint)
-p <- p + guides(fill = guide_legend(title = "Phylum")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
-p <- p + xlab("Relative abundances") + ylab("Percentages")
-my_palette2 = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","purple","brown", "darkorange1","pink1", "darkorchid1", "seagreen2", "#ffb6db", "#490092","#006ddb","#b66dff","#6db6ff","#b6dbff", "#920000","#924900","#db6d00","#24ff24","#ffff6d"), length(unique(t12$Phylum)))
-p <- p + scale_fill_manual(values = my_palette2)
-p <- p + theme(text = element_text(size=8),
-               strip.text = element_text(size = 8),
-               axis.text.y = element_blank(),
-               axis.text.x = element_blank(),
-               axis.ticks = element_blank(), 
+               axis.ticks = element_blank(),
                axis.ticks.y = element_blank(),
                axis.ticks.x = element_blank(),
                legend.text=element_text(size=6),
                legend.title=element_text(size=6))
-p
+q
 
-figure_final_comp <- ggarrange(q, p, widths=c(0.25, 0.75), heights=c(1,1))
-print(figure_final_comp)
+#ggsave(filename = file.path(basedir, prjdir, outdir, "taxonomy_Phylum_piechart_skinswabs_TP.png"), plot = q, device = "png", width = 10, height = 4)
+```
 
-ggsave(filename = file.path(basedir, prjdir, outdir, "taxonomy_Phylum_piechart_skinswabs_wctrl.png"), plot = figure_final_comp, device = "png", width = 5, height = 3)
+```{r}
+# x$treatment[x$timepoint == "T0"] <- "Control"
+# 
+# t0 <- subset(x, timepoint=="T0")
+# t0 <- t0 %>% group_by(Phylum) %>% summarise(timepoint, treatment, Mean_Proportion = mean(proportion))
+# 
+# q <- ggplot(t0, aes(x=factor(1), y=Mean_Proportion, fill=Phylum)) + geom_bar(width=1,stat="identity", position = "fill")
+# q <- q + coord_polar(theta='y') #activate this if you want a piechart
+# q  <- q + facet_grid( ~ timepoint)
+# q  <- q + guides(fill = guide_legend(title = "Phylum")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
+# q  <- q + xlab("Relative abundances") + ylab("Percentages")
+# my_palette2 = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","purple","brown", "darkorange1","pink1", "darkorchid1", "seagreen2", "#ffb6db", "#490092","#006ddb","#b66dff","#6db6ff","#b6dbff", "#920000","#924900","#db6d00","#24ff24","#ffff6d"), length(unique(t0$Phylum)))
+# q  <- q + scale_fill_manual(values = my_palette2)
+# q  <- q + theme(text = element_text(size=8),
+#                strip.text = element_text(size = 8),
+#                legend.position="none",
+#                axis.text.y = element_blank(),
+#                axis.text.x = element_blank(),
+#                axis.ticks = element_blank(), 
+#                axis.ticks.y = element_blank(),
+#                axis.ticks.x = element_blank(),
+#                legend.text=element_blank(),
+#                legend.title=element_blank())
+# q
+# 
+# t12 <- subset(x, timepoint!="T0")
+# #write.csv(t12, file.path(basedir, prjdir, outdir, "skinswab_Phylum_core_microbiota_woT0.csv"), sep = ",")
+#   
+# p <- ggplot(t12, aes(x=factor(1), y=proportion, fill=Phylum)) + geom_bar(width=1,stat="identity", position = "fill")
+# #p <- ggplot(x, aes(x=timepoint, y=treatment, fill=Phylum)) + geom_bar(width=1,stat="identity")
+# p <- p + coord_polar(theta='y') #activate this if you want a piechart
+# #p  <- p + geom_label(aes(label = 100*proportion), show.legend = FALSE, size = 3)
+# #p <- p + geom_label_repel(aes(label = paste0(proportion*100, "%")), position=position_stack (vjust=0.4), size=3, show.legend = F, force = 0.6,  max.overlaps = 10)
+# p <- p + facet_grid( ~ timepoint)
+# p <- p + guides(fill = guide_legend(title = "Phylum")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
+# p <- p + xlab("Relative abundances") + ylab("Percentages")
+# my_palette2 = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","purple","brown", "darkorange1","pink1", "darkorchid1", "seagreen2", "#ffb6db", "#490092","#006ddb","#b66dff","#6db6ff","#b6dbff", "#920000","#924900","#db6d00","#24ff24","#ffff6d"), length(unique(t12$Phylum)))
+# p <- p + scale_fill_manual(values = my_palette2)
+# p <- p + theme(text = element_text(size=8),
+#                strip.text = element_text(size = 8),
+#                axis.text.y = element_blank(),
+#                axis.text.x = element_blank(),
+#                axis.ticks = element_blank(), 
+#                axis.ticks.y = element_blank(),
+#                axis.ticks.x = element_blank(),
+#                legend.text=element_text(size=6),
+#                legend.title=element_text(size=6))
+# p
+# 
+# figure_final_comp <- ggarrange(q, p, widths=c(0.5, 1), heights=c(1,1))
+# print(figure_final_comp)
+# 
+# ggsave(filename = file.path(basedir, prjdir, outdir, "taxonomy_Phylum_piechart_skinswabs_wctrl.png"), plot = figure_final_comp, device = "png", width = 5, height = 3)
 ```
 
 #### Core microbiota: Phylum, Phylum etc. continue if needed = replace Phylum with Phylum or whatevere you are interested in. Careful: blank spaces can suggest that it was not possible to identify that taxa level. --> solve this problem?
