@@ -246,11 +246,7 @@ ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_indices_Skinsw
 D <- M %>%
   filter(timepoint != "T0") %>%
   group_by(metric) %>%
-<<<<<<< HEAD
   do(tidy(lm(corrected_counts ~ timepoint + treatment, data = .))) %>%
-=======
-  do(tidy(lm(corrected_counts ~ timepoint+treatment, data = .))) %>%
->>>>>>> bb23097b16d254e40e641429d514714b0d8c3065
   filter(term != "(Intercept)")
 
 datatable(D, options = list(pageLength=100)) %>% 
@@ -262,11 +258,7 @@ datatable(D, options = list(pageLength=100)) %>%
 ## grafico configurazione  base
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-<<<<<<< HEAD
 # D$timepoint <- factor(D$timepoint, levels=c("T0", "T1", "T2"))
-=======
-#D$timepoint <- factor(D$timepoint, levels=c("T0", "T1", "T2"))
->>>>>>> bb23097b16d254e40e641429d514714b0d8c3065
 
 p1 <- ggplot(data = D, mapping= aes(x=term, y=p.value))
 p1 <- p1 + geom_point(aes(color = metric, stroke = 1, shape = metric), position=position_jitter(h=0, w=0.27))
@@ -298,11 +290,7 @@ boot_sample = function(data,index) {
 ```
 
 ```{r}
-<<<<<<< HEAD
 indices <- colnames(alpha)[-1]
-=======
-indices <- colnames(alpha)[2]
->>>>>>> bb23097b16d254e40e641429d514714b0d8c3065
 
 M0 = filter(M[-c(3,6,8)], timepoint != "T0")
 
@@ -334,20 +322,13 @@ for (k in indices) {
       spread(key = timepoint, value = N)
     
     t1 = pull(tbl,T1)
-<<<<<<< HEAD
     ctrl_t1 <- sum(sum(t1>0, na.rm = TRUE) == 2, min(t1, na.rm = TRUE) > 3) == 2
     t2 = pull(tbl,T2)
     ctrl_t2 <-  sum(sum(t2>0, na.rm = TRUE) == 2, min(t2, na.rm = TRUE) > 3) == 2
-=======
-    ctrl_t1 <- sum(sum(t1>0) == 3, min(t1) > 3) == 3
-    t2 = pull(tbl,T2)
-    ctrl_t2 <-  sum(sum(t2>0) == 3, min(t2) > 3) == 3
->>>>>>> bb23097b16d254e40e641429d514714b0d8c3065
     
     if (ctrl_t1 & ctrl_t2) {
      
      tmp <- temp %>%
-<<<<<<< HEAD
       group_by(metric) %>%
       do(tidy(lm(corrected_counts ~ timepoint + treatment, data = .))) %>%
       filter(term != "(Intercept)") 
@@ -366,26 +347,6 @@ for (k in indices) {
         do(tidy(lm(corrected_counts ~ treatment, data = .))) %>%
         filter(term != "(Intercept)") 
     } 
-=======
-       group_by(metric) %>%
-       do(tidy(lm(corrected_counts ~ timepoint+treatment, data = .))) %>%
-       filter(term != "(Intercept)") 
-     } else if (ctrl_t1 == TRUE & ctrl_t2 == FALSE) {
-    
-       tmp <- temp %>%
-         filter(timepoint == "T1") %>%
-         group_by(metric) %>%
-         do(tidy(lm(corrected_counts ~ timepoint+treatment, data = .))) %>%
-         filter(term != "(Intercept)")
-      } else if (ctrl_t1 == FALSE & ctrl_t2 == TRUE) {
-    
-       tmp <- temp %>%
-         filter(timepoint == "T2") %>%
-         group_by(metric) %>%
-         do(tidy(lm(corrected_counts ~ timepoint+treatment, data = .))) %>%
-         filter(term != "(Intercept)")
-     }
->>>>>>> bb23097b16d254e40e641429d514714b0d8c3065
     res = bind_rows(res, tmp)
   }   # bootstrap replicates
 } # indices
