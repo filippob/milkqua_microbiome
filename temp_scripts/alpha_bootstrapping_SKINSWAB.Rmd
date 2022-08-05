@@ -85,12 +85,12 @@ datatable(D, options = list(pageLength=100)) %>%
 D$timepoint <- factor(D$timepoint, levels=c("T0", "T1", "T2"))
 
 p <- ggplot(data = D, mapping= aes(x=timepoint, y=p.value))
-p <- p + geom_point(aes(color = metric, stroke = 1, shape = metric), position=position_jitter(h=0, w=0.27))
+p <- p + geom_point(aes(color = metric, stroke = 1), position=position_jitter(h=0, w=0.27)) #,shape=metric
 p <- p + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
 p <- p + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
 p <- p + scale_y_continuous(breaks=pretty_breaks(n=20)) 
-p <- p + scale_color_manual(values = c("#f8766d", "#d39200", "#93aa00", "#00ba38", "#00c19f", "#00b9e3", "#619cff", "#db72fb", "#ff61c3"))
-p <- p + scale_shape_manual(values = c(0, 1, 2, 23, 3,4,7, 8, 10))
+#p <- p + scale_color_manual(values = c("#f8766d", "#d39200", "#93aa00", "#00ba38", "#00c19f", "#00b9e3", "#619cff", "#db72fb", "#ff61c3"))
+#p <- p + scale_shape_manual(values = c(0, 1, 2, 23, 3,4,7, 8, 10))
 #p1 <- p1 + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
 p <- p +  theme(legend.key.size = unit(0.05, 'cm'))
 p <- p + coord_trans(y="log2")
@@ -164,12 +164,12 @@ datatable(D, options = list(pageLength=100)) %>%
 D$timepoint <- factor(D$timepoint, levels=c("T0", "T1", "T2"))
 
 p1 <- ggplot(data = D, mapping= aes(x=timepoint, y=p.value))
-p1 <- p1 + geom_point(aes(color = metric, stroke = 1, shape = metric), position=position_jitter(h=0, w=0.27))
+p1 <- p1 + geom_point(aes(color = metric, stroke = 1), position=position_jitter(h=0, w=0.27))
 p1 <- p1 + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
 p1 <- p1 + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
 p1 <- p1 + scale_y_continuous(breaks=pretty_breaks(n=20)) 
-p1 <- p1 + scale_color_manual(values = c("#f8766d", "#d39200", "#93aa00", "#00ba38", "#00c19f", "#00b9e3", "#619cff", "#db72fb", "#ff61c3"))
-p1 <- p1 + scale_shape_manual(values = c(0, 1, 2, 23, 3,4,7, 8, 10))
+#p1 <- p1 + scale_color_manual(values = c("#f8766d", "#d39200", "#93aa00", "#00ba38", "#00c19f", "#00b9e3", "#619cff", "#db72fb", "#ff61c3"))
+#p1 <- p1 + scale_shape_manual(values = c(0, 1, 2, 23, 3,4,7, 8, 10))
 #p1 <- p1 + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
 p1 <- p1 +  theme(legend.key.size = unit(0.05, 'cm'))
 p1 <- p1 + coord_trans(y="log2")
@@ -237,7 +237,7 @@ p2
 figure_final <- ggarrange(p1, p3, p2, widths=c(1, 1,1), heights=c(1,1,1),  labels=c("A", "B", "C"), ncol=3, nrow=1 )
 print(figure_final)
 
-ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_indices_Skinswabs.png", plot = figure_final, device = "png", width = 10, height = 3)
+ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_indices_Skinswabs.png", plot = figure_final, device = "png", width = 14, height = 5)
 ```
 
 ## Configurazione base
@@ -261,7 +261,7 @@ datatable(D, options = list(pageLength=100)) %>%
 # D$timepoint <- factor(D$timepoint, levels=c("T0", "T1", "T2"))
 
 p1 <- ggplot(data = D, mapping= aes(x=term, y=p.value))
-p1 <- p1 + geom_point(aes(color = metric, stroke = 1, shape = metric), position=position_jitter(h=0, w=0.27))
+p1 <- p1 + geom_point(aes(color = metric, stroke = 1), position=position_jitter(h=0, w=0.27))
 p1 <- p1 + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
 p1 <- p1 + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
 p1 <- p1 + scale_y_continuous(breaks=pretty_breaks(n=20)) 
@@ -306,7 +306,7 @@ for (k in indices) {
   
   mm = M0[M0$metric == k,]
 
-    for (i in 1:100) {
+    for (i in 1:10) {
     
     print(paste("bootstrap replicate n.", i))
     temp = boot_sample(mm, k)
@@ -351,14 +351,18 @@ for (k in indices) {
   }   # bootstrap replicates
 } # indices
 
-#write.csv(res, "~/Results/SKINSWABS/results/Bootstrap_res_Observed.csv")
+write.csv(res, "~/Results/SKINSWABS/results/Bootstrap_10000replicates_7indices.csv")
 
 ```
 
 ```{r}
+fname = file.path(project_folder, analysis_folder, "Bootstrap_10000replicates_7indices.csv")
+res <- fread(fname)
+
 p <- ggplot(data = res, mapping= aes(x=metric, y=p.value)) + geom_boxplot(aes(fill=metric))
 p <- p + facet_wrap(~term) + theme(axis.text.x = element_text(angle=90))
 p
+#ggsave(filename = "~/Results/SKINSWABS/results/bootstrapping_10000replicates_7indices_boxplot.png", width = 10, height = 5, plot = p, device = "png")
 ```
 
 ```{r}
@@ -380,11 +384,16 @@ px <- px + scale_y_continuous(breaks=pretty_breaks(n=20))
 px <- px + scale_color_manual(values = c("#f8766d", "#d39200", "#93aa00", "#00ba38", "#00c19f", "#00b9e3", "#619cff", "#db72fb", "#ff61c3"))
 px <- px + scale_shape_manual(values = c(0, 1, 2, 23, 3,4,7, 8, 10))
 # px <- px + gghighlight(avg < 0.10, label_key = metric, use_direct_label = TRUE)
-px <- px +  theme(legend.key.size = unit(0.05, 'cm'))
+px <- px +  theme(legend.key.size = unit(0.05, 'cm'), axis.text.x = element_text(angle=90))
 px <- px + coord_trans(y="log2")
 px
+ggsave(filename = "~/Results/SKINSWABS/results/alpha_sbootstrPPING_SIGNIF.png", width = 5, height = 5, plot = px, device = "png")
 ```
-
+`
+```{r}
+tot <- ggarrange(p, px, widths=c(1, 0.5), heights=c(1, 1),  labels=c("A", "B"), ncol=2, nrow=1)
+print(tot)
+```
 
 ## grafico boostrapping
 
