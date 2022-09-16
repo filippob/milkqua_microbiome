@@ -44,7 +44,7 @@ Main alpha diversity indexes per group.
 # analysis_folder = "Analysis/milkqua_skinswab/qiime1.9"
 # fname = file.path(project_folder, "Config/manifest_skinswab.csv")
 
-project_folder = "/home/oem/Results/SKINSWABS"
+project_folder = "/home/mycelium/Results/SKINSWABS"
 analysis_folder = "results/"
 fname = file.path(project_folder, "manifest_skinswab.csv")
 
@@ -86,14 +86,16 @@ D$timepoint <- factor(D$timepoint, levels=c("T0", "T1", "T2"))
 
 p <- ggplot(data = D, mapping= aes(x=timepoint, y=p.value))
 p <- p + geom_point(aes(color = metric, stroke = 1), position=position_jitter(h=0, w=0.27)) #,shape=metric
+p <- p + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 p <- p + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
 p <- p + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
+p <- p + coord_trans(y="log2")
 p <- p + scale_y_continuous(breaks=pretty_breaks(n=20)) 
+p <- p + scale_y_continuous(breaks = c(0, 0.05, 0.10, 1)) +  theme(axis.text.x = element_text(angle=90))
 #p <- p + scale_color_manual(values = c("#f8766d", "#d39200", "#93aa00", "#00ba38", "#00c19f", "#00b9e3", "#619cff", "#db72fb", "#ff61c3"))
 #p <- p + scale_shape_manual(values = c(0, 1, 2, 23, 3,4,7, 8, 10))
 #p1 <- p1 + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
-p <- p +  theme(legend.key.size = unit(0.05, 'cm'))
-p <- p + coord_trans(y="log2")
+#p <- p +  theme(legend.key.size = unit(0.05, 'cm'))
 p
 
 #ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_tablewithdots_TIMEPOINT_correctedforbaseline_Skinswabs.png", width = 6, height = 8, plot = p1, device = "png")
@@ -165,14 +167,13 @@ D$timepoint <- factor(D$timepoint, levels=c("T0", "T1", "T2"))
 
 p1 <- ggplot(data = D, mapping= aes(x=timepoint, y=p.value))
 p1 <- p1 + geom_point(aes(color = metric, stroke = 1), position=position_jitter(h=0, w=0.27))
+p1 <- p1 + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 p1 <- p1 + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
 p1 <- p1 + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
-p1 <- p1 + scale_y_continuous(breaks=pretty_breaks(n=20)) 
-#p1 <- p1 + scale_color_manual(values = c("#f8766d", "#d39200", "#93aa00", "#00ba38", "#00c19f", "#00b9e3", "#619cff", "#db72fb", "#ff61c3"))
-#p1 <- p1 + scale_shape_manual(values = c(0, 1, 2, 23, 3,4,7, 8, 10))
-#p1 <- p1 + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
-p1 <- p1 +  theme(legend.key.size = unit(0.05, 'cm'))
 p1 <- p1 + coord_trans(y="log2")
+p1 <- p1 + scale_y_continuous(breaks=pretty_breaks(n=20)) 
+p1 <- p1 + scale_y_continuous(breaks=c(0, 0.05, 0.10,1))+  theme(axis.text.x = element_text(angle=90))
+#p1 <- p1 + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
 p1
 
 #ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_tablewithdots_TIMEPOINT_correctedforbaseline_Skinswabs.png", width = 6, height = 8, plot = p1, device = "png")
@@ -182,7 +183,7 @@ p1
 D <- M %>%
 #  filter(treatment != "Control") %>%
   group_by(metric, treatment) %>%
-  do(tidy(lm(value ~ timepoint, data = .))) %>%
+  do(tidy(lm(corrected_counts ~ timepoint, data = .))) %>%
   filter(term != "(Intercept)")
 
 datatable(D, options = list(pageLength=100)) %>% 
@@ -194,12 +195,13 @@ D$treatment <- factor(D$treatment, levels=c("Control", "Treated"))
 
 p3 <- ggplot(data = D, mapping= aes(x=treatment, y=p.value))
 p3 <- p3 + geom_point(aes(color = metric, stroke = 1, shape = term), position=position_jitter(h=0, w=0.27))
+p3 <- p3 + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+p3 <- p3 + coord_trans(y="log2")
 p3 <- p3 + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
 p3 <- p3 + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
-p3 <- p3 +  theme(legend.key.size = unit(0.05, 'cm'))
-p3 <- p3 + scale_y_continuous(breaks=pretty_breaks(n=20)) 
-#p2 <- p2 + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
-p3 <- p3 + coord_trans(y="log2")
+p3 <- p3 + scale_y_continuous(breaks=pretty_breaks(n=20)) +  theme(axis.text.x = element_text(angle=90))
+p3 <- p3 + scale_y_continuous(breaks = c(0, 0.05, 0.10, 1))
+#p3 <- p3 + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
 p3
 
 ```
@@ -222,10 +224,10 @@ p2 <- ggplot(data = D2, mapping= aes(x=term, y=p.value))
 p2 <- p2 + geom_point(aes(color = metric, stroke = 1), position=position_jitter(h=0, w=0.27))
 p2 <- p2 + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
 p2 <- p2 + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
-p2 <- p2 + scale_y_continuous(breaks=pretty_breaks(n=20)) 
-#p1 <- p1 + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
-p2 <- p2 +  theme(legend.key.size = unit(0.05, 'cm'))
+p2 <- p2 + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 p2 <- p2 + coord_trans(y="log2")
+p2 <- p2 + scale_y_continuous(breaks=pretty_breaks(n=20)) 
+p2 <- p2 + scale_y_continuous(breaks = c(0, 0.05, 0.10, 1))+  theme(axis.text.x = element_text(angle=90))
 p2
 
 #ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_tablewithdots_TIMEPOINT_correctedforbaseline_Skinswabs.png", width = 6, height = 8, plot = p1, device = "png")
@@ -234,10 +236,10 @@ p2
 
 
 ```{r}
-figure_final <- ggarrange(p1, p3, p2, widths=c(1, 1,1), heights=c(1,1,1),  labels=c("A", "B", "C"), ncol=3, nrow=1 )
-print(figure_final)
+figure_finalA <- ggarrange(p1, p3, p2, widths=c(1, 1,1), heights=c(1,1,1),  labels=c("A", "B", "C"), ncol=3, nrow=1 )
+print(figure_finalA)
 
-ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_indices_Skinswabs.png", plot = figure_final, device = "png", width = 14, height = 5)
+ggsave(filename = "~/Results/SKINSWABS/results/alpha_significance_indices_Skinswabs300822.png", plot = figure_finalA, device = "png", width = 10, height = 4)
 ```
 
 ## Configurazione base
@@ -380,12 +382,14 @@ px <- ggplot(data = D, mapping= aes(x=term, y=avg))
 px <- px + geom_point(aes(color = metric, size = wt), position=position_jitter(h=0, w=0.27))
 px <- px + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
 px <- px + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
+px <- px + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+px <- px + coord_trans(y="log2")
 px <- px + scale_y_continuous(breaks=pretty_breaks(n=20)) 
 px <- px + scale_color_manual(values = c("#f8766d", "#d39200", "#93aa00", "#00ba38", "#00c19f", "#00b9e3", "#619cff", "#db72fb", "#ff61c3"))
 px <- px + scale_shape_manual(values = c(0, 1, 2, 23, 3,4,7, 8, 10))
 # px <- px + gghighlight(avg < 0.10, label_key = metric, use_direct_label = TRUE)
 px <- px +  theme(legend.key.size = unit(0.05, 'cm'), axis.text.x = element_text(angle=90))
-px <- px + coord_trans(y="log2")
+px <- px+ scale_y_continuous(breaks = c(0, 0.05, 0.10, 1))
 px
 ggsave(filename = "~/Results/SKINSWABS/results/alpha_sbootstrPPING_SIGNIF.png", width = 5, height = 5, plot = px, device = "png")
 ```
@@ -393,6 +397,8 @@ ggsave(filename = "~/Results/SKINSWABS/results/alpha_sbootstrPPING_SIGNIF.png", 
 ```{r}
 tot <- ggarrange(p, px, widths=c(1, 0.5), heights=c(1, 1),  labels=c("A", "B"), ncol=2, nrow=1)
 print(tot)
+
+ggsave(filename = "~/Results/SKINSWABS/results/reportalpha300822.png", plot = tot, device = "png", width = 10, height = 4)
 ```
 
 ## grafico boostrapping
@@ -454,4 +460,13 @@ Tot <- rbind (Observed, Chao1, se.chao1, ACE, se.ACE, Shannon, Simpson, InvSimps
 write.csv(Tot, "~/Results/SKINSWABS/results/Bootstrap_res_tot.csv")
 
 ```
+
+
+```{r}
+report <- ggarrange(figure_finalA, tot, figure_finalB, figure_final_report, widths=c(1, 1,1,1), heights=c(1,1,1,1),  ncol=1, nrow=4 )
+print(report)
+
+ggsave(filename = "~/Results/SKINSWABS/results/report300822.png", plot = report, device = "png", width = 10, height = 15)
+```
+
 

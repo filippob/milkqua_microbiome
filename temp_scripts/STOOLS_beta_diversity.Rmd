@@ -1,7 +1,7 @@
 ---
 title: "Beta_diversity_Stools"
 author: "Chiara Gini"
-date: "12/05/2022"
+date: "14/09/2022"
 output: html_document
 editor_options: 
   chunk_output_type: inline
@@ -33,6 +33,10 @@ Between-sample variability from 16S rRna-gene sequencing data.
 metadata <- fread ("~/Results/STOOLS/mapping_milkqua_stools.csv")
 names(metadata)[1] <- "sample"
 metadata$sample <- paste("sample-", metadata$MISEQ_ID, sep = "")
+
+subset2 <- metadata[metadata$timepoint == "2"]
+subset3 <- metadata[metadata$timepoint == "3"]
+
 ```
 
 ## Clustering
@@ -43,7 +47,7 @@ metadata$sample <- paste("sample-", metadata$MISEQ_ID, sep = "")
 matrice= fread("~/Results/STOOLS/results/weighted_unifrac_distances.csv", header = T, sep = ",")
 matrice  <- matrice %>% remove_rownames %>% column_to_rownames(var="row")
 
-samples = metadata %>% pull(sample)
+samples = subset2 %>% pull(sample)
 vec <- rownames(matrice) %in% samples
 matrice = matrice[vec,vec]
 
@@ -56,11 +60,29 @@ matx= data.matrix(select(matrice, -c(treatment, timepoint)))
 mds <- cmdscale(as.dist(matx))
 ```
 
-Clustering by timepoint (PCA)
+Clustering by treatment T2
+(PCA)
 ```{r, echo=FALSE}
-p1 <- autoplot(prcomp(1-matx), data=matrice, colour = "timepoint", label = TRUE, label.size = 3, frame = TRUE, frame.type = 'norm')
-p1
-ggsave("~/Results/STOOLS/results/clustering_by_timepoints_PCA_stools.png")
+p2 <- autoplot(prcomp(1-matx), data=matrice, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
+p2
+ggsave("~/Results/STOOLS/results/clustering_by_treatment_PCA_stools.png")
+```
+
+```{r pressure, echo=FALSE, message=FALSE}
+matrice= fread("~/Results/STOOLS/results/weighted_unifrac_distances.csv", header = T, sep = ",")
+matrice  <- matrice %>% remove_rownames %>% column_to_rownames(var="row")
+
+samples = subset3 %>% pull(sample)
+vec <- rownames(matrice) %in% samples
+matrice = matrice[vec,vec]
+
+matrice$treatment <- as.character(metadata$treatment[match(row.names(matrice),metadata$sample)])
+matrice$timepoint <- as.character(metadata$timepoint[match(row.names(matrice),metadata$sample)])
+
+matx= data.matrix(select(matrice, -c(treatment, timepoint)))
+
+## MDS
+mds <- cmdscale(as.dist(matx))
 ```
 
 Clustering by treatment (PCA)
@@ -69,6 +91,17 @@ p3 <- autoplot(prcomp(1-matx), data=matrice, colour = "treatment", label = TRUE,
 p3
 ggsave("~/Results/STOOLS/results/clustering_by_treatment_PCA_stools.png")
 ```
+
+```{r}
+figure_finalB <- ggarrange(p2, p3, widths=c(1, 1), labels=c("T2", "T3"), legend = "bottom")
+print(figure_finalB)
+
+#ggsave("~/Results/STOOLS/results/clustering_merged_PCA_skinswab300822.png", plot = figure_final, width = 14, height = 5)
+```
+
+
+
+
 Clustering by treatment (PCA): after removing samples from timepoint 0 # BECAUSE WE KNOW THAT AT TIMEPOINT 0 WE SHOULD NOT HAVE DIFFERENCES BETWEEN GROUPS
 
 ```{r, echo=FALSE}

@@ -27,15 +27,18 @@ library("cowplot")
 #COMPARISON BETWEEN TREATMENTS
 
 ```{r, echo=FALSE}
-metadata <- fread("/home/oem/Results/STOOLS/mapping_milkqua_stools.csv")
+metadata <- fread("/home/mycelium/Results/STOOLS/mapping_milkqua_stools.csv")
 metadata$sample <- paste0("sample-", metadata$MISEQ_ID)
 metadata %>%
   group_by(timepoint,treatment) %>%
   dplyr::summarise(N=n())
+
+subset2 <- metadata[metadata$timepoint == "2"]
+subset3 <- metadata[metadata$timepoint == "3"]
 ```
 
 ```{r, echo=FALSE}
-otu <- fread("/home/oem/Results/STOOLS/results/otu_norm_CSS.csv", header = TRUE, sep = ",")
+otu <- fread("/home/mycelium/Results/STOOLS/results/otu_norm_CSS.csv", header = TRUE, sep = ",")
 otu <- otu %>% select(order(colnames(otu)))
 # otu$taxonomy <- paste(otu$Kingdom,",",otu$Phylum,",",otu$Class,",",otu$Order,",", otu$Family,",",otu$Genus,",",otu$Species)
 otu$Phylum <- paste(otu$Kingdom, otu$Phylum, sep = ";")
@@ -69,7 +72,7 @@ colnames(otu_Class) <- otu_Class[1,]
 otu_Class <- otu_Class[-c(1),]
 #otu_Class <- cbind(otu_Class, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
 
-## Families
+## Order
 otu_Order <- cbind(otu_tax, otu$Order)
 colnames(otu_Order)[33]<- "phyla"
 otu_Order <- otu_Order %>% group_by(phyla) %>% summarise_all(funs(sum))
@@ -185,14 +188,11 @@ pphylatot <- ggplot(D1, aes(x=factor(1), y=avg_abund, fill=phylum)) + geom_bar(w
 #pphylatot <- pphylatot + facet_grid(N~treatment)
 pphylatot <- pphylatot + coord_polar(theta='y') #activate this if you want a piechart
 pphylatot <- pphylatot + scale_fill_brewer(palette = "Set1") 
-# pphylatot <- pphylatot + geom_label(aes(label = paste0(avg_abund*100, "%")), position = position_stack(vjust = 0.4), col = "white")
-pphylatot <- pphylatot + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.4), size=3, show.legend = F, force = 0.6,  max.overlaps = 10)
+#pphylatot <- pphylatot + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.4), size=3, show.legend = F, force = 0.6,  max.overlaps = 10)
 pphylatot <- pphylatot + guides(fill = guide_legend(title = "Phyla")) 
-#my_palette = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","brown", "darkorange1","pink1", "darkorchid1", "seagreen2"), length(unique(D$phylum)))
-pphylatot <- pphylatot + xlab("Relative abundances") + ylab("Percentages")
-#pphylatot <- pphylatot + scale_fill_manual(values = my_palette)
+pphylatot <- pphylatot + xlab("Relative abundances") + ylab("Percentages") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
 pphylatot <- pphylatot + theme(text = element_text(size=10),
-               axis.text.x = element_text(size=8),
+               axis.text.x = element_blank(),
                # axis.text.y = element_text(size=4),
                strip.text = element_text(size = 8),
                axis.text.y = element_blank(),
@@ -201,38 +201,56 @@ pphylatot <- pphylatot + theme(text = element_text(size=10),
                legend.title=element_text(size=10))
 
 print(pphylatot)
-ggsave(pphylatot, height = 3, width = 5, filename ="~/Results/STOOLS/results/taxonomy_phylum_piechart_stools_tot.png")
+#ggsave(pphylatot, height = 3, width = 5, filename ="~/Results/STOOLS/results/taxonomy_phylum_piechart_stools_tot.png")
 # 
 # D %>% group_by(phylum) %>% summarise(treatment=n())
 ```
+
 ###Phyla for treatment and timepoints
+
 ```{r}
-D <- mO %>%
-  group_by(phylum, treatment, timepoint) %>%
+otu_genus$sample = row.names(otu_genus) 
+otu_genus <- otu_genus %>% inner_join(select(metadata, all_of(metadata_cols)), by="sample")
+
+m1 <- reshape2::melt(otu_genus,id.vars = metadata_cols, value.name = "counts", variable.name = "genus")
+m1 <- m1 %>%
+  arrange(treatment)
+
+ordered_samples <- metadata %>%
+  arrange(metadata$treatment) %>%
+  dplyr::select(treatment,sample)
+
+m1$sample <- factor(m1$sample, levels = ordered_samples$sample)
+m1$counts <- as.numeric(m1$counts)
+m1$treatment <- factor(m1$treatment)
+
+
+D <- m1 %>%
+  group_by(genus, treatment, timepoint) %>%
   summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
   filter(avg_abund>0.005) %>%
-  arrange(phylum,avg_abund)
+  arrange(genus,avg_abund)
 
-oldc <- D$phylum[D$avg_abund < 0.01]
+oldc <- D$genus[D$avg_abund < 0.01]
 newc <- rep("Other", length(oldc))
-vec <- newc[match(D$phylum,oldc)]
-D$phylum <- ifelse(D$phylum %in% oldc, "Other", as.character(D$phylum))
+vec <- newc[match(D$genus,oldc)]
+D$genus <- ifelse(D$genus %in% oldc, "Other", as.character(D$genus))
 
-phylum <- D %>%
-  group_by(phylum) %>%
+genus <- D %>%
+  group_by(genus) %>%
   summarize("s"=sum(avg_abund)) %>%
   arrange(desc(s)) %>%
-  dplyr::select(phylum,s)
+  dplyr::select(genus,s)
 
-D$phylum <- factor(D$phylum, levels = rev(phylum$phylum[order(phylum$s)]))
+D$genus <- factor(D$genus, levels = rev(genus$genus[order(genus$s)]))
 D <- D %>%
-  arrange(phylum)
+  arrange(genus)
 
 kable(D)
 ```
 
 ```{r phyla avg abund tile plot, echo=FALSE}
-p <- ggplot(mO, aes(x=phylum,y=as.factor(sample),fill=counts))
+p <- ggplot(m1, aes(x=genus,y=as.factor(sample),fill=counts))
 p <- p + geom_tile()
 p <- p + facet_wrap(treatment~timepoint, scales = "free_y")
 p <- p + ylab("sample")
@@ -246,27 +264,28 @@ p
 D$timepoint <- factor(D$timepoint, levels=c("2", "3"))
 D$treatment = factor(D$treatment, levels = c("control", "EO"), ordered = TRUE)
 
-Pphyla <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=phylum)) + geom_bar(width=1,stat="identity", position = "fill")
-Pphyla <- Pphyla + facet_grid(treatment~timepoint)
-#Pphyla <- Pphyla + coord_polar(theta='y', start=0) #activate this if you want a piechart
-#Pphyla <- Pphyla + geom_label_repel(aes(label = paste0(avg_abund*100, "%")))
-Pphyla <- Pphyla + guides(fill = guide_legend(title = "Phyla")) 
-my_palette = get_palette(c("green3","yellow","blue","magenta","cyan","yellow","red","purple","brown", "darkorange1","pink1", "darkorchid1", "seagreen2"), length(unique(D$phylum)))
-Pphyla <- Pphyla + xlab("relative abundances") + ylab("percentages")
-Pphyla <- Pphyla + scale_fill_manual(values = my_palette)
-Pphyla <- Pphyla + theme(text = element_text(size=10),
+Pgenera <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=genus)) + geom_bar(width=1,stat="identity", position = "fill")
+Pgenera <- Pgenera + facet_grid(treatment~timepoint)
+#Pgenera <- Pgenera + coord_polar(theta='y', start=0) #activate this if you want a piechart
+#Pgenera <- Pgenera + geom_label_repel(aes(label = paste0(avg_abund*100, "%")))
+Pgenera <- Pgenera + guides(fill = guide_legend(title = "Genera")) 
+#my_palette = get_palette(c("green3","yellow","blue","magenta","cyan","yellow","red","purple","brown", "darkorange1","pink1", "darkorchid1", "seagreen2"), length(unique(D$phylum)))
+Pgenera <- Pgenera + xlab("relative abundances") + ylab("percentages")
+#Pgenera <- Pgenera + scale_fill_manual(values = my_palette)
+Pgenera <- Pgenera + theme(text = element_text(size=10),
                axis.text.x = element_text(size=8),
                # axis.text.y = element_text(size=4),
                strip.text = element_text(size = 8),
+                legend.position="none",
                axis.text.y = element_blank(),
                axis.ticks.y = element_blank(),
                legend.text=element_text(size=10),
                legend.title=element_text(size=10))
 
-print(Pphyla)
-ggsave(Pphyla, height = 5, width = 5, filename ="~/Results/STOOLS/results/taxonomy_phylum_boxplot_stools_tot.png")
+print(Pgenera)
+#ggsave(Pgenera, height = 5, width = 5, filename ="~/Results/STOOLS/results/taxonomy_phylum_boxplot_stools_tot.png")
 
-D %>% group_by(phylum) %>% summarise(treatment=n())
+D %>% group_by(genus) %>% summarise(treatment=n())
 D %>% group_by(treatment) %>% summarise(phylum=n())
 ```
 

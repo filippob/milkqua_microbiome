@@ -25,7 +25,7 @@ library("ggrepel")
 
 ```{r, echo=FALSE}
 #project_folder = "~/Documents/MILKQUA"
-metadata <- fread("/home/oem/Results/RUMEN/mapping_file_rumen.csv")
+metadata <- fread("/home/mycelium/Results/RUMEN/mapping_file_rumen.csv")
 names(metadata)[1] <- "sample"
 
 metadata$treatment[ which(metadata$treatment == "no treatment (ruminal liquid + diet)")] <- "Control"
@@ -40,7 +40,7 @@ meta_subset %>%
 ```
 
 ```{r, echo=FALSE}
-otu <- fread("/home/oem/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
+otu <- fread("/home/mycelium/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
 otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
 otu$treatment = metadata$treatment[match(otu$sample,metadata$sample)]
 otu <- filter(otu, sample %in% meta_subset$sample)
@@ -234,11 +234,11 @@ D <- D %>%
 
 D$taxa_level = rep("phylum", nrow(D))
 
-otu2 <- fread("/home/oem/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
-otu3 <- fread("/home/oem/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L3.txt", header = TRUE, skip = 1)
-otu4 <- fread("/home/oem/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L4.txt", header = TRUE, skip = 1)
-otu5 <- fread("/home/oem/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L5.txt", header = TRUE, skip = 1)
-otu6 <- fread("/home/oem/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L6.txt", header = TRUE, skip = 1)
+otu2 <- fread("/home/mycelium/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
+otu3 <- fread("/home/mycelium/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L3.txt", header = TRUE, skip = 1)
+otu4 <- fread("/home/mycelium/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L4.txt", header = TRUE, skip = 1)
+otu5 <- fread("/home/mycelium/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L5.txt", header = TRUE, skip = 1)
+otu6 <- fread("/home/mycelium/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L6.txt", header = TRUE, skip = 1)
 otu <- bind_rows(otu2,otu3,otu4,otu5,otu6)
 
 otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
@@ -680,7 +680,7 @@ for (name in DX$new_taxa) {
 <!-- ``` -->
 
 <!-- ```{r , echo=FALSE} -->
-<!-- otu <- fread("/home/oem/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1) -->
+<!-- otu <- fread("/home/mycelium/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1) -->
 <!-- otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts) -->
 <!-- otu$treatment = metadata$treatment[match(otu$sample,metadata$sample)] -->
 <!-- otu <- filter(otu, sample %in% meta_subset_pre$sample) -->
@@ -810,11 +810,11 @@ for (name in DX$new_taxa) {
 
 <!-- D$taxa_level = rep("phylum", nrow(D)) -->
 
-<!-- otu2 <- fread("/home/oem/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1) -->
-<!-- otu3 <- fread("/home/oem/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L3.txt", header = TRUE, skip = 1) -->
-<!-- otu4 <- fread("/home/oem/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L4.txt", header = TRUE, skip = 1) -->
-<!-- otu5 <- fread("/home/oem/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L5.txt", header = TRUE, skip = 1) -->
-<!-- otu6 <- fread("/home/oem/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L6.txt", header = TRUE, skip = 1) -->
+<!-- otu2 <- fread("/home/mycelium/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1) -->
+<!-- otu3 <- fread("/home/mycelium/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L3.txt", header = TRUE, skip = 1) -->
+<!-- otu4 <- fread("/home/mycelium/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L4.txt", header = TRUE, skip = 1) -->
+<!-- otu5 <- fread("/home/mycelium/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L5.txt", header = TRUE, skip = 1) -->
+<!-- otu6 <- fread("/home/mycelium/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L6.txt", header = TRUE, skip = 1) -->
 <!-- otu <- bind_rows(otu2,otu3,otu4,otu5,otu6) -->
 
 <!-- otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts) -->
@@ -1091,7 +1091,7 @@ for (name in DX$new_taxa) {
 
 <!-- dd <- spread(D0, key = treatment, value = avg_counts) -->
 <!-- temp <- inner_join(DX,dd, by = c("level" = "level", "new_taxa" = "new_taxa")) -->
-<!-- fwrite(temp, file = file.path("/home/oem/Results/RUMEN/rumen_significant_otus_pre.csv"), col.names = TRUE, sep = ",") -->
+<!-- fwrite(temp, file = file.path("/home/mycelium/Results/RUMEN/rumen_significant_otus_pre.csv"), col.names = TRUE, sep = ",") -->
 <!-- print (dd) -->
 <!-- ``` -->
 

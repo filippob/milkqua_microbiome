@@ -24,7 +24,7 @@ library("ggrepel")
 ## 16S sequencing data - cow milk samples
 
 ```{r data, echo=FALSE}
-metadata <- fread("/home/oem/milkqua_microbiome/Results/mapping_file_milk_alltimepoints_skin_T0beforeafter.csv")
+metadata <- fread("/home/mycelium/Results/mapping_file_milk_alltimepoints_skin_T0beforeafter.csv")
 names(metadata)[1] <- "sample"
 metadata$Cow_ID <- paste(metadata$cow, metadata$ref)
 metadata = filter(metadata, sample_type == "milk")
@@ -35,7 +35,7 @@ metadata %>%
 ```
 
 ```{r taxonomy, echo=FALSE}
-otu <- read.table("/home/oem/milkqua_microbiome/Results/results/taxa_summary_abs/mapping_file_L2.txt",header=TRUE, sep="\t" ,comment.char = "&")
+otu <- read.table("/home/mycelium/Results/results/taxa_summary_abs/mapping_file_L2.txt",header=TRUE, sep="\t" ,comment.char = "&")
 names(otu)[1] <- "sample"
 
 otu <- otu %>%
@@ -166,7 +166,7 @@ D <- D %>%
 
 D$taxa_level = rep("phylum", nrow(D))
 
-otu <- fread("/home/oem/milkqua_microbiome/Results/results/taxa_summary_abs/mapping_file_L6.txt",header=TRUE)
+otu <- fread("/home/mycelium/Results/results/taxa_summary_abs/mapping_file_L6.txt",header=TRUE)
 names(otu)[1] <- "sample"
 
 otu <- otu %>%

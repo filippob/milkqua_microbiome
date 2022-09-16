@@ -161,7 +161,7 @@ q  <- q + theme(text = element_text(size=8),
                axis.ticks.x = element_blank(),
                legend.text=element_text(size=6),
                legend.title=element_text(size=6))
-q
+core <- q
 
 #ggsave(filename = file.path(basedir, prjdir, outdir, "taxonomy_Phylum_piechart_skinswabs_TP.png"), plot = q, device = "png", width = 10, height = 4)
 ```
@@ -349,6 +349,13 @@ q
 figure_final_comp <- ggarrange(q, p, widths=c(0.25, 0.75), heights=c(1,1))
 print(figure_final_comp)
 ```
+```{r}
+figure_final_report <- ggarrange(core, figure_final_comp, widths=c(1,1), heights=c(1,0.5),  labels=c("H", "I"), ncol=2, nrow=1)
+print(figure_final_report)
+
+ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_Skinswabs300822.png", plot = figure_final_report, device = "png", width = 14, height = 5)
+```
+```
 
 #### Additional plots and tables (e.g. bubble chart etc.) if desired (@chiara)
 
@@ -407,11 +414,11 @@ Dna <- filter(Dna, p.value < 0.05)
 Dna$Kingdom <- NULL
 Dna$Species <- NULL
 Dna$Class <- NULL
-Dna$Phylum <- NULL
-Dna$Phylum <- NULL
-Dna$ControlvsTreated <- (Dna$CONTROL-Dna$TREATED)
-Dna$CONTROL <-NULL
-Dna$TREATED <-NULL
+#Dna$Phylum <- NULL
+Dna$Genus <- NULL
+Dna$ControlvsTreated <- (Dna$Control-Dna$Treated)
+Dna$Control <-NULL
+Dna$Treated <-NULL
 write.csv(Dna, file.path(basedir, prjdir, outdir, "skinswab_Phylum_significance&behaviour.csv"), sep = ",")
 
 q <- ggplot(Dna, aes(x = factor(1), y = Phylum))
@@ -446,5 +453,5 @@ fg
 figure_final <- ggarrange(q, fg, widths=c(0.5, 0.8), heights=c(1,1))
 print(figure_final)
 
-ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_heat+barplot_skinswabs_Phylum_pval.png", plot = figure_final, device = "png", width = 15, height = 10)
+ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_heat+barplot_skinswabs_Phylum_pval300822.png", plot = figure_final, device = "png", width = 15, height = 10)
 ```
