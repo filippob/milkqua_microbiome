@@ -25,6 +25,22 @@ library("rmarkdown")
 library("ggrepel")
 library("tibble")
 library("ggplot2")
+library("ggpubr")
+library("AlphaPart")
+library("DT")
+library("knitr")
+library("tidyr")
+library("broom")
+library("vegan")
+library("ggpubr")
+library("ggplot2")
+library("reshape2")
+library("tidyverse")
+library("data.table")
+library("ggrepel")
+library("tibble")
+library("dplyr")
+library("cowplot")
 ```
 
 ## Alpha diversity of stools samples
@@ -43,11 +59,13 @@ metadata <- tibble::rownames_to_column(metadata, "sample")
 alpha <- read.table("~/Results/STOOLS/results/alpha.csv", header = TRUE, sep = ",")
 alpha$sample.id <- row.names(alpha)
 alpha$observed_species <- NULL
+alpha$se.chao1 <- NULL
+alpha$se.ACE <- NULL
 
 mAlpha <- reshape2::melt(alpha, id.vars = "sample.id", variable.name = "metric", value.name = "value")
 mAlpha$timepoint <- metadata$timepoint[match(mAlpha$sample,metadata$sample)]
 mAlpha$treatment <- metadata$treatment[match(mAlpha$sample,metadata$sample)]
-mAlpha <- subset(mAlpha, timepoint == '3')
+# mAlpha <- subset(mAlpha, timepoint == '3')
 ```
 
 ## Averages and plots
@@ -64,7 +82,6 @@ d_alpha <- D %>%
   gather(key = "metric", value = "value", -c(treatment,N)) %>%
   spread(key = "treatment", value = "value")
 
-write_csv(d_alpha, "~/Results/STOOLS/results/alpha_stools_T3.csv")
 kable(D)
 ```
 
@@ -115,14 +132,42 @@ p <- p + coord_trans(y="log2")
 p <- p + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + scale_y_continuous(breaks=pretty_breaks(n=20)) + scale_y_continuous(breaks = c(0, 0.05, 0.10, 1))
 #p <- p + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
 p <- p + theme(axis.text.x = element_text(angle = 90))
+# p3 <- p
+p2 <- p
 p
+# ggsave(filename = "~/Results/STOOLS/results/alpha_stools_T3.png", width = 4, height = 4, plot = p, device = "png")
+```
 
-ggsave(filename = "~/Results/STOOLS/results/alpha_stools_T3.png", width = 4, height = 4, plot = p, device = "png")
-```
 ```{r}
-#temp <- filter(mAlpha, metric == "chao1")
-# g = lm(value ~ treatment, data = temp)
-# class(g)
-fit = aov(value ~ treatment, data = mAlpha) ## linear model value = mu + treatment + e (y = mu + x + e)
-TukeyHSD(fit, "treatment", ordered = TRUE)
+D1 <- mAlpha %>%
+  group_by(metric, treatment) %>%
+  do(tidy(lm(value ~ timepoint, data = .))) %>%
+  filter(term != "(Intercept)")
+
+datatable(D1, options = list(pageLength=100)) %>% 
+  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
 ```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+q <- ggplot(data = D1, mapping= aes(x=treatment, y=p.value))
+q <- q + geom_point(aes(color = metric, stroke = 1.5), position=position_jitter(h=0, w=0.25))
+q <- q + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
+q <- q + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
+#p <- p + scale_fill_manual(values=c("green3", "orange", "blue", "red", "yellow", "gray", "rose"))
+q <- q + coord_trans(y="log2")
+q <- q + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + scale_y_continuous(breaks=pretty_breaks(n=20)) + scale_y_continuous(breaks = c(0, 0.05, 0.10, 1))
+#p <- p + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
+q <- q + theme(axis.text.x = element_text(angle = 90))
+# p3 <- p
+q
+# ggsave(filename = "~/Results/STOOLS/results/alpha_stools_T3.png", width = 4, height = 4, plot = p, device = "png")
+```
+
+```{r}
+figure_finalA <- ggarrange(p2, p3, q, widths=c(1, 1,1), heights=c(1,1,1),  labels=c("A", "B", "C"), ncol=3, nrow=1 )
+print(figure_finalA)
+
+ggsave(filename = "~/Results/STOOLS/results/alpha_Stools_oct22.png", plot = figure_finalA, device = "png", width = 12, height = 3)
+```
+
+

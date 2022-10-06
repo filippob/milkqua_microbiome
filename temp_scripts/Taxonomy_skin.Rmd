@@ -90,23 +90,23 @@ threshold = 0.99
 ```
 
 ```{r core_micro, echo =FALSE}
-temp = select(otu, contains("sample-"), Phylum) %>% gather(key = "sample", value = "counts", -Phylum)
-core = temp %>% group_by(Phylum, sample) %>%
+temp = select(otu, contains("sample-"), Genus) %>% gather(key = "sample", value = "counts", -Genus)
+core = temp %>% group_by(Genus, sample) %>%
   dplyr::summarise(tot = sum(counts)) %>%
-  group_by(Phylum) %>%
+  group_by(Genus) %>%
   dplyr::summarise(N=n(), zeros = sum(tot == 0), ratio = (1-zeros/N)) %>%
   filter(ratio >= threshold)
 
 
-temp = filter(temp, Phylum %in% core$Phylum)
+temp = filter(temp, Genus %in% core$Genus)
 ```
 
-### Phylum core microbiota
+### Genus core microbiota
 
-Adding metadata to the Phylum core microbiota data:
+Adding metadata to the Genus core microbiota data:
 
-```{r Phylum average abundances, echo=FALSE}
-temp <- temp %>% group_by(sample, Phylum) %>% summarize(counts= sum(counts))
+```{r Genus average abundances, echo=FALSE}
+temp <- temp %>% group_by(sample, Genus) %>% summarize(counts= sum(counts))
 
 temp$timepoint <- metadata$timepoint[match(temp$sample, metadata$sample)]
 temp$treatment <- metadata$treatment[match(temp$sample, metadata$sample)]
@@ -117,7 +117,7 @@ temp <- filter(temp, treatment == "Control")
 x = temp %>%
   group_by(timepoint) %>%
   dplyr::mutate(tot = sum(counts)) %>%
-  dplyr::group_by(timepoint, Phylum) %>%
+  dplyr::group_by(timepoint, Genus) %>%
   dplyr::summarise(phyltot = sum(counts), proportion = round(phyltot/tot, 3)) %>%
  unique() 
 ```
@@ -126,13 +126,13 @@ Make tables and plots of the Phylum core microbiota over time:
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 x %>%
-  group_by(timepoint, Phylum) %>%
+  group_by(timepoint, Genus) %>%
   summarise(avg = mean(proportion)) %>%
   spread(key = timepoint, value = avg) %>%
    adorn_totals("row") 
 
 kable(x)
-write.csv(x, file.path(basedir, prjdir, outdir, "skinswab_Phylum_core_microbiota.csv"), sep = ",")
+#write.csv(x, file.path(basedir, prjdir, outdir, "skinswab_Phylum_core_microbiota.csv"), sep = ",")
 ```
 
 ```{r}
@@ -162,7 +162,7 @@ q  <- q + theme(text = element_text(size=8),
                legend.text=element_text(size=6),
                legend.title=element_text(size=6))
 core <- q
-
+q
 #ggsave(filename = file.path(basedir, prjdir, outdir, "taxonomy_Phylum_piechart_skinswabs_TP.png"), plot = q, device = "png", width = 10, height = 4)
 ```
 
@@ -243,7 +243,7 @@ temp$treatment <- metadata$treatment[match(temp$sample, metadata$sample)]
 ```
 
 ```{r}
-bl = filter(temp, timepoint == "T1") %>% 
+bl = filter(temp, timepoint == "T0") %>% 
   group_by(Phylum, treatment) %>%
   summarise(bl = mean(tot))
 ```
@@ -355,8 +355,6 @@ print(figure_final_report)
 
 ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_Skinswabs300822.png", plot = figure_final_report, device = "png", width = 14, height = 5)
 ```
-```
-
 #### Additional plots and tables (e.g. bubble chart etc.) if desired (@chiara)
 
 ## Effect of treatment
@@ -453,5 +451,5 @@ fg
 figure_final <- ggarrange(q, fg, widths=c(0.5, 0.8), heights=c(1,1))
 print(figure_final)
 
-ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_heat+barplot_skinswabs_Phylum_pval300822.png", plot = figure_final, device = "png", width = 15, height = 10)
+ggsave(filename = "~/Results/SKINSWABS/results/taxonomy_heat+barplot_skinswabs_Phylum_pval300822.png", plot = figure_final, device = "png", width = 7, height = 3)
 ```

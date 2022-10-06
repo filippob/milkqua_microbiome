@@ -191,7 +191,7 @@ kable(D)
 ```
 
 ```{r plot genera, echo=FALSE}
-D$timepoint <- factor(D$timepoint, levels=c("2"))
+D$timepoint <- factor(D$timepoint, levels=c("3")) ###CHANGE HERE AS WELL!!
 D$treatment = factor(D$treatment, levels = c("control", "EO"), ordered = TRUE)
 
 Pgenera <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=genus)) + geom_bar(width=1,stat="identity", position = "fill")
@@ -213,7 +213,7 @@ Pgenera <- Pgenera + theme(text = element_text(size=10),
                legend.title=element_text(size=10))
 
 print(Pgenera)
-ggsave(Pgenera, height = 5, width = 10, filename ="~/Results/STOOLS/results/taxonomy_genus_boxplot_stools_tot_T2.png")
+ggsave(Pgenera, height = 3, width = 12, filename ="~/Results/STOOLS/results/taxonomy_genus_boxplot_stools_tot_T2.png")
 
 D %>% group_by(genus) %>% summarise(treatment=n())
 D %>% group_by(treatment) %>% summarise(genus=n())
@@ -473,9 +473,9 @@ for (name in DX$new_taxa) {
   tpoint = DX[DX$new_taxa==name, "timepoint"]
   
   ## estimating coefficients
-  temp = filter(m1, new_taxa == name)
-  temp$treatment <- factor(temp$treatment, levels = c("control","EO"))
-  g = lm(counts ~ treatment, data = temp)
+  temp2 = filter(m1, new_taxa == name)
+  temp2$treatment <- factor(temp2$treatment, levels = c("control","EO"))
+  g = lm(counts ~ treatment, data = temp2)
   
   ## extracting coefficients
   coefs = g$coefficients
@@ -497,21 +497,45 @@ write.csv(res, "~/Results/STOOLS/results/taxonomy_res.csv")
 ```
 
 ```{r}
-fg <- ggplot(res, aes(x=OTU, y=EO, fill=timepoint)) + geom_bar(width=1,stat="identity")
-fg <- fg + coord_flip()
-fg <- fg + xlab("Behaviour") + ylab("Genera")
-fg <- fg + theme(axis.text.x = element_text(size = 6),
-               axis.title = element_text(size = 6))
+Dna <- filter(temp, level %in% c("genus"))
+## remember here to comment the taxonomic level you are using
+
+Dna$controlvsEO <- (Dna$control-Dna$EO)
+Dna$control <-NULL
+Dna$EO <-NULL
+
+write.csv(Dna, "~/Results/STOOLS/results/taxonomy_res3.csv")
+
+q <- ggplot(Dna, aes(x = factor(1), y = new_taxa, height=0.95))
+q <- q + geom_tile(aes(fill = p.value), colour = "white")
+q <- q + scale_fill_gradient(low = "red", high = "green", limits=c(0,0.05)) #, guide = "none"
+q <- q + xlab("pvalue") + ylab("Genera")
+q <- q + theme(axis.text.x = element_text(size = 13),
+               axis.text.y = element_text(size = 13),
+             axis.ticks = element_blank(), 
+             legend.position = "bottom",
+             axis.title.x = element_blank(),
+             axis.title.y = element_text(size=14))
+q
+ q2 <- q
+ # q3<-q
+
+fg <- ggplot(Dna, aes(x=new_taxa, y=controlvsEO, fill=timepoint)) + geom_bar(width=0.95,stat="identity")
+# fg <- fg + coord_flip() + scale_fill_manual(values = "#E69F00") #3
+fg <- fg + coord_flip() + scale_fill_manual(values = "#0072B2") #2
+fg <- fg + ylab("Behaviour Treated vs. Control") + xlab("Taxa")
+fg <- fg + theme(axis.text.x = element_text(size = 11),
+                 axis.text.y = element_blank(),
+                 axis.ticks = element_blank(),
+                 legend.position = "bottom",
+                 axis.title.x = element_text(size=14),
+               axis.title.y = element_blank())
 fg
-ggsave(filename = "~/Results/STOOLS/results/taxonomy_barplot_significantOTUS_genera_stools.png", plot = fg, device = "png", width = 8, height = 8)
+ fg2 <- fg
+ # fg3 <-  fg
 
-dragon <- ggdraw() +
-  draw_plot(q, x = 0, y = .5, width = .5, height = .5) +
-  draw_plot(p, x = .5, y = .5, width = .5, height = .5) +
-  draw_plot(fg, x = 0, y = 0, width = 1, height = 0.5) +
-  draw_plot_label(label = c("A", "B", "C"), size = 5,
-                  x = c(0, 0.5, 0), y = c(1, 1, 0.5))
+figure_final <- ggarrange( q2, fg2, q3, fg3, widths=c(1,1,1,1), heights=c(1,1,1,1), labels = c("A","B","C","D"), legend = "bottom")
+print(figure_final)
 
-dragon
-ggsave(filename = "~/Results/STOOLS/results/taxonomy_heat+barplot_stools.png", plot = dragon, device = "png", width = 5, height = 3)
+ggsave(filename = "~/Results/STOOLS/results/taxonomy_compl_genera_T23.png", plot = figure_final, device = "png", width = 16, height = 6)
 ```

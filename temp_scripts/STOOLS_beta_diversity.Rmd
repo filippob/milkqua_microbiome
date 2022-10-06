@@ -19,7 +19,6 @@ library("rmarkdown")
 library("tidyverse")
 library("ggfortify")
 library("data.table")
-library("ggforce")
 library("plotly")
 library("lattice")
 library("ggpubr")
@@ -34,6 +33,7 @@ metadata <- fread ("~/Results/STOOLS/mapping_milkqua_stools.csv")
 names(metadata)[1] <- "sample"
 metadata$sample <- paste("sample-", metadata$MISEQ_ID, sep = "")
 
+subsetno <-metadata 
 subset2 <- metadata[metadata$timepoint == "2"]
 subset3 <- metadata[metadata$timepoint == "3"]
 
@@ -104,19 +104,33 @@ print(figure_finalB)
 
 Clustering by treatment (PCA): after removing samples from timepoint 0 # BECAUSE WE KNOW THAT AT TIMEPOINT 0 WE SHOULD NOT HAVE DIFFERENCES BETWEEN GROUPS
 
-```{r, echo=FALSE}
-matrice_1 <- filter(matrice, timepoint != "2")
-matx0= data.matrix(select(matrice_1, -c(treatment,timepoint)))
 
-p2 <- autoplot(prcomp(1-matx0), data=matrice_1, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
-p2
-ggsave("~/Results/SKINSWABS/results/clustering_by_treatment_PCA_stools.png")
+```{r pressure, echo=FALSE, message=FALSE}
+matrice= fread("~/Results/STOOLS/results/weighted_unifrac_distances.csv", header = T, sep = ",")
+matrice  <- matrice %>% remove_rownames %>% column_to_rownames(var="row")
+
+samples = subsetno %>% pull(sample)
+vec <- rownames(matrice) %in% samples
+matrice = matrice[vec,vec]
+
+matrice$treatment <- as.character(metadata$treatment[match(row.names(matrice),metadata$sample)])
+matrice$timepoint <- as.character(metadata$timepoint[match(row.names(matrice),metadata$sample)])
+
+matx= data.matrix(select(matrice, -c(treatment, timepoint)))
+
+```
+
+```{r, echo=FALSE}
+p1 <- autoplot(prcomp(1-matx), data=matrice, colour = "timepoint", label = TRUE, label.size = 3, frame = TRUE, frame.type = 'norm')
+p1
+
+ggsave("~/Results/STOOLS/results/clustering_by_treatment_PCA_stools.png")
 ```
 
 ```{r}
-figure_final <- ggarrange(p1, p2, widths=c(1, 1), labels=c("A", "B"), legend = "bottom")
+figure_final <- ggarrange(p1, p2, p3, widths=c(1, 1, 1), labels=c("A", "B", "C"), legend = "bottom", ncol = 3)
 print(figure_final)
-ggsave("~/Results/SKINSWABS/results/clustering_merged_PCA_stools.png", plot = figure_final, width = 8, height = 4)
+ggsave("~/Results/STOOLS/results/clustering_merged_PCA_stools.png", plot = figure_final, width = 8, height = 3)
 ```
 
 ### MDS

@@ -1,10 +1,10 @@
 ---
 title: "Taxonomy_MILK"
 author: "Chiara Gini"
-date: "27/12/2021"
+date: "20/09/2022"
 output: html_document
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
 ```{r setup, include=FALSE}
@@ -24,9 +24,14 @@ library("ggrepel")
 ## 16S sequencing data - cow milk samples
 
 ```{r data, echo=FALSE}
-metadata <- fread("/home/mycelium/Results/mapping_file_milk_alltimepoints_skin_T0beforeafter.csv")
+metadata <- fread("/home/mycelium/Results/MILK_SKINSWAB/mapping_file_milk_alltimepoints_skin_T0beforeafter.csv")
 names(metadata)[1] <- "sample"
 metadata$Cow_ID <- paste(metadata$cow, metadata$ref)
+metadata$timepoint[metadata$timepoint == "0"] <- "T0"
+metadata$timepoint[metadata$timepoint == "8"] <- "T1"
+metadata$timepoint[metadata$timepoint == "21"] <- "T2"
+metadata$timepoint[metadata$timepoint == "28"] <- "T3"
+
 metadata = filter(metadata, sample_type == "milk")
 metadata %>%
   group_by(timepoint,treatment,Cow_ID) %>%
@@ -35,7 +40,7 @@ metadata %>%
 ```
 
 ```{r taxonomy, echo=FALSE}
-otu <- read.table("/home/mycelium/Results/results/taxa_summary_abs/mapping_file_L2.txt",header=TRUE, sep="\t" ,comment.char = "&")
+otu <- read.table("/home/mycelium/Results/MILK_SKINSWAB/results/taxa_summary_abs/mapping_file_L2.txt",header=TRUE, sep="\t" ,comment.char = "&")
 names(otu)[1] <- "sample"
 
 otu <- otu %>%
@@ -44,7 +49,7 @@ otu <- otu %>%
 
 otu$treatment = metadata$treatment[match(otu$Sample_ID,metadata$Sample_ID)]
 otu$timepoint = metadata$timepoint[match(otu$Sample_ID,metadata$Sample_ID)]
-otu$timepoint = factor(otu$timepoint, levels = c("0","8","21","28"))
+otu$timepoint = factor(otu$timepoint, levels = c("T0","T1","T2","T3"))
 
 ## relative abundances
 metadata_cols = seq(1,7)
@@ -91,7 +96,7 @@ First, let's look at phyla:
 D <- m1 %>%
   group_by(phylum,treatment,timepoint) %>%
   summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
-  filter(avg_abund>0.05) %>% ### AVG ABUND IS 0.005 OR 0.05? ORIGINALLY HERE WAS WRITTEN 0.005. IMAGE DOES NOT CHANGE THAT MUCH
+  filter(avg_abund>0.01) %>% ### AVG ABUND IS 0.005 OR 0.05? ORIGINALLY HERE WAS WRITTEN 0.005. IMAGE DOES NOT CHANGE THAT MUCH
   arrange(phylum,avg_abund)
 
 phylum <- D %>%
@@ -105,6 +110,8 @@ D <- D %>%
   arrange(treatment,phylum)
 
 kable(D)
+
+fwrite(D, file = "~/Results/MILK_SKINSWAB/results/significant_otus_phyla.csv", col.names = TRUE, sep = ",")
 ```
 
 ```{r, echo=FALSE}
@@ -124,10 +131,10 @@ p
 
 ```{r, echo=FALSE}
 p <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=phylum)) + geom_bar(width=1,stat="identity")
-p <- p + facet_grid(timepoint~treatment)
+p <- p + facet_grid(treatment~timepoint)
 #p <- p + coord_polar(theta='y', start=0) #activate this if you want a piechart
 #p <- p + scale_fill_brewer(palette = "Set3") 
-p <- p + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
+#p <- p + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
 p <- p + guides(fill = guide_legend(title = "Phyla")) 
 p <- p + xlab("Relative abundances") + ylab("")
 my_palette = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2"), length(unique(D$phylum)))
@@ -143,7 +150,7 @@ p <- p + theme(text = element_text(size=10),
                legend.title=element_text(size=10))
 
 print(p)
-#ggsave(p, height = 20, width = 10, filename ="taxonomy_phylum_boxplot_MILK.png")
+ggsave(p, height = 4, width = 12, filename ="~/Results/MILK_SKINSWAB/results/taxonomy_phylum_boxplot_MILK.png")
 ```
 
 ### Treatments, all taxonomic levels
@@ -166,7 +173,7 @@ D <- D %>%
 
 D$taxa_level = rep("phylum", nrow(D))
 
-otu <- fread("/home/mycelium/Results/results/taxa_summary_abs/mapping_file_L6.txt",header=TRUE)
+otu <- fread("/home/mycelium/Results/MILK_SKINSWAB/results/taxa_summary_abs/mapping_file_L6.txt",header=TRUE)
 names(otu)[1] <- "sample"
 
 otu <- otu %>%
@@ -175,7 +182,7 @@ otu <- otu %>%
 
 otu$treatment = metadata$treatment[match(otu$Sample_ID,metadata$Sample_ID)]
 otu$timepoint = metadata$timepoint[match(otu$Sample_ID,metadata$Sample_ID)]
-otu$timepoint = factor(otu$timepoint, levels = c("0","8","21","28"))
+otu$timepoint = factor(otu$timepoint, levels = c("T0","T1","T2","T3"))
 
 mO <- reshape2::melt(otu,id.vars = metadata_cols, value.name = "counts", variable.name = "taxa")
 mO$level <- sapply(mO$taxa, function(x) length(strsplit(as.character(x),";")[[1]]) ) 
@@ -219,74 +226,31 @@ A table of relative abundances (and standard deviations) per taxa and treatment:
 
 ```{r, tab2, echo=FALSE}
 D <- na.omit(D)
-D <- D %>%
+Del <- D %>%
   group_by(new_taxa,timepoint,treatment) %>%
   filter(avg_abund > 0.01) %>%
   arrange(level,desc(avg_abund))
 
-kable(D)
+kable(Del)
+# 
+# fwrite(D, file = "~/Results/MILK_SKINSWAB/results/significant_otus_genera.csv", col.names = TRUE, sep = ",")
 ```
 
-##Class
-
-```{r}
-Dclass <- D %>%
-  filter(level=="class")
-
-p <- ggplot(Dclass, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
-p <- p + facet_grid(timepoint~treatment)
-p <- p + guides(fill = guide_legend(title = "Class")) 
-p <- p + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
-my_palette = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple", "darkorange1","pink1", "darkorchid1", "seagreen2"), length(unique(Dclass$new_taxa)))
-p <- p + xlab("relative abundances") + ylab("percentages")
-p <- p + scale_fill_manual(values = my_palette)
-p <- p + theme(text = element_text(size=10),
-               axis.text.x = element_text(size=8),
-               # axis.text.y = element_text(size=4),
-               strip.text = element_text(size = 8),
-               axis.text.y = element_blank(),
-               axis.ticks.y = element_blank(),
-               legend.text=element_text(size=10),
-               legend.title=element_text(size=10))
-print(p)
-#ggsave(p, height = 8, width = 8, filename ="taxonomy_class_bargraph_milk.png")
-```
-
-##Family
-
-```{r}
-Dfamily <- D %>%
-  filter(level=="family")
-
-p <- ggplot(Dfamily, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
-p <- p + facet_grid(timepoint~treatment)
-p <- p + guides(fill = guide_legend(title = "Family")) 
-#p <- p + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
-my_palette2 = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2", "darkmagenta", "burlywood1", "maroon", "darkred", "burlywood3", "chartreuse4", "coral", "peachpuff", "mediumorchid3", "yellow3", "turquoise4", "snow", "slategray3", "orangered", "olivedrab", "plum", "lightcyan", "gray38", "forestgreen", "firebrick1"), length(unique(Dfamily$new_taxa)))
-p <- p + xlab("relative abundances") + ylab("percentages")
-p <- p + scale_fill_manual(values = my_palette2)
-p <- p + theme(text = element_text(size=10),
-               axis.text.x = element_text(size=8),
-               # axis.text.y = element_text(size=4),
-               strip.text = element_text(size = 8),
-               axis.text.y = element_blank(),
-               axis.ticks.y = element_blank(),
-               legend.text=element_text(size=10),
-               legend.title=element_text(size=10))
-p
-#ggsave(p, height = 8, width = 8, filename ="taxonomy_family_bargraph_MILK.png")
-```
 
 ## Genera 
 
 ```{r}
-Dgenera <- D %>%
+Dgenera <- Del %>%
   filter(level=="genus")
 
+Dgenera_mock <- Dgenera[2] 
+
+Dgenera_mock = Dgenera_mock %>% group_by(new_taxa) %>% summarise_each(funs(sum))
+
 p <- ggplot(Dgenera, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
-p <- p + facet_grid(timepoint~treatment)
+p <- p + facet_grid(treatment~timepoint)
 p <- p + guides(fill = guide_legend(title = "Genera")) 
-my_palette2 = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2", "darkmagenta", "burlywood1", "maroon", "darkred", "burlywood3", "chartreuse4", "coral", "peachpuff", "mediumorchid3", "yellow3", "turquoise4", "snow", "slategray3", "orangered", "olivedrab", "plum", "lightcyan", "gray38", "forestgreen", "firebrick1"), length(unique(Dgenera$new_taxa)))
+my_palette2 = get_palette(c("brown","black", "darkorange1","pink1","green3","gold","blue","magenta","cyan","yellow","red","purple", "darkorchid1", "seagreen2", "darkmagenta", "burlywood1",  "burlywood3", "chartreuse4", "coral", "peachpuff","gray", "mediumorchid3", "yellow3", "turquoise4", "snow", "slategray3", "orangered", "olivedrab", "plum", "lightcyan", "gray38", "forestgreen", "firebrick1"), length(unique(Dgenera$new_taxa)))
 p <- p + xlab("relative abundances") + ylab("percentages")
 p <- p + scale_fill_manual(values = my_palette2)
 p <- p + theme(text = element_text(size=10),
@@ -295,59 +259,11 @@ p <- p + theme(text = element_text(size=10),
                strip.text = element_text(size = 8),
                axis.text.y = element_blank(),
                axis.ticks.y = element_blank(),
-               legend.text=element_text(size=5),
-               legend.title=element_text(size=5))
+               legend.text=element_text(size=8),
+               legend.title=element_text(size=8))
 print(p)
-#ggsave(p, height = 8, width = 8, filename ="taxonomy_genera_bargraph_MILK.png")
-```
 
-##Order
-
-```{r}
-Dorder <- D %>%
-  filter(level=="order")
-
-p <- ggplot(Dorder, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
-p <- p + facet_grid(timepoint~treatment)
-p <- p + guides(fill = guide_legend(title = "Order")) 
-my_palette2 = get_palette(c("red","darkred", "burlywood3", "chartreuse4","gray","gold","blue","magenta","cyan","purple","green3","yellow","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2", "darkmagenta", "burlywood1", "maroon",  "coral", "peachpuff", "mediumorchid3", "yellow3", "turquoise4", "snow", "slategray3", "orangered", "olivedrab", "plum", "lightcyan", "gray38", "forestgreen", "firebrick1"), length(unique(Dorder$new_taxa)))
-p <- p + xlab("relative abundances") + ylab("percentages")
-p <- p + scale_fill_manual(values = my_palette2)
-p <- p + theme(text = element_text(size=10),
-               axis.text.x = element_text(size=8),
-               # axis.text.y = element_text(size=4),
-               strip.text = element_text(size = 8),
-               axis.text.y = element_blank(),
-               axis.ticks.y = element_blank(),
-               legend.text=element_text(size=10),
-               legend.title=element_text(size=10))
-print(p)
-#ggsave(p, height = 8, width = 8, filename ="taxonomy_order_bargraph_MILK.png")
-```
-
-##Phylum
-
-```{r}
-Dphylum <- D %>%
-  filter(level=="phylum")
-
-p <- ggplot(Dphylum, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
-p <- p + facet_grid(timepoint~treatment)
-p <- p + guides(fill = guide_legend(title = "Phylum")) 
-p <- p + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
-my_palette3 = get_palette(c("red", "green3","yellow","darkmagenta", "gray","lightcyan", "gold","blue"), length(unique(Dphylum$new_taxa)))
-p <- p + xlab("relative abundances") + ylab("percentages")
-p <- p + scale_fill_manual(values = my_palette3)
-p <- p + theme(text = element_text(size=10),
-               axis.text.x = element_text(size=8),
-               # axis.text.y = element_text(size=4),
-               strip.text = element_text(size = 8),
-               axis.text.y = element_blank(),
-               axis.ticks.y = element_blank(),
-               legend.text=element_text(size=10),
-               legend.title=element_text(size=10))
-print(p)
-#ggsave(p, height = 8, width = 8, filename ="taxonomy_phylum_bargraph_MILK.png")
+ggsave(p, height = 6, width = 12, filename ="~/Results/MILK_SKINSWAB/results/taxonomy_genera_MILK.png")
 ```
 
 Same results, but in wide-format (treatments on the horizontal axis): relative abundances (no standard deviations):
@@ -428,31 +344,6 @@ formattable(D0, list(
 
 ```
 
-Finally,a bubble chart to visualize relative abundances per taxa and treatment:
-
-```{r, echo=FALSE, fig.height = 14, fig.width = 10}
-taxa <- D %>%
-  group_by(level,new_taxa,timepoint) %>%
-  summarize("s"=sum(avg_abund)) %>%
-  arrange(desc(level,s)) %>%
-  select(level,new_taxa,s)
-
-taxa <- taxa %>%
-  group_by(level) %>%
-  arrange(level,s)
-
-p <- ggplot(D, aes(x = treatment, y = new_taxa))
-p <- p + geom_point(aes(size = avg_abund, colour = treatment), alpha = 0.4)
-p <- p + facet_grid(level~timepoint, scales = "free", space = "free")
-p <- p + scale_color_manual(values = c("green", "coral",  "#E7B800", "#FC4E07"))
-p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1))
-p <- p + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
-p <- p + theme(axis.text.x = element_text(size=8))
-p <- p + theme_bw()
-p <- p + xlab("timepoints") + ylab("average abundances")
-p
-#ggsave (p, height = 13, width = 8, filename = "taxonomy_bubbleplot_MILK.png")
-```
 
 ### Significance of treatments (+ timepoint)
 
@@ -598,6 +489,7 @@ q <- q + guides(fill=FALSE) + theme(
   axis.text.x = element_text(size = 6)
 )
 q <- q + xlab("") 
+q
 
 figure_final <- ggarrange(q, p, widths=c(0.25, 0.75), 
                           labels=c("A", "B"))
@@ -605,3 +497,94 @@ figure_final <- ggarrange(q, p, widths=c(0.25, 0.75),
 print(figure_final)
 #ggsave(filename = "heatmap_MILK.png", plot = figure_final, device = "png", width = 8, height = 10)
 ```
+
+```{r}
+Dna <- filter(temp, level %in% c("genus"))
+## remember here to comment the taxonomic level you are using
+
+Dna$ControlvsTreated <- (Dna$Control-Dna$Treated)
+Dna$Control <-NULL
+Dna$Treated <-NULL
+
+
+Dna_mock <- Dna[2] 
+
+Dna_mock = Dna_mock %>% group_by(new_taxa) %>% summarise_each(funs(sum))
+
+write.csv(Dna, file.path("~/Results/MILK_SKINSWAB/results/skinswab_genera_significance&behaviour.csv"), sep = ",")
+
+q <- ggplot(Dna, aes(x = factor(1), y = new_taxa))
+q <- q + geom_tile(aes(fill = p.value), colour = "white")
+q <- q + scale_fill_gradient(low = "orange", high = "blue", limits=c(0,0.05)) #, guide = "none"
+#q <- q + xlab("pvalue") + ylab("Genera")
+q <- q + theme(axis.text.x = element_text(size = 8), 
+             axis.ticks = element_blank(), 
+             legend.position = "bottom",
+             axis.title.x = element_text(size=12),
+             axis.title.y = element_text(size=12))
+q
+```
+
+```{r}
+fg <- ggplot(Dna, aes(x=new_taxa, y=ControlvsTreated, fill=timepoint)) + geom_bar(width=1,stat="identity") 
+fg <- fg + coord_flip()
+fg <- fg + ylab("Behaviour Treated vs. Control") + xlab("Taxa")
+fg <- fg + theme(axis.text.x = element_text(size = 8),
+                 axis.text.y = element_blank(),
+                 axis.ticks = element_blank(),
+                 legend.position = "bottom",
+                 axis.title.x = element_text(size=12),
+               axis.title.y = element_blank())
+fg
+```
+
+
+```{r}
+figure_final <- ggarrange(q, fg, widths=c(0.3, 0.5), heights=c(1,1), labels = c("A","B"))
+print(figure_final)
+
+ggsave(filename = "~/Results/MILK_SKINSWAB/results/taxonomy_compl_genera_MILK.png", plot = figure_final, device = "png", width = 12, height = 12)
+```
+
+```{r}
+Dna2 <- filter(temp, level %in% c("phylum"))
+## remember here to comment the taxonomic level you are using
+
+Dna2$ControlvsTreated <- (Dna2$Control-Dna2$Treated)
+Dna2$Control <-NULL
+Dna2$Treated <-NULL
+
+write.csv(Dna2, file.path("~/Results/MILK_SKINSWAB/results/Milk_Phylum_significance&behaviour.csv"), sep = ",")
+
+q2 <- ggplot(Dna2, aes(x = factor(1), y = new_taxa))
+q2 <- q2 + geom_tile(aes(fill = p.value), colour = "white")
+q2 <- q2 + scale_fill_gradient(low = "orange", high = "blue", limits=c(0,0.05)) #, guide = "none"
+q2 <- q2 + xlab("pvalue") + ylab("Phyla")
+q2 <- q2 + theme(axis.text.x = element_text(size = 8), 
+             axis.ticks = element_blank(), 
+             legend.position = "bottom",
+             axis.title.x = element_text(size=12),
+             axis.title.y = element_text(size=12))
+q2
+```
+
+```{r}
+fg2 <- ggplot(Dna2, aes(x=new_taxa, y=ControlvsTreated, fill=timepoint)) + geom_bar(width=1,stat="identity") 
+fg2 <- fg2 + coord_flip()
+fg2 <- fg2 + ylab("Behaviour Treated vs. Control") + xlab("Taxa")
+fg2 <- fg2 + theme(axis.text.x = element_text(size = 8),
+                 axis.text.y = element_blank(),
+                 axis.ticks = element_blank(),
+                 legend.position = "bottom",
+                 axis.title.x = element_text(size=12),
+               axis.title.y = element_blank())
+fg2
+```
+
+```{r}
+figure_final2 <- ggarrange(q2, fg2, widths=c(0.2, 0.5), heights=c(1,1), legend = "left", labels = c("A","B"))
+print(figure_final2)
+
+ggsave(filename = "~/Results/MILK_SKINSWAB/results/taxonomy_compl_phyla_MILK.png", plot = figure_final2, device = "png", width = 12, height = 3)
+```
+

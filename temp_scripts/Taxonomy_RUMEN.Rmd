@@ -48,7 +48,7 @@ otu <- filter(otu, sample %in% meta_subset$sample)
 otu
 
 ## relative abundances
-metadata_cols = names(meta_subset)[c(1,5)]
+metadata_cols = names(meta_subset)[c(1,7)]
 M <- dplyr::select(otu,-all_of(metadata_cols))
 M <- M/rowSums(M)
 M <- bind_cols(dplyr::select(otu, all_of(metadata_cols)),M)
@@ -595,46 +595,53 @@ D1$level <- factor(D1$level, levels = c("phylum","class","order","family","genus
 
 D1 <- D1 %>% group_by(level) %>% mutate(tot = sum(counts), relab = counts/tot)
 
+D1 <- filter(D1, level == "genus")
+
 p <- ggplot(D1, aes(x = treatment, y = new_taxa))
 p <- p + geom_tile(aes(fill = relab), colour = "white")
-p <- p + facet_grid(level~treatment, scales = "free")
-p <- p + scale_fill_gradient(low = "orange", high = "blue")
-p <- p + theme(strip.text.y = element_text(size = 5), 
-               strip.text.x = element_text(size = 6),
+p <- p + facet_grid(level~treatment, scales = "free") + xlab("Treatments") 
+p <- p + scale_fill_gradient(low = "orange", high = "blue","pvalue")
+p <- p + theme(strip.text.y = element_text(size = 7), 
+               strip.text.x = element_text(size = 8),
                # axis.text.y = element_text(size = 4),
-               axis.text.x = element_text(size = 6),
-               axis.title = element_text(size = 6))
-p <- p + guides(fill="none") + theme(axis.title.y = element_blank(),
+               axis.text.x = element_text(size = 8),
+               axis.title = element_text(size = 8))
+p <- p  + theme(axis.title.y = element_blank(),
                                     axis.text.y = element_blank(),
                                     axis.ticks.y = element_blank())
 p
 
 dd <- filter(D1, treatment == "NEO") %>% mutate(variable = "p-value")
 
+dd <- filter(dd, level == "genus")
+
 q <- ggplot(dd, aes(x = factor(1), y = new_taxa, group=level))
 q <- q + geom_tile(aes(fill = p.value), colour = "white")
-q <- q + facet_grid(level~variable, space="free", scales = "free_y")
+q <- q + facet_grid(level~variable, space="free", scales = "free_y") + ylab("Genera") 
 q <- q + scale_fill_gradient(low = "orange", high = "blue")
-q <- q + theme(strip.text = element_text(size = 4), 
-               strip.text.x = element_text(size = 6),
-               axis.text.y = element_text(size = 5),
-               axis.title = element_text(size = 6))
+q <- q + theme(strip.text = element_text(size = 6), 
+               strip.text.x = element_text(size = 8),
+               axis.text.y = element_text(size = 7),
+               axis.title = element_text(size = 8))
 q <- q + guides(fill=FALSE) + theme(
   # axis.title.x = element_blank(),
   # axis.text.x=element_blank(),
   # axis.ticks.x=element_blank(),
   strip.text.y = element_blank(),
   # axis.text.x = element_blank()
-  axis.text.x = element_text(size = 6)
+  axis.text.x = element_text(size = 8)
 )
 q <- q + xlab("") 
 q
 
-figure_final <- ggarrange(q, p, widths=c(0.5, 1), 
-                          labels=c("A", "B"))
+# figure_final <- ggarrange(NULL, q, NULL, p, widths=c(0.05, 0.5, 0.05, 1), labels=c("","A","", "B"), label.x = -0.05, common.legend = TRUE, legend = "bottom", ncol = 4, nrow = 1)
 
-print(figure_final)
-#ggsave(filename = "heatmap_rumen.png", plot = figure_final, device = "png", width = 8, height = 10)
+figure_final <- ggarrange(q, p, widths=c(0.3, 1), labels=c("A","B"), label.x = -0.015, common.legend = TRUE, legend = "right")
+
+# print(figure_final)
+ggsave(filename = "~/Results/RUMEN/results/heatmap_rumen.png", plot = figure_final, device = "png", width = 10, height = 3)
+
+
 ```
 
 ### Extracting estimated coefficients for "significant" OTUs

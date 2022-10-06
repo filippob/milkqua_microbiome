@@ -1,7 +1,7 @@
 ---
 title: "Beta_diversity_MILK"
 author: "Chiara Gini"
-date: "27/12/2021"
+date: "20/09/2022"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -32,7 +32,7 @@ From 16S rRNA-gene sequencing of cow milk microbiome samples:
 Between-sample variability from 16S rRna-gene sequencing data.
 
 ```{r beta, echo=FALSE}
-metadata <- fread("/home/oem/milkqua_microbiome/Results/mapping_file_milk_alltimepoints_skin_T0beforeafter.csv")
+metadata <- fread("/home/mycelium/Results/MILK_SKINSWAB/mapping_file_milk_alltimepoints_skin_T0beforeafter.csv")
 names(metadata)[1] <- "sample"
 ```
 
@@ -41,7 +41,7 @@ names(metadata)[1] <- "sample"
 ### PCA
 
 ```{r pressure, echo=FALSE, message=FALSE}
-matrice= read.table("/home/oem/milkqua_microbiome/Results/results/beta_diversity/bray_curtis_CSS_normalized_otu_table.txt", row.names=1, header=T)
+matrice= read.table("/home/mycelium/Results/MILK_SKINSWAB/results/beta_diversity/bray_curtis_CSS_normalized_otu_table.txt", row.names=1, header=T)
 names(matrice) <- gsub("X","",names(matrice))
 
 vec <- filter(metadata, sample_type == "milk") %>% select(sample) %>% pull()
@@ -87,8 +87,8 @@ mat_milk_1 <- filter(mat_milk, timepoint =="28" )
 
 matxTP= data.matrix(select(mat_milk_1, -c(treatment,timepoint)))
 
-p2 <- autoplot(prcomp(1-matx0), data=mat_milk_1, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
-p2
+p3 <- autoplot(prcomp(1-matx0), data=mat_milk_1, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
+p3
 #ggsave("clustering_by_treatment_PCA_milk_T28.png")
 ```
 
@@ -98,8 +98,8 @@ Time-point 21
 mat_milk_1 <- filter(mat_milk, timepoint =="21" )
 matxTP= data.matrix(select(mat_milk_1, -c(treatment,timepoint)))
 
-p2 <- autoplot(prcomp(1-matx0), data=mat_milk_1, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
-p2
+p4 <- autoplot(prcomp(1-matx0), data=mat_milk_1, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
+p4
 #ggsave("clustering_by_treatment_PCA_milk_T21.png")
 ```
 
@@ -109,8 +109,8 @@ Time-point 8
 mat_milk_1 <- filter(mat_milk, timepoint =="8")
 matxTP= data.matrix(select(mat_milk_1, -c(treatment,timepoint)))
 
-p2 <- autoplot(prcomp(1-matx0), data=mat_milk_1, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
-p2
+p5 <- autoplot(prcomp(1-matx0), data=mat_milk_1, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
+p5
 #ggsave("clustering_by_treatment_PCA_milk_T8.png")
 ```
 
@@ -120,12 +120,37 @@ Time-point 0
 mat_milk_1 <- filter(mat_milk, timepoint=="0")
 matxTP= data.matrix(select(mat_milk_1, -c(treatment,timepoint)))
 
-p2 <- autoplot(prcomp(1-matx0), data=mat_milk_1, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
-p2
+p6 <- autoplot(prcomp(1-matx0), data=mat_milk_1, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
+p6
 #ggsave("clustering_by_treatment_PCA_milk_T0.png")
 ```
 
+
+
+
+```{r}
+figure_finalB <- ggarrange(p1, p2, p6, p5, p4, p3,  labels=c("TIMEPOINTS", "TREATMENTS", "      T0", "      T8", "     T21", "     T28"), legend = "bottom", ncol = 2, nrow = 4, label.x = 0) 
+print(figure_finalB)
+
+ggsave("~/Results/MILK_SKINSWAB/results/beta_MILK.png", plot=figure_finalB, width = 8, height = 16)
+```
+
 ### MDS
+
+```{r}
+mds <- cmdscale(as.dist(matx))
+mds <- as.data.frame(mds)
+mds$treatment <- metadata$treatment[match(rownames(mds), metadata$sample)]
+mds$timepoint <- metadata$timepoint[match(rownames(mds), metadata$sample)]
+#mds <- mutate(mds, cow = as.factor(cow))
+
+p <- ggplot(mds, aes(V1,V2)) + geom_point(aes(colour = timepoint, shape = treatment), size = 3)
+p <- p + xlab("dim1") + ylab("dim2")
+p
+
+fname = file.path("~/Results/MILK_SKINSWAB/results/beta_MILK.png")
+ggsave(filename = fname, plot = p, device = "png", dpi = 300, width = 6, height = 5)
+```
 
 #### Clustering by treatment (MDS): **NMDS1 vs NMDS2**
 
@@ -293,7 +318,7 @@ X = \mu + treatment + timepoint + treatment*type + e
 $$
 
 ```{r pairwise, echo=FALSE, message=FALSE, warning=FALSE}
-source("/home/oem/milkqua_microbiome/Milk_&_SkinSwab/pairwise_adonis.r")
+source("/home/mycelium/Milk_&_SkinSwab/pairwise_adonis.r")
 obj <- adonis(matx ~ mat_milk$treatment+mat_milk$timepoint)
 row.names(obj$aov.tab) <- c("treatment","timepoint","residuals","total")
 kable(obj$aov.tab)
