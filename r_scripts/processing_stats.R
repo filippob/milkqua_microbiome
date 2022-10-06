@@ -6,9 +6,9 @@ library("tidyverse")
 library("data.table")
 
 ## 2. PARAMETERS
-project_folder = "/home/filippo/Documents/cremonesi"
-path_to_file = "cani/results"
-fname1 = "joined_readsPerSample.tsv" ## n. of reads after joining
+project_folder = "/home/mycelium/Results/MILK_SKINSWAB"
+path_to_file = "results"
+fname1 = "readsPerSample.tsv" ## n. of reads after joining
 fname2 = "reads_after_filter.tsv" ## n. of reads after filtering
 out_fname = "processing_stats.tsv"
 sep_line = list("\n--------------------------------------\n")

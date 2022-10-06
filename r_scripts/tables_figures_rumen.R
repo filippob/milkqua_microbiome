@@ -12,18 +12,25 @@ library("gghighlight")
 
 
 ## path parameters
-main_path = "~/Documents/MILKQUA/rumen"
-path_to_results = "qiime_1.9/results_48"
+# main_path = "~/Documents/MILKQUA/rumen"
+# path_to_results = "qiime_1.9/results_48"
+basedir="~/Results"
+prjdir = "RUMEN"
+outdir = "results"
 
 ## metadata
 #project_folder = "~/Documents/MILKQUA"
-metadata <- readxl::read_xlsx(file.path(main_path, "mapping_file_rumen.xlsx"), sheet = 1)
+# metadata <- readxl::read_xlsx(file.path(main_path, "mapping_file_rumen.xlsx"), sheet = 1)
+fname = file.path(basedir, prjdir, "mapping_file_rumen.csv")
+metadata <- fread(fname)
 names(metadata)[1] <- "sample"
 
 metadata$treatment[ which(metadata$treatment == "no treatment (ruminal liquid + diet)")] <- "Control"
 metadata$treatment[ which(metadata$treatment == "AE1")] <- "NEO"
 metadata$treatment[ which(metadata$treatment == "AE sintético 1")] <- "SEO"
-metadata$treatment[ which(metadata$treatment == "γ-terpinene")] <- "g-terpinene"
+metadata$treatment[ which(metadata$treatment == "γ-terpinene")] <- "G-terpinene"
+metadata$treatment[ which(metadata$treatment == "p-cymene")] <- "P-cymene"
+
 
 meta_subset <- filter(metadata, treatment !="ruminal liquid")
 # meta_subset %>%
@@ -31,43 +38,68 @@ meta_subset <- filter(metadata, treatment !="ruminal liquid")
 #   dplyr::summarise(N=n())
 
 ## OTU - phylum
-otu <- fread(file.path(main_path, path_to_results, "taxa_summary_abs/CSS_normalized_otu_table_L2.txt"), header = TRUE, skip = 1)
+# otu <- fread(file.path(main_path, path_to_results, "taxa_summary_abs/CSS_normalized_otu_table_L2.txt"), header = TRUE, skip = 1)
+otu <- fread(file.path(basedir, prjdir, outdir, "taxa_summary_abs/CSS_normalized_otu_table_L6.txt"), header = TRUE, skip = 1)
 otu$`#OTU ID` <- gsub("^.*;","",otu$"#OTU ID")
+otu <- otu %>%
+  group_by(`#OTU ID`) %>%
+  summarise(across(everything(), sum))
+
+uncult <- slice(otu, 299:306, 194)
+uncult$`#OTU ID` <- "Uncultured or unknown"
+uncult <- uncult %>%
+  group_by(`#OTU ID`) %>%
+  summarise(across(everything(), sum))
+
+otu <- otu[-c(299:306, 194), ]
+otu <- rbind(otu, uncult)
+
 otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
 otu$treatment = metadata$treatment[match(otu$sample,metadata$sample)]
 otu <- filter(otu, sample %in% meta_subset$sample)
 
 
 ## relative abundances
-metadata_cols = names(meta_subset)[c(1,5)]
+metadata_cols = names(meta_subset)[c(1,7)]
 M <- dplyr::select(otu,-all_of(metadata_cols))
 M <- M/rowSums(M)
 M <- bind_cols(dplyr::select(otu, all_of(metadata_cols)),M)
 
 M <- subset(M, treatment !="ruminal liquid")
 
-## plot of phylum abundance
-mm <- gather(M, key = "phylum", value = "abundance", -c(sample,treatment))
-phyls = group_by(mm, phylum) %>% summarise(avg = mean(abundance)) %>% arrange(desc(avg))
-oldc <- phyls$phylum[phyls$avg < 0.01]
-newc <- rep("Other", length(oldc))
-vec <- newc[match(mm$phylum,oldc)]
-mm$phylum <- ifelse(mm$phylum %in% oldc, "Other", as.character(mm$phylum))
+## plot of genus abundance
+mm <- gather(M, key = "genus", value = "abundance", -c(sample,treatment))
+phyls = group_by(mm, genus) %>% summarise(avg = mean(abundance)) %>% arrange(desc(avg))
+oldc <- phyls$genus[phyls$avg < 0.02]
+newc <- rep("Lower than 2%", length(oldc))
+vec <- newc[match(mm$genus,oldc)]
+mm$genus <- ifelse(mm$genus %in% oldc, "Lower than 2%", as.character(mm$genus))
 
-mm$phylum <- factor(mm$phylum, levels = c(phyls$phylum[1: (length(phyls$phylum) - length(oldc))],"Other"))
+mm$genus <- factor(mm$genus, levels = c(phyls$genus[1: (length(phyls$genus) - length(oldc))],"Lower than 2%"))
 
-# p <- ggplot(mm, aes( x = phylum, y = abundance)) + geom_boxplot(aes(fill = phylum))
+fwrite(phyls, file = "~/Results/RUMEN/results/test_abund.csv", sep = ",")
+# mm2 <- mm %>% 
+#   group_by(genus) %>% 
+#   summarise(across(abundance, sum))
+
+# p <- ggplot(mm, aes( x = phylum, y = abundance)) + geom_boxplot(aes(fill = genus))
 # p <- p + theme(text = element_text(size = 6),
 #                axis.text.x = element_text(angle=90))
 # p
 
 library("ggpubr")
-p <- ggboxplot(mm, "phylum", "abundance", color = "phylum", legend = "none")
-p <- p + rotate_x_text(90) + font("xy.text", size=8)
+
+require('RColorBrewer')
+mycolors = c(brewer.pal(name="Set1", n = 11), brewer.pal(name="Paired", n = 12))
+mycolors2 = c(brewer.pal(name="Set2", n = 11), brewer.pal(name="Paired", n = 12))
+
+p <- ggboxplot(mm, "genus", "abundance", color = "genus", legend = "none", palette = mycolors2)
+p <- p + rotate_x_text(90) + font("xy.text", size=14)
 p
 
 ## OTU - everything
-otu <- fread(file.path(main_path, path_to_results, "taxa_summary_abs/CSS_normalized_otu_table_L6.txt"), header = TRUE, skip = 1)
+# otu <- fread(file.path(main_path, path_to_results, "taxa_summary_abs/CSS_normalized_otu_table_L6.txt"), header = TRUE, skip = 1)
+otu <- fread(file.path(basedir, prjdir, outdir, "taxa_summary_abs/CSS_normalized_otu_table_L6.txt"), header = TRUE, skip = 1)
 otu$`#OTU ID` <- gsub("^.*;","",otu$"#OTU ID")
 M <- otu[,-1] > 0
 vec <- rowSums(M)/ncol(M) > 0.99
@@ -78,47 +110,46 @@ M$avg <- rowMeans(M[,-1])
 M <- arrange(M, desc(avg)) %>% rename(taxon = `#OTU ID`)
 
 ## write out table of the core microbiota
-fname = file.path(main_path, "tables", "core_microbiota.csv")
-select(M, c(taxon,avg)) %>% rename(avg_normalised_counts = avg) %>% fwrite(fname, sep = ",")
+ffname = file.path(basedir, prjdir, outdir, "core_microbiota.csv")
+select(M, c(taxon,avg)) %>% rename(avg_normalised_counts = avg) %>% fwrite(ffname, sep = ",")
 
 oldc <- M$taxon[M$avg < 25]
-newc <- rep("Other", length(oldc))
+newc <- rep("Lower than 2%", length(oldc))
 vec <- newc[match(M$taxon,oldc)]
-M$taxon <- ifelse(M$taxon %in% oldc, "Other", as.character(M$taxon))
+M$taxon <- ifelse(M$taxon %in% oldc, "Lower than 2%", as.character(M$taxon))
 M$taxon <- gsub("group","",M$taxon)
 
 M <- group_by(M, taxon) %>% summarise(avg = mean(avg)) %>% arrange(desc(avg))
 M$taxon -> M$short_name
 M$short_name <- substr(M$short_name,start = 1, stop = 17)
 M$short_name <- factor(M$short_name, levels = M$short_name)
+names(M)[3] <- "Genera"
 
-require('RColorBrewer')
-mycolors = c(brewer.pal(name="Set3", n = 11), brewer.pal(name="Paired", n = 12))
 
-q <- ggpie(M, "avg", label="short_name", color = "white", fill = "short_name",  legend = "none",
-      lab.pos = "out", palette = mycolors, ggtheme = theme_pubr()) 
-q <- q + font("xy.text", size = 8, color = "gray20", face="bold")
+q <- ggpie(M, "avg", label=NULL, color = "white", fill = "Genera",  legend = "right",
+      lab.pos = "out", palette = mycolors, font.legend=c(16, "black"), lab.font = "white", ggtheme = theme_pubr()) 
+q <- q + font("xy.text", size = 16, color = "white")
 q
 
-g <- ggarrange(p, q, ncol = 2, labels = c("A","B"), heights = c(0.1,4))
-# g
-# ggsave(filename = "../figures/Figure1.png", plot = g, device = "png", dpi = 250)
+g <- ggarrange(p, q, ncol = 2, labels = c("A","B"), heights= c(1,1), widths = c(0.5,1)) #heights = c(0.1,4))
+g
+ggsave(filename = file.path(basedir, prjdir, outdir,"Figure1.png"), plot = g, device = "png", dpi = 250, width = 20, height = 8 )
 
 
 library("cowplot")
-fname = file.path(main_path, "figures", "Figure1.png")
-png(filename = fname, width = 12, height = 7, units = "in", res = 300)
+fname = file.path(basedir, prjdir, outdir,"Figure1.png")
+png(filename = fname, width = 20, height = 8, units = "in", res = 300)
 ggdraw() +
-  draw_plot(p, x = 0, y = 0.1, width = 0.4, height = 0.75) +
-  draw_plot(q, x = 0.4, y = 0, width = 0.6, height = 1) +
-  draw_plot_label(label = c("A", "B"), size = 14,
-                  x = c(0, 0.5), y = c(1, 1)) 
+  draw_plot(p, x = 0, y = 0, width = 0.3, height = 0.9) +
+  draw_plot(q, x = 0.14, y = 0, width = 1, height = 1) +
+  draw_plot_label(label = c("A", "B"), size = 16,
+                  x = c(0, 0.32), y = c(1, 1)) 
 dev.off()
 
 ########################################
 ## differentially abundant taxa - figure
 
-load("taxonomy_ .RData")
+load("~/Results/RUMEN/results/taxonomy_ .RData")
 D <- to_save[[1]]
 DX <- to_save[[2]]
 D0 <- to_save[[3]]
@@ -183,7 +214,7 @@ ggsave(filename = "heatmap_rumen.png", plot = figure_final, device = "png", widt
 
 ## differentially abundant taxa - table
 
-load("taxonomy_ .RData")
+load("~/Results/RUMEN/results/taxonomy_ .RData")
 D <- to_save[[1]]
 DX <- to_save[[2]]
 D0 <- to_save[[3]]
