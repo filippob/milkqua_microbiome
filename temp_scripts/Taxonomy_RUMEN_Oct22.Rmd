@@ -41,12 +41,24 @@ meta_subset %>%
 ```
 
 ```{r, echo=FALSE}
-otu <- fread("/home/mycelium/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
+otu <- fread("/home/mycelium/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L6.txt", header = TRUE, skip = 1)
+otu$`#OTU ID` <- gsub("^.*;","",otu$"#OTU ID")
+otu <- otu %>%
+  group_by(`#OTU ID`) %>%
+  summarise(across(everything(), sum))
+
+uncult <- slice(otu, 299:306, 194)
+uncult$`#OTU ID` <- "Uncultured or unknown"
+uncult <- uncult %>%
+  group_by(`#OTU ID`) %>%
+  summarise(across(everything(), sum))
+
+otu <- otu[-c(299:306, 194), ]
+otu <- rbind(otu, uncult)
+
 otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
 otu$treatment = metadata$treatment[match(otu$sample,metadata$sample)]
 otu <- filter(otu, sample %in% meta_subset$sample)
-
-otu
 
 ## relative abundances
 metadata_cols = names(meta_subset)[c(1,7)]
@@ -63,9 +75,9 @@ metadata_cols = names(otu)[c(1,2)]
 
 otu <- subset(otu, treatment !="ruminal liquid")
 
-mO <- reshape2::melt(otu,id.vars = metadata_cols, value.name = "counts", variable.name = "phylum")
-mO$phylum <- gsub("^.*;","",mO$phylum)
-mO[mO$phylum == "2","phylum"] <- "WPS.2"
+mO <- reshape2::melt(otu,id.vars = metadata_cols, value.name = "counts", variable.name = "genus")
+mO$genus <- gsub("^.*;","",mO$genus)
+mO[mO$genus == "2","genus"] <- "WPS.2"
 mO$sample <- factor(mO$sample)
 mO <- mO %>%
   arrange(treatment)
@@ -73,9 +85,9 @@ mO <- mO %>%
 ```
 
 ```{r, echo=FALSE, fig.height=12, fig.width=12}
-m1 <- reshape2::melt(M,id.vars = metadata_cols, value.name = "counts", variable.name = "phylum")
-m1$phylum <- gsub("^.*;","",m1$phylum)
-m1[m1$phylum == "2","phylum"] <- "WPS.2"
+m1 <- reshape2::melt(M,id.vars = metadata_cols, value.name = "counts", variable.name = "genus")
+m1$genus <- gsub("^.*;","",m1$genus)
+m1[m1$genus == "2","genus"] <- "WPS.2"
 m1$sample <- factor(m1$sample)
 m1 <- m1 %>%
   arrange(treatment)
@@ -88,37 +100,66 @@ ordered_samples <- metadata %>%
 m1$sample <- factor(m1$sample, levels = ordered_samples$sample)
 
 m1$treatment <- factor(m1$treatment)
+
+m1
 ```
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 D <- m1 %>%
-  group_by(phylum) %>%
+  group_by(genus) %>%
   summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
-  filter(avg_abund>0.005) %>%
-  arrange(phylum,avg_abund)
+  # filter(avg_abund>0.01) %>%
+  arrange(genus,avg_abund)
 
-phylum <- D %>%
-  group_by(phylum) %>%
+genus <- D %>%
+  group_by(genus) %>%
   summarize("s"=sum(avg_abund)) %>%
   arrange(desc(s)) %>%
-  dplyr::select(phylum,s)
+  dplyr::select(genus,s)
 
-D$phylum <- factor(D$phylum, levels = rev(phylum$phylum[order(phylum$s)]))
+D$genus <- factor(D$genus, levels = rev(genus$genus[order(genus$s)]))
 D <- D %>%
-  arrange(phylum)
+  arrange(genus)
+
+D$genus <- as.character(D$genus)
+
+oldc <- D$genus[D$avg_abund<0.01]
+newc <- rep("Lower than 1%", length(oldc))
+vec <- newc[match(D$genus,oldc)]
+D$genus <- ifelse(D$genus %in% oldc, "Lower than 1%", as.character(D$genus))
+D$genus <- gsub("group","",D$genus)
+
+D <- D %>%
+  group_by(genus) %>%
+  summarise(across(everything(), sum))
+
+D <- D[order(-D$avg_abund),]
 
 kable(D)
 ```
 
+```{r}
+q <- ggpie(D, "avg_abund", label=NULL, color = "white", fill = "genus",  legend = "right", lab.pos = "out", palette = c("red", "green", "khaki", "steelblue1","maroon","lightblue","salmon","turquoise","violet","yellow","gray","tomato","navy","pink","springgreen4","peru","sienna1","plum4","mediumblue","darkorange","brown4","gold","bisque4", "black", "blue"), font.legend=c(16, "black"), lab.font = "white", ggtheme = theme_pubr()) 
+q <- q + font("xy.text", size = 16, color = "white")
+q
+
+ggsave(filename = file.path("~/Results/RUMEN/results/Figure1bis.png"), plot = q, device = "png", dpi = 250, width = 20, height = 8 )
+
+```
+
+
+
+
 ```{r, echo=FALSE}
-pphylatot <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=phylum)) + geom_bar(width=1,stat="identity")
+pphylatot <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=genus)) + geom_bar(width=1,stat="identity")
 #pphylatot <- pphylatot + facet_grid(N~treatment)
-#pphylatot <- pphylatot + coord_polar(theta='y', start=0) #activate this if you want a piechart
+pphylatot <- pphylatot + coord_polar(theta='y', start=0) #activate this if you want a piechart
 #pphylatot <- pphylatot + scale_fill_brewer(palette = "Set3") 
 pphylatot <- pphylatot + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
 pphylatot <- pphylatot + guides(fill = guide_legend(title = "Phyla")) 
 pphylatot <- pphylatot + xlab("Relative abundances") + ylab("")
-my_palette = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2"), length(unique(D$phylum)))
+
+my_palette = get_palette(c("red", "green", "khaki", "steelblue1","maroon","lightblue","salmon","turquoise","violet","yellow","gray","tomato","navy","pink","springgreen4","peru","sienna1","plum4","mediumblue","darkorange","brown4","gold","bisque4"), length(D$genus))
 pphylatot <- pphylatot + xlab("relative abundances") + ylab("percentages")
 pphylatot <- pphylatot + scale_fill_manual(values = my_palette)
 pphylatot <- pphylatot + theme(text = element_text(size=10),
@@ -126,14 +167,13 @@ pphylatot <- pphylatot + theme(text = element_text(size=10),
                # axis.text.y = element_text(size=4),
                strip.text = element_text(size = 8),
                axis.text.y = element_blank(),
-               axis.ticks.y = element_blank(),
-               legend.text=element_text(size=10),
-               legend.title=element_text(size=10))
-
+               axis.ticks.y = element_blank()
+               # legend.text=element_text(size=10),
+               # legend.title=element_text(size=10))
+)
 print(pphylatot)
 #ggsave(pphylatot, height = 20, width = 10, filename ="taxonomy_phylum_boxplot_rumen_tot.png")
 
-D %>% group_by(phylum) %>% summarise(treatment=n())
 ```
 
 
@@ -305,7 +345,7 @@ Dgenera <- D %>%
   filter(level=="genus")
 
 pgenera <- ggplot(Dgenera, aes(x=factor(1), y=avg_abund, fill=new_taxa)) + geom_bar(width=1,stat="identity", position = "fill")
-pgenera <- pgenera + facet_grid( ~treatment)
+# pgenera <- pgenera + facet_grid( ~treatment)
 pgenera <- pgenera + guides(fill = guide_legend(title = "Genera")) 
 pgenera <- pgenera + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.5), size=4, show.legend = F)
 my_palette2 = get_palette(c("green3","gold","blue","magenta","cyan","yellow","red","gray","purple","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2", "darkmagenta", "burlywood1", "maroon", "darkred", "burlywood3", "chartreuse4", "coral", "peachpuff", "mediumorchid3", "yellow3", "turquoise4", "snow", "slategray3", "orangered", "olivedrab", "plum", "lightcyan", "gray38", "forestgreen", "firebrick1"), length(unique(Dgenera$new_taxa)))
@@ -416,6 +456,7 @@ m1 <- mO %>%
   filter(!is.na(level)) %>%
   arrange(level,treatment)
 
+
 D <- m1 %>%
   group_by(level, new_taxa) %>%
   do(tidy(anova(lm(counts ~  treatment, data = .)))) %>%
@@ -452,7 +493,7 @@ D0 <- to_save[[3]]
 
 dd <- spread(D0, key = treatment, value = avg_counts)
 temp <- inner_join(DX,dd, by = c("level" = "level", "new_taxa" = "new_taxa"))
-fwrite(temp, file = "rumen_significant_otus.csv", col.names = TRUE, sep = ",")
+fwrite(temp, file = "~/Results/RUMEN/results/rumen_significant_otus.csv", col.names = TRUE, sep = ",")
 print (dd)
 ```
 
@@ -552,5 +593,30 @@ for (name in DX$new_taxa) {
   # saving results
   res = rbind.data.frame(res, coefs)
 }
+```
+
+
+
+#Check the pvalue of everytreatment against control, genus by genus
+
+ADD A FOR LOOP HERE ASAP
+
+```{r}
+library("broom")
+library("tidyverse")
+
+load("~/Results/RUMEN/m1.Rdata")
+m1 = to_save[[1]]
+unique(m1$treatment)
+m1$treatment = factor(m1$treatment, levels = c("Control","Carvacrol","G-terpinene", "NEO", "P-cymene","SEO"))
+
+temp = filter(m1, level == "genus", new_taxa == "Lachnospiraceae UCG-010") ##specify genus here
+fit <- lm(counts ~ treatment, data = temp)
+anova(fit)
+tt = summary(fit)
+names(tt)
+
+tt = tidy(fit)
+filter(tt, term != "(Intercept)") %>% pull(p.value)
 ```
 
