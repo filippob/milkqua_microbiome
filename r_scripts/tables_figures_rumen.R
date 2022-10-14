@@ -70,10 +70,10 @@ M <- subset(M, treatment !="ruminal liquid")
 ## plot of genus abundance
 mm <- gather(M, key = "genus", value = "abundance", -c(sample,treatment))
 phyls = group_by(mm, genus) %>% summarise(avg = mean(abundance)) %>% arrange(desc(avg))
-oldc <- phyls$genus[phyls$avg < 0.02]
-newc <- rep("Lower than 2%", length(oldc))
+oldc <- phyls$genus[phyls$avg < 0.01]
+newc <- rep("Lower than 1%", length(oldc))
 vec <- newc[match(mm$genus,oldc)]
-mm$genus <- ifelse(mm$genus %in% oldc, "Lower than 2%", as.character(mm$genus))
+mm$genus <- ifelse(mm$genus %in% oldc, "Lower than 1%", as.character(mm$genus))
 
 mm$genus <- factor(mm$genus, levels = c(phyls$genus[1: (length(phyls$genus) - length(oldc))],"Lower than 2%"))
 
@@ -90,7 +90,7 @@ fwrite(phyls, file = "~/Results/RUMEN/results/test_abund.csv", sep = ",")
 library("ggpubr")
 
 require('RColorBrewer')
-mycolors = c(brewer.pal(name="Set1", n = 11), brewer.pal(name="Paired", n = 12))
+mycolors = c(brewer.pal(name="Paired", n = 11), brewer.pal(name="Paired", n = 12))
 mycolors2 = c(brewer.pal(name="Set2", n = 11), brewer.pal(name="Paired", n = 12))
 
 p <- ggboxplot(mm, "genus", "abundance", color = "genus", legend = "none", palette = mycolors2)
@@ -101,6 +101,19 @@ p
 # otu <- fread(file.path(main_path, path_to_results, "taxa_summary_abs/CSS_normalized_otu_table_L6.txt"), header = TRUE, skip = 1)
 otu <- fread(file.path(basedir, prjdir, outdir, "taxa_summary_abs/CSS_normalized_otu_table_L6.txt"), header = TRUE, skip = 1)
 otu$`#OTU ID` <- gsub("^.*;","",otu$"#OTU ID")
+otu <- otu %>%
+  group_by(`#OTU ID`) %>%
+  summarise(across(everything(), sum))
+
+uncult <- slice(otu, 299:306, 194)
+uncult$`#OTU ID` <- "Uncultured or unknown"
+uncult <- uncult %>%
+  group_by(`#OTU ID`) %>%
+  summarise(across(everything(), sum))
+
+otu <- otu[-c(299:306, 194), ]
+otu <- rbind(otu, uncult)
+
 M <- otu[,-1] > 0
 vec <- rowSums(M)/ncol(M) > 0.99
 M <- otu[vec,]
@@ -109,31 +122,35 @@ M <- M[vec,]
 M$avg <- rowMeans(M[,-1])
 M <- arrange(M, desc(avg)) %>% rename(taxon = `#OTU ID`)
 
+
 ## write out table of the core microbiota
 ffname = file.path(basedir, prjdir, outdir, "core_microbiota.csv")
 select(M, c(taxon,avg)) %>% rename(avg_normalised_counts = avg) %>% fwrite(ffname, sep = ",")
 
+
 oldc <- M$taxon[M$avg < 25]
-newc <- rep("Lower than 2%", length(oldc))
+newc <- rep("Lower than 1%", length(oldc))
 vec <- newc[match(M$taxon,oldc)]
-M$taxon <- ifelse(M$taxon %in% oldc, "Lower than 2%", as.character(M$taxon))
+M$taxon <- ifelse(M$taxon %in% oldc, "Lower than 1%", as.character(M$taxon))
 M$taxon <- gsub("group","",M$taxon)
 
 M <- group_by(M, taxon) %>% summarise(avg = mean(avg)) %>% arrange(desc(avg))
 M$taxon -> M$short_name
-M$short_name <- substr(M$short_name,start = 1, stop = 17)
+M$short_name <- substr(M$short_name,start = 1, stop = 30)
 M$short_name <- factor(M$short_name, levels = M$short_name)
 names(M)[3] <- "Genera"
 
+mycolors=
+
 
 q <- ggpie(M, "avg", label=NULL, color = "white", fill = "Genera",  legend = "right",
-      lab.pos = "out", palette = mycolors, font.legend=c(16, "black"), lab.font = "white", ggtheme = theme_pubr()) 
+      lab.pos = "out", palette = c("red", "green", "khaki", "steelblue1","maroon","lightblue","salmon","turquoise","violet","yellow","gray","tomato","navy","pink","springgreen4","peru","sienna1","plum4","mediumblue","darkorange","brown4","gold","bisque4"), font.legend=c(16, "black"), lab.font = "white", ggtheme = theme_pubr()) 
 q <- q + font("xy.text", size = 16, color = "white")
 q
 
 g <- ggarrange(p, q, ncol = 2, labels = c("A","B"), heights= c(1,1), widths = c(0.5,1)) #heights = c(0.1,4))
 g
-ggsave(filename = file.path(basedir, prjdir, outdir,"Figure1.png"), plot = g, device = "png", dpi = 250, width = 20, height = 8 )
+ggsave(filename = file.path("~/Results/RUMEN/results/Figure1.png"), plot = q, device = "png", dpi = 250, width = 20, height = 8 )
 
 
 library("cowplot")
