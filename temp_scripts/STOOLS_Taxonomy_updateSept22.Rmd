@@ -33,7 +33,7 @@ metadata %>%
   dplyr::summarise(N=n())
 
 
-metadata <- metadata[metadata$timepoint == "3"] #REMEMBER TO SWITCH THIS NUMBER BETWEEN 2 AND 3 TO GET SEPARATED IMAGES 
+#metadata <- metadata[metadata$timepoint == "3"] #REMEMBER TO SWITCH THIS NUMBER BETWEEN 2 AND 3 TO GET SEPARATED IMAGES 
 ```
 
 ```{r, echo=FALSE}
@@ -60,109 +60,112 @@ otu_genus <- as.data.frame(t(otu_genus))
 colnames(otu_genus) <- otu_genus[1,]
 otu_genus <- otu_genus[-c(1),]
 #otu_genus <- cbind(otu_genus, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
-```
 
-### Core microbiota as genera
 
-```{r genera average abundances, echo=FALSE}
 metadata_cols = names(metadata)
-
-otu_genus$sample = row.names(otu_genus) 
-otu_genus <- otu_genus %>% inner_join(select(metadata, all_of(metadata_cols)), by="sample")
-
-mO <- reshape2::melt(otu_genus,id.vars = metadata_cols, value.name = "counts", variable.name = "genus")
-mO <- mO %>%
-  arrange(treatment)
-
-ordered_samples <- metadata %>%
-  arrange(metadata$treatment) %>%
-  dplyr::select(treatment,sample)
-
-mO$sample <- factor(mO$sample, levels = ordered_samples$sample)
-mO$counts <- as.numeric(mO$counts)
-mO$treatment <- factor(mO$treatment)
 ```
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-D <- mO %>%
-  group_by(genus) %>%
-  summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
-  # filter(avg_abund>0.005) %>%
-  arrange(genus,avg_abund)
-genus <- D %>%
-  group_by(genus) %>%
-  summarize("s"=sum(avg_abund)) %>%
-  arrange(desc(s)) %>%
-  dplyr::select(genus,s)
+<!-- ### Core microbiota as genera -->
 
-D$genus <- factor(D$genus, levels = rev(genus$genus[order(genus$s)]))
-D <- D %>%
-  arrange(genus)
+<!-- ```{r genera average abundances, echo=FALSE} -->
+<!-- metadata_cols = names(metadata) -->
 
-kable(D)
+<!-- otu_genus$sample = row.names(otu_genus)  -->
+<!-- otu_genus <- otu_genus %>% inner_join(select(metadata, all_of(metadata_cols)), by="sample") -->
 
-#write.csv(D, "~/Results/STOOLS/results/taxonomy_core_microbiota.csv", sep = ",")
-```
+<!-- mO <- reshape2::melt(otu_genus,id.vars = metadata_cols, value.name = "counts", variable.name = "genus") -->
+<!-- mO <- mO %>% -->
+<!--   arrange(treatment) -->
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+<!-- ordered_samples <- metadata %>% -->
+<!--   arrange(metadata$treatment) %>% -->
+<!--   dplyr::select(treatment,sample) -->
 
-## here above is where filter of "Ohter is added"
-# oldc <- D$genus[D$avg_abund < 0.02]
-# newc <- rep("Other", length(oldc))
-# vec <- newc[match(D$genus,oldc)]
-# D$genus <- ifelse(D$genus %in% oldc, "Other", as.character(D$genus))
+<!-- mO$sample <- factor(mO$sample, levels = ordered_samples$sample) -->
+<!-- mO$counts <- as.numeric(mO$counts) -->
+<!-- mO$treatment <- factor(mO$treatment) -->
+<!-- ``` -->
 
-genus <- D %>%
-  group_by(genus) %>%
-  summarize("s"=sum(avg_abund)) %>%
-  arrange(desc(s)) %>%
-  dplyr::select(genus,s)
+<!-- ```{r, echo=FALSE, warning=FALSE, message=FALSE} -->
+<!-- D <- mO %>% -->
+<!--   group_by(genus) %>% -->
+<!--   summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>% -->
+<!--   # filter(avg_abund>0.005) %>% -->
+<!--   arrange(genus,avg_abund) -->
+<!-- genus <- D %>% -->
+<!--   group_by(genus) %>% -->
+<!--   summarize("s"=sum(avg_abund)) %>% -->
+<!--   arrange(desc(s)) %>% -->
+<!--   dplyr::select(genus,s) -->
 
-D$genus <- factor(D$genus, levels = rev(genus$genus[order(genus$s)]))
-D <- D %>%
-  arrange(genus)
+<!-- D$genus <- factor(D$genus, levels = rev(genus$genus[order(genus$s)])) -->
+<!-- D <- D %>% -->
+<!--   arrange(genus) -->
 
-#kable(D)
-```
+<!-- kable(D) -->
 
-```{r, echo=FALSE}
-D1 <- aggregate(cbind(D$avg_abund, D$std) ~ genus, data=D, FUN = sum)
-names(D1)[2] <- "avg_abund"
-names(D1)[3] <- "std"
-kable(D1)
+<!-- #write.csv(D, "~/Results/STOOLS/results/taxonomy_core_microbiota.csv", sep = ",") -->
+<!-- ``` -->
 
-#D1$genus <- paste(D1$genus,"","(",D1$avg_abund*100,"%",")")
+<!-- ```{r, echo=FALSE, warning=FALSE, message=FALSE} -->
 
-pgeneratot <- ggplot(D1, aes(x=factor(1), y=avg_abund, fill=genus)) + geom_bar(width=1,stat="identity")
-#pgenustot <- pgeneratot + facet_grid(N~treatment)
-pgeneratot <- pgeneratot + coord_polar(theta='y') #activate this if you want a piechart
-#pgeneratot <- pgeneratot + scale_fill_brewer(palette = "Set1") 
-#pgeneratot <- pgeneratot + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.4), size=3, show.legend = F, force = 0.6,  max.overlaps = 10)
-pgeneratot <- pgeneratot + guides(fill = guide_legend(title = "Genera")) 
-my_palette = get_palette(c("green3","yellow","blue","magenta","cyan","red","purple","brown", "darkorange1","pink1","darkorchid1", "seagreen2"), length(unique(D1$genus)))
-pgeneratot <- pgeneratot + guides(fill = guide_legend(title = "genera")) 
-pgeneratot <- pgeneratot + xlab("Relative abundances") + ylab("Percentages") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) + scale_fill_manual(values = my_palette)
-pgeneratot <- pgeneratot + theme(text = element_text(size=10),
-               axis.text.x = element_blank(),
-               # axis.text.y = element_text(size=4),
-               strip.text = element_text(size = 8),
-              legend.position="bottom",
-              axis.text.y = element_blank(),
-               axis.ticks.y = element_blank(),
-               legend.text=element_text(size=10),
-               legend.title=element_text(size=10))
+<!-- ## here above is where filter of "Ohter is added" -->
+<!-- # oldc <- D$genus[D$avg_abund < 0.02] -->
+<!-- # newc <- rep("Other", length(oldc)) -->
+<!-- # vec <- newc[match(D$genus,oldc)] -->
+<!-- # D$genus <- ifelse(D$genus %in% oldc, "Other", as.character(D$genus)) -->
 
-print(pgeneratot)
-ggsave(pgeneratot, height = 15, width = 15, filename ="~/Results/STOOLS/results/core_genera_stools_filt0.png")
-# 
-# D %>% group_by(genus) %>% summarise(treatment=n())
-```
+<!-- genus <- D %>% -->
+<!--   group_by(genus) %>% -->
+<!--   summarize("s"=sum(avg_abund)) %>% -->
+<!--   arrange(desc(s)) %>% -->
+<!--   dplyr::select(genus,s) -->
+
+<!-- D$genus <- factor(D$genus, levels = rev(genus$genus[order(genus$s)])) -->
+<!-- D <- D %>% -->
+<!--   arrange(genus) -->
+
+<!-- #kable(D) -->
+<!-- ``` -->
+
+<!-- ```{r, echo=FALSE} -->
+<!-- D1 <- aggregate(cbind(D$avg_abund, D$std) ~ genus, data=D, FUN = sum) -->
+<!-- names(D1)[2] <- "avg_abund" -->
+<!-- names(D1)[3] <- "std" -->
+<!-- kable(D1) -->
+
+<!-- #D1$genus <- paste(D1$genus,"","(",D1$avg_abund*100,"%",")") -->
+
+<!-- pgeneratot <- ggplot(D1, aes(x=factor(1), y=avg_abund, fill=genus)) + geom_bar(width=1,stat="identity") -->
+<!-- #pgenustot <- pgeneratot + facet_grid(N~treatment) -->
+<!-- pgeneratot <- pgeneratot + coord_polar(theta='y') #activate this if you want a piechart -->
+<!-- #pgeneratot <- pgeneratot + scale_fill_brewer(palette = "Set1")  -->
+<!-- #pgeneratot <- pgeneratot + geom_label_repel(aes(label = paste0(avg_abund*100, "%")), position=position_stack (vjust=0.4), size=3, show.legend = F, force = 0.6,  max.overlaps = 10) -->
+<!-- pgeneratot <- pgeneratot + guides(fill = guide_legend(title = "Genera"))  -->
+<!-- my_palette = get_palette(c("green3","yellow","blue","magenta","cyan","red","purple","brown", "darkorange1","pink1","darkorchid1", "seagreen2"), length(unique(D1$genus))) -->
+<!-- pgeneratot <- pgeneratot + guides(fill = guide_legend(title = "genera"))  -->
+<!-- pgeneratot <- pgeneratot + xlab("Relative abundances") + ylab("Percentages") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) + scale_fill_manual(values = my_palette) -->
+<!-- pgeneratot <- pgeneratot + theme(text = element_text(size=10), -->
+<!--                axis.text.x = element_blank(), -->
+<!--                # axis.text.y = element_text(size=4), -->
+<!--                strip.text = element_text(size = 8), -->
+<!--               legend.position="bottom", -->
+<!--               axis.text.y = element_blank(), -->
+<!--                axis.ticks.y = element_blank(), -->
+<!--                legend.text=element_text(size=10), -->
+<!--                legend.title=element_text(size=10)) -->
+
+<!-- print(pgeneratot) -->
+<!-- ggsave(pgeneratot, height = 15, width = 15, filename ="~/Results/STOOLS/results/core_genera_stools_filt0.png") -->
+<!-- #  -->
+<!-- # D %>% group_by(genus) %>% summarise(treatment=n()) -->
+<!-- ``` -->
 
 ###genera for treatment IN TIMEPOINT 2
 
 ```{r}
-# otu_genus$sample = row.names(otu_genus) 
-#otu_genus <- otu_genus %>% inner_join(select(metadata, all_of(metadata_cols)), by="sample")
+otu_genus$sample = row.names(otu_genus) 
+otu_genus <- otu_genus %>% inner_join(select(metadata, all_of(metadata_cols)), by="sample")
 
 m1 <- reshape2::melt(otu_genus,id.vars = metadata_cols, value.name = "counts", variable.name = "genus")
 m1 <- m1 %>%
@@ -179,7 +182,7 @@ m1$treatment <- factor(m1$treatment)
 D <- m1 %>%
   group_by(genus, treatment, timepoint) %>%
   summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
-  # filter(avg_abund>0.05) %>%
+  filter(avg_abund>0.05) %>%
   # filter(timepoint==2) %>%
   arrange(genus,avg_abund)
 
@@ -202,7 +205,7 @@ kable(D)
 ```
 
 ```{r plot genera, echo=FALSE}
-D$timepoint <- factor(D$timepoint, levels=c("3")) ###CHANGE HERE AS WELL!!
+#D$timepoint <- factor(D$timepoint, levels=c("3")) ###CHANGE HERE AS WELL!!
 D$treatment = factor(D$treatment, levels = c("control", "EO"), ordered = TRUE)
 
 Pgenera <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=genus)) + geom_bar(width=1,stat="identity", position = "fill")
@@ -224,7 +227,7 @@ Pgenera <- Pgenera + theme(text = element_text(size=10),
                legend.title=element_text(size=10))
 
 print(Pgenera)
-ggsave(Pgenera, height = 15, width = 15, filename ="~/Results/STOOLS/results/taxonomy_genus_boxplot_stools_tot_T2.png")
+# ggsave(Pgenera, height = 15, width = 15, filename ="~/Results/STOOLS/results/taxonomy_genus_boxplot_stools_tot_T2.png")
 
 D %>% group_by(genus) %>% summarise(treatment=n())
 D %>% group_by(treatment) %>% summarise(genus=n())
@@ -335,7 +338,7 @@ D <- D %>%
 datatable(D, options = list(pageLength=100)) %>%
   formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
 
-write.csv(D, "~/Results/STOOLS/results/taxonomy_one.csv")
+# write.csv(D, "~/Results/STOOLS/results/taxonomy_one.csv")
 ```
 
 ### Significance of treatments (per timepoint)
@@ -351,6 +354,9 @@ this way, the variability due to region is removed when assessing the effect of 
 ```{r, echo=FALSE}
 m1 <- mO %>%
   arrange(level,treatment)
+
+save(m1, file = "~/Results/STOOLS/results/m1.RData")
+
 
 dd_counts <- mO %>%
   group_by(level, new_taxa,timepoint,treatment) %>%
@@ -533,7 +539,7 @@ q
 
 fg <- ggplot(Dna, aes(x=new_taxa, y=controlvsEO, fill=timepoint)) + geom_bar(width=0.95,stat="identity")
 # fg <- fg + coord_flip() + scale_fill_manual(values = "#E69F00") #3
-fg <- fg + coord_flip() + scale_fill_manual(values = "#0072B2") #2
+fg <- fg + coord_flip() + scale_fill_manual(values = c("#0072B2","#E69F00", "orchid", "blue")) #2
 fg <- fg + ylab("Behaviour Treated vs. Control") + xlab("Taxa")
 fg <- fg + theme(axis.text.x = element_text(size = 11),
                  axis.text.y = element_blank(),
@@ -545,8 +551,50 @@ fg
  fg2 <- fg
  # fg3 <-  fg
 
-figure_final <- ggarrange( q2, fg2, q3, fg3, widths=c(1,1,1,1), heights=c(1,1,1,1), labels = c("A","B","C","D"), legend = "bottom")
-print(figure_final)
+FF <- ggarrange(q, fg) 
+print
+#figure_final <- ggarrange( q2, fg2, q3, fg3, widths=c(1,1,1,1), heights=c(1,1,1,1), labels = c("A","B","C","D"), legend = "bottom")
+#print(figure_final)
 
-ggsave(filename = "~/Results/STOOLS/results/taxonomy_compl_genera_T23.png", plot = figure_final, device = "png", width = 16, height = 6)
+#ggsave(filename = "~/Results/STOOLS/results/taxonomy_compl_genera_T23.png", plot = figure_final, device = "png", width = 16, height = 6)
 ```
+
+#Check the pvalue of everytreatment against control, genus by genus
+
+ADD A FOR LOOP HERE ASAP
+
+```{r}
+library("broom")
+library("tidyverse")
+
+load("~/Results/STOOLS/m1.Rdata")
+m1 = to_save[[1]]
+unique(m1$treatment)
+m1$treatment = factor(m1$treatment, levels = c("Control","Carvacrol","G-terpinene", "NEO", "P-cymene","SEO"))
+
+temp = filter(m1, level == "genus", new_taxa == "Lachnospiraceae UCG-010") ##specify genus here
+fit <- lm(counts ~ treatment, data = temp)
+anova(fit)
+tt = summary(fit)
+names(tt)
+
+tt = tidy(fit)
+filter(tt, term != "(Intercept)") %>% pull(p.value)
+```
+
+```{r}
+load("~/Results/STOOLS/m1.Rdata")
+m1 = to_save[[1]]
+unique(m1$treatment)
+m1$treatment = factor(m1$treatment, levels = c("Control","Carvacrol","G-terpinene", "NEO", "P-cymene","SEO"))
+
+temp = filter(m1, level == "genus", new_taxa == "Synergistes") ##specify genus here
+
+
+temp1= filter(temp, treatment == "SEO", level== "genus")
+mean(temp1$counts)
+mean(temp1$rel_abundance)
+```
+
+
+

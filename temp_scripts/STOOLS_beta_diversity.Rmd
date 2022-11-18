@@ -63,9 +63,9 @@ mds <- cmdscale(as.dist(matx))
 Clustering by treatment T2
 (PCA)
 ```{r, echo=FALSE}
-p2 <- autoplot(prcomp(1-matx), data=matrice, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
+p2 <- autoplot(prcomp(1-matx), data=matrice, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm') + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 p2
-ggsave("~/Results/STOOLS/results/clustering_by_treatment_PCA_stools.png")
+# ggsave("~/Results/STOOLS/results/clustering_by_treatment_PCA_stools.png")
 ```
 
 ```{r pressure, echo=FALSE, message=FALSE}
@@ -87,9 +87,9 @@ mds <- cmdscale(as.dist(matx))
 
 Clustering by treatment (PCA)
 ```{r, echo=FALSE}
-p3 <- autoplot(prcomp(1-matx), data=matrice, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm')
+p3 <- autoplot(prcomp(1-matx), data=matrice, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm') + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 p3
-ggsave("~/Results/STOOLS/results/clustering_by_treatment_PCA_stools.png")
+# ggsave("~/Results/STOOLS/results/clustering_by_treatment_PCA_stools.png")
 ```
 
 ```{r}
@@ -121,16 +121,15 @@ matx= data.matrix(select(matrice, -c(treatment, timepoint)))
 ```
 
 ```{r, echo=FALSE}
-p1 <- autoplot(prcomp(1-matx), data=matrice, colour = "timepoint", label = TRUE, label.size = 3, frame = TRUE, frame.type = 'norm')
+p1 <- autoplot(prcomp(1-matx), data=matrice, colour = "timepoint", label = TRUE, label.size = 3, frame = TRUE, frame.type = 'norm')+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + scale_color_manual(values = c("green4", "darkorange")) + scale_fill_manual(values = c("green4", "darkorange"))
 p1
-
-ggsave("~/Results/STOOLS/results/clustering_by_treatment_PCA_stools.png")
+# ggsave("~/Results/STOOLS/results/clustering_by_treatment_PCA_stools.png")
 ```
 
 ```{r}
 figure_final <- ggarrange(p1, p2, p3, widths=c(1, 1, 1), labels=c("A", "B", "C"), legend = "bottom", ncol = 3)
 print(figure_final)
-ggsave("~/Results/STOOLS/results/clustering_merged_PCA_stools.png", plot = figure_final, width = 8, height = 3)
+ggsave("~/Results/STOOLS/results/clustering_merged_PCA_stools.png", plot = figure_final, width = 14, height = 5)
 ```
 
 ### MDS

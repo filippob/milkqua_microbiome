@@ -84,7 +84,7 @@ mO$counts <- as.numeric(mO$counts)
 D <- mO %>%
   group_by(genus) %>%
   summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
-  filter(avg_abund>0.01) %>%
+   # filter(avg_abund>0.01) %>%
   arrange(genus,avg_abund)
 genus <- D %>%
   group_by(genus) %>%
@@ -100,22 +100,55 @@ kable(D)
 
 write.csv(D, "~/Results/SHUVO-MILK/results/core_microbiota.csv", sep = ",")
 ```
+
+
 ```{r, echo=FALSE}
 D1 <- aggregate(cbind(D$avg_abund, D$std) ~ genus, data=D, FUN = sum)
 names(D1)[2] <- "avg_abund"
 names(D1)[3] <- "std"
 kable(D1)
 
-pgeneratot <- ggplot(D1, aes(x=factor(1), y=avg_abund, fill=genus)) + geom_bar(width=1,stat="identity")
+D1$perc <- D1$avg_abund/sum(D1$avg_abund)*100 #THIS BOY HERE FOR THE PERCENTAGES
+D1$perc <- round(D1$perc, 2)
+D1$genus <- paste0(D1$genus, " ","(",D1$perc,"%",")")
+
+
+D1$genus[D1$avg_abund < 0.01] <- "Lower than 1%"
+
+write.csv(D, "~/Results/SHUVO-MILK/results/core_microbiota_phyltot.csv", sep = ",")
+
+pgeneratot <- ggplot(D1, aes(x=factor(1), y=perc, fill=genus)) + geom_bar(width=1,stat="identity")
 pgeneratot <- pgeneratot + coord_polar(theta='y') #activate this if you want a piechart
 pgeneratot <- pgeneratot + guides(fill = guide_legend(title = "Genera")) 
-my_palette = get_palette(c("green3","yellow","blue","magenta","cyan","red","purple","brown", "darkorange1","pink1","darkorchid1", "seagreen2"), length(unique(D1$genus)))
-pgeneratot <- pgeneratot + guides(fill = guide_legend(title = "genera")) 
-pgeneratot <- pgeneratot + xlab("Relative abundances") + ylab("Percentages") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) + scale_fill_manual(values = my_palette)
+my_palette = get_palette(c( "darkorange1",
+ "cyan",
+ "pink1",
+ "green3",
+ "darkorchid1", 
+ "seagreen2",
+ "yellow",
+ "blue",
+ "magenta",
+ "brown", 
+ "red",
+  "darkturquoise", 
+ "purple",
+ "darkgoldenrod1", 
+ "limegreen",
+ "azure3",
+ "khaki4",
+ "orangered",
+ "skyblue2",
+ "plum",
+ "cornsilk3",
+ "darkmagenta",
+ "chocolate"), length(unique(D1$genus)))
+pgeneratot <- pgeneratot + guides(fill = guide_legend(title = "Genera")) 
+pgeneratot <- pgeneratot + xlab("") + ylab("") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) + scale_fill_manual(values = my_palette)
 pgeneratot <- pgeneratot + theme(text = element_text(size=10),
                axis.text.x = element_blank(),
                strip.text = element_text(size = 8),
-              legend.position="bottom",
+              legend.position="right",
               axis.text.y = element_blank(),
                axis.ticks.y = element_blank(),
                legend.text=element_text(size=10),
@@ -123,7 +156,7 @@ pgeneratot <- pgeneratot + theme(text = element_text(size=10),
 
 print(pgeneratot)
 
-ggsave(pgeneratot, height = 5, width = 15, filename ="~/Results/SHUVO-MILK/results/core_microbiota_piechart.png")
+ggsave(pgeneratot, height = 4, width = 12, filename ="~/Results/SHUVO-MILK/results/core_microbiota_phyla.png")
 ```
 
 ###genera for sample type
@@ -253,7 +286,7 @@ A table of relative abundances (and standard deviations) per taxa and sample_typ
 D <- na.omit(D)
 D <- D %>%
   group_by(new_taxa,sample_type) %>%
-#  filter(avg_abund > 0.01) %>%
+  filter(avg_abund > 0.01) %>%
   arrange(level,desc(avg_abund))
 
 kable(D)
@@ -302,6 +335,8 @@ this way, the variability due to region is removed when assessing the effect of 
 ```{r, echo=FALSE}
 m1 <- mO %>%
   arrange(level,sample_type)
+
+save(m1, file = "~/Results/SHUVO-MILK/m1.RData")
 
 dd_counts <- mO %>%
   group_by(level, new_taxa,sample_type) %>%
@@ -370,133 +405,78 @@ D1 <- D1 %>% group_by(level) %>% mutate(tot = sum(counts), relab = counts/tot)
 
 p <- ggplot(D1, aes(x = sample_type, y = new_taxa))
 p <- p + geom_tile(aes(fill = relab), colour = "white")
-p <- p + theme(legend.position="bottom")
 p <- p + facet_grid(level~sample_type, scales = "free",  space = "free")
-p <- p + xlab("sample_types") + ylab("Taxa")
-p <- p + scale_fill_gradient(low = "orange", high = "blue")
-p <- p + theme(strip.text.y = element_text(size = 5), 
-               strip.text.x = element_text(size = 6),
+p <- p + scale_fill_gradient(low = "goldenrod", high = "darkturquoise", "pvalue", limits=c(0, 0.05))
+p <- p + theme(strip.text.y = element_text(size = 11), 
+               strip.text.x = element_text(size = 11),
                # axis.text.y = element_text(size = 4),
-               axis.text.x = element_text(size = 6),
-               axis.title = element_text(size = 6))
-p <- p + guides(fill="none") + theme(axis.title.y = element_blank(),
-                                     axis.text.y = element_blank(),
-                                     axis.ticks.y = element_blank())
+               axis.text.x = element_text(size = 11),
+               axis.title = element_text(size = 11))
+p <- p  + theme(axis.title.y = element_blank(),
+                                    axis.text.y = element_blank(),
+                                    axis.ticks.y = element_blank())
 p
+```
 
+```{r}
 dd <- D1 %>% mutate(variable = "p-value")
 
 q <- ggplot(dd, aes(x = factor(1), y = new_taxa, group=level))
-q <- q + geom_tile(aes(fill = p.value), colour = "white")
+q <- q + geom_tile(aes(fill = p.value), colour = "white", height=0.9)
 q <- q + theme(legend.position="bottom")
-q <- q + facet_grid(level~variable, space="free", scales = "free_y")
-q <- q + scale_fill_gradient(low = "orange", high = "blue")
-q <- q + xlab("sample_types") + ylab("Taxa")
-q <- q + theme(strip.text = element_text(size = 4), 
-               strip.text.x = element_text(size = 6),
-               axis.text.y = element_text(size = 6),
-               axis.title = element_text(size = 6))
-q <- q + guides(fill=FALSE) + theme(
-  # axis.title.x = element_blank(),
-  # axis.text.x=element_blank(),
-  # axis.ticks.x=element_blank(),
-  strip.text.y = element_blank(),
-  # axis.text.x = element_blank()
-  axis.text.x = element_text(size = 6)
-)
+q <- q + facet_grid(level~variable, space="free", scales = "free_y") + ylab("Genera") 
+q <- q +  scale_fill_gradient(low = "goldenrod", high = "darkturquoise")
+q <- q + theme(strip.text.y = element_blank(), 
+               strip.text.x = element_blank(),
+               axis.text.y = element_text(size = 11),
+               axis.text.x = element_blank(),
+               axis.title = element_text(size = 11),
+               axis.title.y = element_blank(), 
+              axis.ticks = element_blank(),
+              panel.grid.major = element_blank(), 
+              panel.grid.minor = element_blank())
+
+# q <- q + guides(fill=FALSE) 
 q <- q + xlab("") 
 q
-#ggsave(filename = "~/Results/SHUVO-MILK/results/taxonomy_heatmap_pvalue_SHUVO-MILK.png", plot = q, device = "png", width = 6, height = 6)
 
-
-figure_final <- ggarrange(q, p, widths=c(0.1, 0.1), labels=c("A", "B"), legend = "bottom", common.legend = TRUE)
-
-print(figure_final)
-ggsave(filename = "~/Results/SHUVO-MILK/results/taxonomy_heatmap_SHUVO-MILK.png", plot = figure_final, device = "png", width = 7, height = 10)
+# figure_final <- ggarrange(q, p, widths=c(0.8, 1.2), labels=c("A","B"), label.x = -0.015, common.legend = TRUE, legend = "right")
+# figure_final
+# 
+# ggsave(filename = "~/Results/SHUVO-MILK/results/taxonomy_heatmap.png", plot = figure_final, device = "png", width = 12, height = 4)
 ```
 
-<!-- ### Extracting estimated coefficients for "significant" OTUs -->
-
-<!-- ```{r} -->
-<!-- res = data.frame("level"=NULL, "OTU"=NULL, "p_value"=NULL, "Control"=NULL,"Treated"=NULL) -->
-
-<!-- DX <- DX %>% filter(level == "genus") -->
-<!-- m1 <- m1 %>% filter(level=="genus") -->
-<!-- # DX$new_taxa <- paste(DX$new_taxa,", Timepoint:", DX$timepoint) -->
-<!-- # m1$new_taxa <- paste(m1$new_taxa,", Timepoint:", m1$timepoint) -->
-
-
-<!-- for (name in DX$new_taxa) { -->
-
-<!--   print(paste("analysing OTU ", name)) -->
-<!--   pval = as.numeric(DX[DX$new_taxa==name,"p.value"]) -->
-<!--   level = DX[DX$new_taxa==name,"level"] -->
-
-<!--   ## estimating coefficients -->
-<!--   temp2 = filter(m1, new_taxa == name) -->
-<!--   temp2$sample_type <- factor(temp2$sample_type, levels = c("control","EO")) -->
-<!--   g = lm(counts ~ sample_type, data = temp2) -->
-
-<!--   ## extracting coefficients -->
-<!--   coefs = g$coefficients -->
-<!--   coefs = coefs[!grepl("(Intercept)", names(coefs))] -->
-<!--   names(coefs) = gsub("sample_type","",names(coefs)) -->
-<!--   coefs = as.data.frame(t(coefs)) -->
-
-<!--   ## adding metadata -->
-<!--   coefs["level"] = level -->
-<!--   coefs["OTU"] = name -->
-<!--   coefs["p_value"] = pval -->
-
-<!--   # saving results -->
-<!--   res = rbind.data.frame(res, coefs) -->
-<!-- } -->
-
-<!-- write.csv(res, "~/Results/SHUVO-MILK/results/taxonomy_res.csv") -->
-<!-- ``` -->
+#prova grouped barplot
 
 ```{r}
-Dna <- filter(temp, level %in% c("genus"))
-Dna$level <- NULL
-Dna <- as.data.frame(t(Dna))
-colnames(Dna) <- Dna[1,]
-Dna <- Dna [3:5,]
+d <- ggplot(D1, aes(fill=sample_type, y=counts, x=new_taxa)) + geom_bar(position = "dodge", stat = "identity", width = 0.85)
+# d <- d + scale_y_log10()
+d <- d + coord_trans(x= log(2))
+d <- d + coord_flip() + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.title.y = element_blank(), axis.text.y = element_blank(),  axis.ticks.y = element_blank())
+d <- d + xlab("") + ylab("") + guides(fill = guide_legend(title = "Sample type")) 
+d
 
-names <- rownames(Dna)
-rownames(Dna)<- NULL
-Dna <- cbind(names, Dna)
+figure_final <- ggarrange(q, d, widths=c(0.3, 0.6), heights = c(1,1), labels=c("A","B"), label.x = -0.015, common.legend = F, legend = "bottom")
+figure_final
 
-# Dna$`Healthy quarter` <-NULL
-# Dna$`Subclinical quarter` <-NULL
+ggsave(filename = "~/Results/SHUVO-MILK/results/tax_genera.png", plot = figure_final, device = "png", width = 12, height = 6)
+```
 
-# write.csv(Dna, "~/Results/SHUVO-MILK/results/taxonomy_res3.csv")
 
-q <- ggplot(Dna, aes(x = factor(1), y = new_taxa, height=0.95))
-q <- q + geom_tile(aes(fill = p.value), colour = "white")
-q <- q + scale_fill_gradient(low = "red", high = "green", limits=c(0,0.05)) #, guide = "none"
-q <- q + xlab("pvalue") + ylab("Genera")
-q <- q + theme(axis.text.x = element_text(size = 13),
-               axis.text.y = element_text(size = 13),
-             axis.ticks = element_blank(), 
-             legend.position = "bottom",
-             axis.title.x = element_blank(),
-             axis.title.y = element_text(size=14))
-q
 
-fg <- ggplot(Dna, aes(x= factor(1), y=names)) 
-# , y=`Healthy quarter`)) + geom_bar(width=0.95,stat="identity")
-# fg <- fg + coord_flip() 
-fg <- fg + ylab("Behaviour Treated vs. Control") + xlab("Taxa")
-fg <- fg + theme(axis.text.x = element_text(size = 11),
-                 axis.text.y = element_blank(),
-                 axis.ticks = element_blank(),
-                 legend.position = "bottom",
-                 axis.title.x = element_text(size=14),
-               axis.title.y = element_blank())
-fg
- 
-# figure_final <- ggarrange( q2, fg2, q3, fg3, widths=c(1,1,1,1), heights=c(1,1,1,1), labels = c("A","B","C","D"), legend = "bottom")
-# print(figure_final)
 
-#ggsave(filename = "~/Results/SHUVO-MILK/results/taxonomy_compl_genera_T23.png", plot = figure_final, device = "png", width = 16, height = 6)
+```{r}
+library("broom")
+library("tidyverse")
+
+m1$sample_type = factor(m1$sample_type, levels = c("Healthy quarter","Subclinical quarter","Farm bulk milk"))
+
+temp = filter(m1, level == "genus", new_taxa == "Acidipropionibacterium") ##specify genus here
+fit <- lm(counts ~ sample_type, data = temp)
+anova(fit)
+tt = summary(fit)
+names(tt)
+
+tt = tidy(fit)
+filter(tt, term != "(Intercept)") %>% pull(p.value)
 ```

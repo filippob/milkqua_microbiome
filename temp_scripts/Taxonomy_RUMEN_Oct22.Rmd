@@ -41,7 +41,7 @@ meta_subset %>%
 ```
 
 ```{r, echo=FALSE}
-otu <- fread("/home/mycelium/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L6.txt", header = TRUE, skip = 1)
+otu <- fread("/home/mycelium/Results/RUMEN/results/taxa_summary_abs/CSS_normalized_otu_table_L2.txt", header = TRUE, skip = 1)
 otu$`#OTU ID` <- gsub("^.*;","",otu$"#OTU ID")
 otu <- otu %>%
   group_by(`#OTU ID`) %>%
@@ -618,5 +618,19 @@ names(tt)
 
 tt = tidy(fit)
 filter(tt, term != "(Intercept)") %>% pull(p.value)
+```
+
+```{r}
+load("~/Results/RUMEN/m1.Rdata")
+m1 = to_save[[1]]
+unique(m1$treatment)
+m1$treatment = factor(m1$treatment, levels = c("Control","Carvacrol","G-terpinene", "NEO", "P-cymene","SEO"))
+
+temp = filter(m1, level == "genus", new_taxa == "Synergistes") ##specify genus here
+
+
+temp1= filter(temp, treatment == "SEO", level== "genus")
+mean(temp1$counts)
+mean(temp1$rel_abundance)
 ```
 
