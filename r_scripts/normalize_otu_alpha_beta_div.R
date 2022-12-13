@@ -17,9 +17,9 @@ library("metagenomeSeq")
 ## PARAMETERS
 HOME <- Sys.getenv("HOME")
 prj_folder = file.path(HOME, "Results")
-analysis_folder = "SKINSWABS"
+analysis_folder = "STOOLS"
 fname = "otu_table_filtered.biom"
-conf_file = "mapping_milkqua_skinswabs.csv"
+conf_file = "mapping_milkqua_stools.csv"
 min_tot_counts = 500 ## minimum number of total counts per sample to be included in the analysis
 outdir = file.path(analysis_folder)
 

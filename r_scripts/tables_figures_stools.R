@@ -12,56 +12,46 @@ library("gghighlight")
 
 
 ## path parameters
-# main_path = "~/Documents/MILKQUA/rumen"
+# main_path = "~/Documents/MILKQUA/STOOLS"
 # path_to_results = "qiime_1.9/results_48"
 basedir="~/Results"
-prjdir = "RUMEN"
+prjdir = "STOOLS"
 outdir = "results"
 
 ## metadata
 #project_folder = "~/Documents/MILKQUA"
-# metadata <- readxl::read_xlsx(file.path(main_path, "mapping_file_rumen.xlsx"), sheet = 1)
-fname = file.path(basedir, prjdir, "mapping_file_rumen.csv")
+# metadata <- readxl::read_xlsx(file.path(main_path, "mapping_file_STOOLS.xlsx"), sheet = 1)
+fname = file.path(basedir, prjdir, "mapping_milkqua_stools.csv")
 metadata <- fread(fname)
 names(metadata)[1] <- "sample"
-names(metadata)[10] <- "cow"
+names(metadata)[9] <- "cow"
 
-metadata$treatment[ which(metadata$treatment == "no treatment (ruminal liquid + diet)")] <- "Control"
-metadata$treatment[ which(metadata$treatment == "AE1")] <- "NEO"
-metadata$treatment[ which(metadata$treatment == "AE sintético 1")] <- "SEO"
-metadata$treatment[ which(metadata$treatment == "gamma-terpinene")] <- "γ-terpinene"
-metadata$treatment[ which(metadata$treatment == "p-cymene")] <- "P-cymene"
-
-
-
-meta_subset <- filter(metadata, treatment !="ruminal liquid")
-# meta_subset %>%
+# metadata %>%
 #   group_by(treatment) %>%
 #   dplyr::summarise(N=n())
 
-## OTU - phylum
+## OTU - Genus
 # otu <- fread(file.path(main_path, path_to_results, "taxa_summary_abs/CSS_normalized_otu_table_L2.txt"), header = TRUE, skip = 1)
-otu <- fread(file.path(basedir, prjdir, outdir, "taxa_summary_abs/CSS_normalized_otu_table_L6.txt"), header = TRUE, skip = 1)
-otu$`#OTU ID` <- gsub("^.*;","",otu$"#OTU ID")
-otu <- otu %>%
-  group_by(`#OTU ID`) %>%
-  summarise(across(everything(), sum))
+otu <- fread(file.path(basedir, prjdir, outdir, "otu_norm_CSS.csv"), header = TRUE)
+otu <- filter(otu, Family !="Mitochondria")
+otu <- filter(otu, Class !="Chloroplast")
+otu = select(otu, -1, -34:-38, -40)
+otu <- otu %>% dplyr::select("Genus", everything())
+otu <- otu %>% group_by(Genus) %>% summarise_all(funs(sum))
 
-uncult <- slice(otu, 299:306, 194)
-uncult$`#OTU ID` <- "Uncultured or unknown"
+uncult <- slice(otu, 1, 230:238)
+uncult$Genus <- "Uncultured or unknown"
 uncult <- uncult %>%
-  group_by(`#OTU ID`) %>%
+  group_by(Genus) %>%
   summarise(across(everything(), sum))
 
-otu <- otu[-c(299:306, 194), ]
+otu <- otu[-c(1, 230:238), ]
 otu <- rbind(otu, uncult)
 
-otu <- gather(otu, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
-otu <- filter(otu, sample %in% meta_subset$sample)
-
+otu <- gather(otu, key = "sample", value ="counts", -Genus) %>% spread(key = Genus, value = counts)
 
 ## relative abundances
-metadata_cols = names(meta_subset)[1]
+metadata_cols = names(metadata)[1]
 M <- dplyr::select(otu,-all_of(metadata_cols))
 M <- M/rowSums(M)
 M <- bind_cols(dplyr::select(otu, all_of(metadata_cols)),M)
@@ -69,20 +59,21 @@ M <- bind_cols(dplyr::select(otu, all_of(metadata_cols)),M)
 
 ## plot of genus abundance
 mm <- gather(M, key = "genus", value = "abundance", -c(sample))
-phyls = group_by(mm, genus) %>% summarise(avg = mean(abundance)) %>% arrange(desc(avg))
-oldc <- phyls$genus[phyls$avg < 0.01]
+Genus = group_by(mm, genus) %>% summarise(avg = mean(abundance)) %>% arrange(desc(avg))
+oldc <- Genus$genus[Genus$avg < 0.01]
 newc <- rep("Lower than 1%", length(oldc))
 vec <- newc[match(mm$genus,oldc)]
 mm$genus <- ifelse(mm$genus %in% oldc, "Lower than 1%", as.character(mm$genus))
 
-mm$genus <- factor(mm$genus, levels = c(phyls$genus[1: (length(phyls$genus) - length(oldc))],"Lower than 2%"))
+mm$genus <- factor(mm$genus, levels = c(Genus$genus[1: (length(Genus$genus) - length(oldc))],"Lower than 2%"))
 
-fwrite(phyls, file = "~/Results/RUMEN/results/test_abund.csv", sep = ",")
+fwrite(Genus, file = "~/Results/STOOLS/results/test_abund.csv", sep = ",")
+
 # mm2 <- mm %>% 
 #   group_by(genus) %>% 
 #   summarise(across(abundance, sum))
 
-# p <- ggplot(mm, aes( x = phylum, y = abundance)) + geom_boxplot(aes(fill = genus))
+# p <- ggplot(mm, aes( x = Genus, y = abundance)) + geom_boxplot(aes(fill = genus))
 # p <- p + theme(text = element_text(size = 6),
 #                axis.text.x = element_text(angle=90))
 # p
@@ -99,28 +90,30 @@ p
 
 ## OTU - everything
 # otu <- fread(file.path(main_path, path_to_results, "taxa_summary_abs/CSS_normalized_otu_table_L6.txt"), header = TRUE, skip = 1)
-otu <- fread(file.path(basedir, prjdir, outdir, "taxa_summary_abs/CSS_normalized_otu_table_L6.txt"), header = TRUE, skip = 1)
-otu$`#OTU ID` <- gsub("^.*;","",otu$"#OTU ID")
+otu <- fread(file.path(basedir, prjdir, outdir, "otu_norm_CSS.csv"), header = TRUE)
+otu <- filter(otu, Family !="Mitochondria")
+otu <- filter(otu, Class !="Chloroplast")
+otu = select(otu, -1, -34:-38, -40) #(otu, -1, -34, -36: -40)
 otu <- otu %>%
-  group_by(`#OTU ID`) %>%
+  group_by(Genus) %>%
   summarise(across(everything(), sum))
 
-uncult <- slice(otu, 299:306, 194)
-uncult$`#OTU ID` <- "Uncultured or unknown"
+uncult <- slice(otu, 1,230:238)
+uncult$Genus <- "Uncultured or unknown"
 uncult <- uncult %>%
-  group_by(`#OTU ID`) %>%
+  group_by(Genus) %>%
   summarise(across(everything(), sum))
 
-otu <- otu[-c(299:306, 194), ]
+otu <- otu[-c(1, 230:238), ]
 otu <- rbind(otu, uncult)
 
 A <- otu[,-1] > 0
 vec <- rowSums(A)/ncol(A) > 0.99
 A <- otu[vec,]
-vec <- !grepl("uncultured", A$`#OTU ID`)
+vec <- !grepl("uncultured", A$Genus)
 A <- A[vec,]
 A$avg <- rowMeans(A[,-1])
-A <- arrange(A, desc(avg)) %>% rename(taxon = `#OTU ID`)
+A <- arrange(A, desc(avg)) %>% rename(taxon = Genus)
 
 
 ## write out table of the core microbiota
@@ -128,7 +121,7 @@ ffname = file.path(basedir, prjdir, outdir, "core_microbiota.csv")
 select(A, c(taxon,avg)) %>% rename(avg_normalised_counts = avg) %>% fwrite(ffname, sep = ",")
 
 
-oldc <- A$taxon[A$avg < 25]
+oldc <- A$taxon[A$avg < 160]
 newc <- rep("Lower than 1%", length(oldc))
 vec <- newc[match(A$taxon,oldc)]
 A$taxon <- ifelse(A$taxon %in% oldc, "Lower than 1%", as.character(A$taxon))
@@ -175,7 +168,7 @@ p
 # g <- ggarrange(p, q, ncol = 2, labels = c("A","B"), heights= c(1,1), widths = c(0.5,1)) #heights = c(0.1,4))
 # g
 
-ggsave(filename = file.path("~/Results/RUMEN/results/Figure1perc.png"), plot = p, device = "png", dpi = 250, width = 21, height = 13)
+ggsave(filename = file.path("~/Results/STOOLS/results/Figure2perc.png"), plot = p, device = "png", dpi = 250, width = 21, height = 13)
 
 
 library("cowplot")
@@ -191,7 +184,7 @@ dev.off()
 ########################################
 ## differentially abundant taxa - figure
 
-load("~/Results/RUMEN/results/taxonomy_ .RData")
+load("~/Results/STOOLS/results/taxonomy_ .RData")
 D <- to_save[[1]]
 DX <- to_save[[2]]
 D0 <- to_save[[3]]
@@ -203,7 +196,7 @@ D1 <- DX %>%
   mutate(p.value = (p.value)) %>%
   gather(key = "treatment", value = "counts", -c(level,new_taxa, p.value)) ###why was it mutate(p.value = -log10(p.value))?
 
-D1$level <- factor(D1$level, levels = c("phylum","class","order","family","genus"))
+D1$level <- factor(D1$level, levels = c("Genus","class","order","family","Genus"))
 D1$treatment <- factor(D1$treatment, levels = c("Control", "NEO", "SEO","Carvacrol", "p-cymene", "g-terpinene"))
 
 D1 <- D1 %>% group_by(level) %>% mutate(tot = sum(counts), relab = counts/tot)
@@ -252,18 +245,18 @@ q
 figure_final <- ggarrange(q, p, widths=c(0.5, 1), labels = "AUTO", common.legend = TRUE, legend = "left",  ncol = 2, nrow = 1, hjust = c(-1, +0.4), vjust = c(1, 1))
 
 print(figure_final)
-ggsave(filename = "heatmap_rumen.png", plot = figure_final, device = "png", width = 8, height = 5)
+ggsave(filename = "heatmap_STOOLS.png", plot = figure_final, device = "png", width = 8, height = 5)
 
 ## differentially abundant taxa - table
 
-load("~/Results/RUMEN/results/taxonomy_ .RData")
+load("~/Results/STOOLS/results/taxonomy_ .RData")
 D <- to_save[[1]]
 DX <- to_save[[2]]
 D0 <- to_save[[3]]
 
 dd <- spread(D0, key = treatment, value = avg_counts)
 temp <- inner_join(DX,dd, by = c("level" = "level", "new_taxa" = "new_taxa"))
-fwrite(temp, file = "rumen_significant_otus.csv", col.names = TRUE, sep = ",")
+fwrite(temp, file = "STOOLS_significant_otus.csv", col.names = TRUE, sep = ",")
 print (temp)
 
 ################################
@@ -308,14 +301,14 @@ dd %>% left_join(temp, by = "treatment") %>%
 #### ALPHA DIVERSITY          ##
 ################################
 # fname <- file.path(main_path, path_to_results,"alpha_diversity/alpha.txt")
-fname <- file.path("~/Results/RUMEN/results/alpha_diversity/alpha.txt")
+fname <- file.path("~/Results/STOOLS/results/alpha.csv")
 alpha <- read.table(fname, header = TRUE)
 alpha$sample <- row.names(alpha)
 alpha$observed_species <- NULL
 
 mAlpha <- reshape2::melt(alpha, id.vars = "sample", variable.name = "metric", value.name = "value")
 
-mAlpha$treatment <- meta_subset$treatment[match(mAlpha$sample,meta_subset$sample)]
+mAlpha$treatment <- metadata$treatment[match(mAlpha$sample,metadata$sample)]
 
 mAlpha$treatment <- factor(mAlpha$treatment, levels = c("Control","NEO","SEO","Carvacrol", "p-cymene", "g-terpinene"))
 D <- mAlpha %>%
@@ -346,29 +339,36 @@ ggsave(filename = fname, plot = p, device = "png", width = 7, height = 5, dpi = 
 #######################################
 #### BETA DIVERSITY                 ###
 #######################################
-# matrice= read.table(file.path(project_folder,"rumen/qiime_1.9/results/beta_diversity/weighted_unifrac_CSS_normalized_otu_table.txt"), row.names=1, header=T)
+# matrice= read.table(file.path(project_folder,"STOOLS/qiime_1.9/results/beta_diversity/weighted_unifrac_CSS_normalized_otu_table.txt"), row.names=1, header=T)
 # fname = file.path(main_path, path_to_results, "beta_diversity", "weighted_unifrac_CSS_normalized_otu_table.txt")
-fname = file.path("~/Results/RUMEN/results/beta_diversity/weighted_unifrac_CSS_normalized_otu_table.txt")
-matrice= read.table(fname, row.names=1, header=T)
+fname = file.path("~/Results/STOOLS/results/bray_curtis_distances.csv")
+matrice= fread(fname)
+matrice <- matrice %>% remove_rownames %>% column_to_rownames(var = "row")
+matrice <- matrice[,-1]
+fname = file.path(basedir, prjdir, "mapping_milkqua_stools.csv")
+metadata <- fread(fname)
+names(metadata)[1] <- "sample"
+names(metadata)[9] <- "cow"
+metadata$samples <- "sample-"
+metadata$sample <- paste0(metadata$samples,"",metadata$sample)
 
-names(matrice) <- gsub("X","",names(matrice))
-
-samples = filter(meta_subset, treatment != "ruminal liquid") %>% pull(sample)
+samples = filter(metadata) %>% pull(sample)
 vec <- rownames(matrice) %in% samples
 matrice = matrice[vec,vec]
 
-matrice$treatment <- as.character(meta_subset$treatment[match(row.names(matrice),meta_subset$sample)])
-matx= data.matrix(select(matrice, -c(treatment)))
+matrice$type <- as.character(metadata$type[match(row.names(matrice),metadata$sample)])
+matx= data.matrix(select(matrice, -c(type)))
 
 ## MDS
 mds <- cmdscale(as.dist(matx))
 mds <- as.data.frame(mds)
-mds$treatment <- meta_subset$treatment[match(rownames(mds), meta_subset$sample)]
-mds$cow <- meta_subset$cow[match(rownames(mds), meta_subset$sample)]
-mds <- mutate(mds, cow = as.factor(cow))
+mds$Unit <- metadata$Unit[match(rownames(mds), metadata$sample)]
+mds$type <- metadata$type[match(rownames(mds), metadata$sample)]
+mds <- mutate(mds, type = as.factor(type))
 
-p <- ggplot(mds, aes(V1,V2)) + geom_point(aes(colour = treatment, shape = cow), size = 3)
+p <- ggplot(mds, aes(V1,V2)) + geom_point(aes(colour = type, shape = Unit), size = 3) 
 p <- p + xlab("dim1") + ylab("dim2")
+p <- p + stat_ellipse(aes(V1, V2, color = type), type = "norm")
 p
 
 fname = file.path(main_path, "figures", "beta_diversity.png")
