@@ -6,8 +6,10 @@
         #REPORT THE DATE YOU ACCESSED Miseq SOP 
 
 mothur="singularity_containers/Mothurv1.48.sif"
-dataset="https://mothur.s3.us-east-2.amazonaws.com/wiki/miseqsopdata.zip"
+dataset="data/mock_communities"
 db="Databases"
+silvav138="https://mothur.s3.us-east-2.amazonaws.com/wiki/silva.nr_v138_1.tgz"
+silvav132="https://mothur.s3.us-east-2.amazonaws.com/wiki/silva.nr_v132.tgz"
 silva="https://mothur.s3.us-east-2.amazonaws.com/wiki/silva.bacteria.zip"
 rdp="https://mothur.s3.us-east-2.amazonaws.com/wiki/trainset9_032012.pds.zip"
 currpath=$(pwd)
@@ -24,49 +26,35 @@ if [ ! -e $output_dir ]; then
 	chmod g+rwx $output_dir
 fi
 
-echo "Obtaining Mothur MiSeq SOP tutorial dataset"
-
-cd $output_dir
-
-if [ ! -e miseqsopdata.zip ]; then
-    wget $dataset
-fi
-
-echo "Decompressing..."
-
-unzip -u -o miseqsopdata.zip
-rm -rf miseqsopdata.zip
+echo "Copying useful data"
+cp $dataset/*fastq.gz $output_dir
 
 cd $currpath
-
-mv $output_dir/MiSeq_SOP/* $output_dir
-rm -rf $output_dir/MiSeq_SOP
 
 echo "Obtaining silva reference database" 
 cd $db
 
 #if [ ! -e silva.bacteria.zip ]; then
-if [ ! -e silva.bacteria ]; then
-        wget $silva
+if [ ! -e silva.nr_v132.align ]; then
+        wget $silvav132
 fi
 
 echo "Decompressing and reformatting..."
 
-unzip -u -o silva.bacteria.zip 
-rm -rf silva.bacteria.zip
-rm -rf __MACOSX
+tar zxvf $silvav132
+#unzip -u -o silva.bacteria.zip 
+#rm -rf silva.bacteria.zip
+#rm -rf __MACOSX
 
-echo "Obtaining RDP reference database"
+#echo "Obtaining RDP reference database"
+##if [ ! -e trainset9_032012.pds.tax ]; then
+#if [ ! -e trainset9_032012.pds.fasta ]; then
+#        wget $rdp
+#fi
 
-#if [ ! -e trainset9_032012.pds.tax ]; then
-if [ ! -e trainset9_032012.pds.fasta ]; then
-        wget $rdp
-fi
-
-echo "Decompressing and reformatting..."
-
-unzip -u -o trainset9_032012.pds.zip 
-rm -rf trainset9_032012.pds.zip
+#echo "Decompressing and reformatting..."
+#unzip -u -o trainset9_032012.pds.zip 
+#rm -rf trainset9_032012.pds.zip
 
 echo "Setting directories"
 
@@ -107,11 +95,11 @@ echo "Align to reference database"
 
 #Let’s rename it to something more useful using the rename.file command:
 
-singularity run $mothur mothur "#rename.file(input=$db/silva.bacteria/silva.bacteria.fasta, new=silva.v4.fasta, outputdir=$db)"
+singularity run $mothur mothur "#rename.file(input=$db/silva.nr_v132.align, new=silva_v132.fasta, outputdir=$db)"
 
 #Now we have a customized reference alignment to align our sequences to. The nice thing about this reference is that instead of being 50,000 columns wide, it is now 13,425 columns wide which will save our hard drive some space and should improve the overall alignment quality. We’ll do the alignment with align.seqs:
 
-singularity run $mothur mothur  "#align.seqs(fasta=$output_dir/stability.trim.contigs.unique.fasta, reference=$db/silva.v4.fasta, outputdir=$output_dir)"
+singularity run $mothur mothur  "#align.seqs(fasta=$output_dir/stability.trim.contigs.unique.fasta, reference=$db/silva.fasta, outputdir=$output_dir)"
 
 # To make sure that everything overlaps the same region we’ll re-run screen.seqs to get sequences that start at or before position 1968 and end at or after position 11550. 
 
@@ -140,7 +128,7 @@ echo "Classifing using Bayesian classifier"
 
 #classify those sequences using the Bayesian classifier with the classify.seqs command:
 
-singularity run $mothur mothur "#classify.seqs(fasta=$output_dir/stability.trim.contigs.unique.filter.unique.precluster.fasta, count=$output_dir/stability.trim.contigs.unique.filter.unique.precluster.count_table, reference=$db/trainset9_032012.pds.fasta, taxonomy=$db/trainset9_032012.pds.tax, outputdir=$output_dir)"
+singularity run $mothur mothur "#classify.seqs(fasta=$output_dir/stability.trim.contigs.unique.filter.unique.precluster.fasta, count=$output_dir/stability.trim.contigs.unique.filter.unique.precluster.count_table, reference=$db/silva_v132.fasta, taxonomy=$db/silva.nr_v132.tax, outputdir=$output_dir)"
 
 #Now that everything is classified we want to remove our undesirables. We do this with the remove.lineage command:
 #singularity run $mothur mothur "#remove.lineage(fasta=$output_dir/stability.trim.contigs.unique.filter.unique.precluster.denovo.vsearch.fasta, count=$output_dir/stability.trim.contigs.unique.filter.unique.precluster.denovo.vsearch.count_table, taxonomy=$output_dir/stability.trim.contigs.unique.filter.unique.precluster.denovo.vsearch.pds.wang.taxonomy, taxon=Chloroplast-Mitochondria-unknown-Archaea-Eukaryota)"
