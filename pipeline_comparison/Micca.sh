@@ -4,22 +4,25 @@
 
 currpath=$(pwd)
 project_home="$HOME/MILKQUA"
-data_folder1="data/milk_subset"
-output_dir="Analysis/YYY/micca"
+data_folder1="data/subset" ## in some experiments you may have multiple data folders (hence the numbering: 1, 2 etc.)
+output_dir="Analysis/milkqua_milk/micca"
 temp_folder="temp"
-sample_start1=33 #first sample to use (in the sequence)
-sample_end1=92 #last sample to use (in the sequence)
+sample_start1=18 #first sample to use (in the sequence)
+sample_end1=72 #last sample to use (in the sequence)
 fwd_primer="CCTACGGGNGGCWGCAG" #(adapter: TCGTCGGCAGCGTCAGATGTGTATAAGAGACAG)
 rev_primer="GACTACHVGGGTATCTAATCC" #(adapter: GTCTCGTGGGCTCGGAGATGTGTATAAGAGACAG)
 sing_container="singularity_containers/Micca.sif"
 sickle_exe="singularity_containers/sickle"
 core=8
 dbpath="Databases/SILVA_132_QIIME_release"
-Q=20
+Q=20 ## Phred score threshold
 
-cd $currpath
+cd $project_home
 
-echo "we are in $currpath. Let's start by creating useful folders"
+echo "##################################"
+echo "BEGINNING THE ANALYSIS WITH MICCA"
+echo "##################################"
+echo "we are in $(pwd). Let's start by creating useful folders"
 
 if [ ! -d "$output_dir/$temp_folder" ]; then
         mkdir -p $output_dir/$temp_folder
@@ -46,9 +49,9 @@ if [ ! -d "$output_dir/4.filter" ]; then
 	chmod g+rwx $output_dir/4.filter 
 fi
 
-if [ ! -d "$output_dir/5.denovounoise" ]; then
-        mkdir -p $output_dir/5.denovounoise
-	chmod g+rwx $output_dir/5.denovounoise 
+if [ ! -d "$output_dir/5.otu_picking" ]; then
+        mkdir -p $output_dir/5.otu_picking
+	chmod g+rwx $output_dir/5.otu_picking 
 fi
 
 if [ ! -d "$output_dir/6.classify" ]; then
@@ -61,27 +64,28 @@ if [ ! -d "$output_dir/Quality_control" ]; then
 	chmod g+rwx $output_dir/Quality_control 
 fi
 
-cd $currpath
+cd $project_home
 
+####################################
+### STEP 0: COPYING AND RENAMING ###
+####################################
 ## Script to rename samples and count input reads
 
-echo "we are in $currpath. Let's rename the samples"
+echo "we are in $(pwd). Let's rename the samples"
 
 este=".fastq.gz"
 
-for i in ${data_folder1}/*.fastq.gz
+echo " - copying files from seq data folder to temp folder"
+for sample in ${data_folder1}/*.fastq.gz
 do
-  echo $sample
-  cp $i $output_dir/$temp_folder
-  echo -e "$i\t-->\t$sample"_"$read$este" >> $output_dir/$temp_folder/log_renamer.txt
+  echo "copying to a temporary folder the file $sample"
+  cp $sample $output_dir/$temp_folder
+  echo -e "$sample\t-->\t$sample"_"$read$este" >> $output_dir/$temp_folder/log_renamer.txt
 done
 
 ## Count reads
-
-echo "we are in $currpath. Let's counts reads"
-
+echo " - counting initial reads from sequencing"
 cd $output_dir/$temp_folder
-
 for i in *.fastq.gz
 do
         echo -n $i >> seq_count_16S_raw.txt
@@ -89,33 +93,35 @@ do
         echo $(zcat $i | wc -l) / 4 | bc >> seq_count_16S_raw.txt
 done
 
-echo "DONE!"
+echo "Copying and renaming: DONE"
 
-cd $currpath
-echo "we are in $currpath. Let's create single_names file and then remove adapters"
-
+########################################
+### STEP 1: REMOVING PRIMERS & CO.   ###
+########################################
+cd $project_home
+echo "we are in $(pwd). Let's create single_names file and then remove adapters"
 ## Remove adapters. Create a file of names that will be used for looping. Only file/sample name, remove extension and R1/R2
-
+echo " - removing primer and adapters (and barcodes)"
 cd $output_dir/$temp_folder
 
 for i in *.fastq.gz
 do
-echo "$i" | cut -d "_" -f1 >> names.txt
-sed 'n; d' names.txt > names_single.txt
+	echo "$i" | cut -d "_" -f1 >> names.txt
+	sed 'n; d' names.txt > names_single.txt
 done
 
 # remove primers with cutadapt
 # Primers (Sequences from Pindo and FMACH): forward: CCTACGGGNGGCWGCAG, reverse: GACTACNVGGGTWTCTAATCC
 
-cd $currpath
+cd $project_home
 
 echo "Running cutadapt by calling singularity container"
 
 while read -r line;
 do
-echo "$line";
+	echo "removing adapters from file $line";
 
-singularity run singularity_containers/Micca.sif cutadapt -g Forward=CCTACGGGNGGCWGCAG -G Reverse=GACTACHVGGGTATCTAATCC --discard-untrimmed --pair-filter=any -o Analysis/YYY/micca/1.cutadapt/${line}_R1_cutadapt.fastq.gz -p Analysis/YYY/micca/1.cutadapt/${line}_R2_cutadapt.fastq.gz Analysis/YYY/micca/temp/${line}_S${line}_L001_R1_001.fastq.gz Analysis/YYY/micca/temp/${line}_S${line}_L001_R2_001.fastq.gz >> Analysis/YYY/micca/Quality_control/cutadapt_report.txt
+	singularity run singularity_containers/Micca.sif cutadapt -g Forward=$fwd_primer -G Reverse=$rev_primer --discard-untrimmed --pair-filter=any -o ${output_dir}/1.cutadapt/${line}_R1_cutadapt.fastq.gz -p ${output_dir}/1.cutadapt/${line}_R2_cutadapt.fastq.gz ${output_dir}/temp/${line}_S${line}_L001_R1_001.fastq.gz ${output_dir}/temp/${line}_S${line}_L001_R2_001.fastq.gz >> ${output_dir}/Quality_control/cutadapt_report.txt
 
 done <  ${output_dir}/$temp_folder/names_single.txt
 
@@ -127,20 +133,23 @@ done <  ${output_dir}/$temp_folder/names_single.txt
 #                        the filtering criterion in order for the pair to be
 #                        filtered. Default: any
 
-echo "DONE!!"
+echo "Cutadapt: DONE"
 
+##########################################
+### STEP 2: TRIMMING READS FOR QUALITY ###
+##########################################
 ## TRIMMING. # trim low quality part. Q = 20 inspect quality, eventually for 16S Q can be set to 25
-echo "we are in $currpath. Let's do the trimming for quality. Q is set at $Q" 
-cd $currpath
+echo " - trimming for quality parameters"
+echo "we are in $(pwd). Let's do the trimming for quality. Q is set at $Q" 
+cd $project_home
 
 while read -r line;
 do
-echo "Running sickle on file "$line""
-echo "Running sickle on file "$line"" >> ${output_dir}/Quality_control/stats_trim.txt
+	#echo "Running sickle on file "$line""
+	echo "Running sickle on file "$line"" >> ${output_dir}/Quality_control/stats_trim.txt
+	echo "Running sickle by calling singularity container on file ${line}"
 
-echo "Running sickle by calling singularity container on file ${line}"
-
-singularity run $sickle_exe sickle pe \
+	singularity run $sickle_exe sickle pe \
 	-f ${output_dir}/1.cutadapt/${line}_R1_cutadapt.fastq.gz\
 	-r ${output_dir}/1.cutadapt/${line}_R2_cutadapt.fastq.gz \
 	-o ${output_dir}/2.trimming/${line}_trimmed_R1.fastq.gz \
@@ -150,11 +159,12 @@ singularity run $sickle_exe sickle pe \
 
 done < ${output_dir}/$temp_folder/names_single.txt
 
-echo "DONE!!"
+echo "TRIMMING: DONE"
 
-cd $currpath
+cd $project_home
 
 # Count trimmed data
+echo " - counting data after trimming"
 cd ${output_dir}/2.trimming
 
 echo " - counting sequences "
@@ -164,11 +174,15 @@ do
         echo -n " " >> seq_count_16S_QC.txt
         echo $(zcat $i | wc -l) / 4 | bc >> seq_count_16S_QC.txt
 done
-echo "Done"
-cd $currpath
+echo "Counting after trimming: Done"
+cd $project_home
 
+####################################
+### STEP 3: JOINING READS        ###
+####################################
 ## Join reads (MICCA)
-echo "we are in $currpath. Let's join reads!"
+echo " - joining R1 and R2 reads files"
+echo "we are in $(pwd). Let's join reads!"
  
 cd ${output_dir}/2.trimming
 
@@ -177,77 +191,83 @@ echo " -  removing single reads from sickle"
 rm *.singles.gz
 
 echo " - uncompressing trimmed fastq files "
-cd $currpath
+cd $project_home
 gunzip $output_dir/2.trimming/*.fastq.gz
 
 echo " - joining reads"
-cd $currpath 
+cd $project_home
 
 singularity run $sing_container micca mergepairs \
 	-i ${output_dir}/2.trimming/*_R1.fastq \
-	-o ${output_dir}/3.mergepairs/WP1_assembled_16S.fastq \
+	-o ${output_dir}/3.mergepairs/assembled_16S.fastq \
 	-l 32 -d 8 -t 7
 
 # -l : minimum overlap between reads
 # -d : maximum mismatch in overlap region
+# -t: n. of threads
 
 # Counting reads in assembled file
-
 echo " - counting reads after joining "
-grep -c '^@M' $output_dir/3.mergepairs/WP1_assembled_16S.fastq
+grep -c '^@M' $output_dir/3.mergepairs/assembled_16S.fastq
 
 # zipping back trimmed files
 
 echo " - recompressing trimmed fastq files "
-cd $currpath
+cd $project_home
 gzip ${output_dir}/2.trimming/*.fastq
 
-echo "DONE!!"
+echo "JOINING: DONE"
 
+####################################
+### STEP 4: DATA FILTERING       ###
+####################################
 ## Filter 
+cd $project_home
+echo " - filtering assembled reads data"
+echo "we are in $(pwd). Let's do the filtering"
 
-cd $currpath
-echo "we are in $currpath. Let's do the filtering"
-
-# Remove N from assembly
-
+# Remove N from assembly (uncalled bases)
 singularity run $sing_container micca filter \
-	-i $output_dir/3.mergepairs/WP1_assembled_16S.fastq \
-	-o $output_dir/4.filter/WP1_assembled_16S.fasta \
+	-i $output_dir/3.mergepairs/assembled_16S.fastq \
+	-o $output_dir/4.filter/assembled_16S_filtered.fasta \
 	--maxns 0
 
 # count
-cd $currpath
 echo " - counting reads after filtering"
-grep -c '>' $output_dir/4.filter/WP1_assembled_16S.fasta
+grep -c '>' $output_dir/4.filter/assembled_16S_filtered.fasta
 
-echo "DONE!!"
+echo "FILTERING: DONE"
 
+#####################################
+### STEP 5: OTU PICKING (BINNING) ###
+#####################################
 ## OTU picking
-
-cd $currpath
+echo " - OTU picking"
 echo "we are in $currpath. Let's do the OTU picking"
  
 # pick otu
 singularity run $sing_container micca otu -m denovo_unoise \
-	-i $output_dir/4.filter/WP1_assembled_16S.fasta \
-	-o ${output_dir}/5.denovounoise \
+	-i $output_dir/4.filter/assembled_16S_filtered.fasta \
+	-o ${output_dir}/5.otu_picking \
 	-t 8 --rmchim
 
-echo "DONE!!"
+echo "OTU-PICKING: DONE"
 
+#####################################
+### STEP 6: CLASSIFY OTU          ###
+#####################################
 ## classify RDP
-cd $currpath
+cd $project_home
 
-echo "we are in $currpath. Let's align to the database. Today it will be $dbpath"
+echo " - classifying OTUs"
+echo "we are in $(pwd). Let's align to the database. Today it will be $dbpath"
 
 ## CLASSIFY WITH VSEARCH AND SILVA!
-
 # QIIME compatible SILVa DB should be downloaded
 
 singularity run $sing_container micca classify \
 	-m cons \
-	-i ${output_dir}/5.denovounoise/otus.fasta  \
+	-i ${output_dir}/5.otu_picking/otus.fasta  \
 	-o $output_dir/6.classify/taxa_SILVA.txt \
 	--ref $dbpath/rep_set/rep_set_16S_only/97/silva_132_97_16S.fna \
 	--ref-tax $dbpath/taxonomy/16S_only/97/taxonomy_7_levels.txt
@@ -255,6 +275,6 @@ singularity run $sing_container micca classify \
 #ALTERNATIVE
 #singularity run $currpath/micca.sif micca classify -m rdp -i $currpath/Analysis/micca_its/otus.fasta --rdp-gene 16srrna -o $currpath/Analysis/micca_its/taxa.txt
 
-echo "DONE!"
+echo "Classify: DONE"
 
 echo "Excellent, your analysis with MICCA are completed. Have a nice day!"
