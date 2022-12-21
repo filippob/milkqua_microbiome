@@ -188,7 +188,7 @@ cd ${output_dir}/2.trimming
 
 # remove singles reads from sickle
 echo " -  removing single reads from sickle"
-rm *.singles.gz
+rm *_singles.gz
 
 echo " - uncompressing trimmed fastq files "
 cd $project_home
