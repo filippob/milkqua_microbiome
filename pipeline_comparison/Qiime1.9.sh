@@ -4,28 +4,31 @@
 
 currpath=$(pwd)
 project_home="$HOME/MILKQUA"
-data_folder1="data/221003_M01314_0230_000000000-KFKR8"
+data_folder1="data/subset"
 #data_folder2=""
-output_dir="Analysis/shuvo_milk3/qiime1.9"
+output_dir="Analysis/milkqua_milk/qiime1.9"
 #sing_container="${project_home}/Qiime1.9.sif"
 sing_container="/gpfs/software/Container/qiime_docker:fischuu-qiime-1.9.1.sif"
 temp_folder="temp"
-sample_start1=1 #first sample to use (in the sequence)
-sample_end1=45 #last sample to use (in the sequence)
+sample_start1=18 #first sample to use (in the sequence)
+sample_end1=72 #last sample to use (in the sequence)
 #sample_start2= #first sample to use (in the sequence)
 #sample_end2= #last sample to use (in the sequence)
 #prefix="" # prefix to remove from sample file names (if any: !! usually this is left empty !!)
 joinparam="Config/join.parameters"
 filterparam="Config/parameters/filter.parameters"
-dbpath="Databases/SILVA_132_QIIME_release"
+dbpath="Databases/SILVA_132_QIIME"
 rpath="milkqua_microbiome/mixed_scripts"
 
-cd $currpath
+cd $project_home
 echo "we are in $currpath. Let's start by creating useful folders"
 
 if [ ! -d "$output_dir/$temp_folder" ]; then
         mkdir -p $output_dir/$temp_folder
-	chmod g+rwx $output_dir/$temp_folder 
+	chmod g+rwx $output_dir/$temp_folder
+	cd $output_dir/$temp_folder
+	rm *
+	cd $project_home 
 fi
 
 if [ ! -d "${output_dir}/1.extract_barcode}" ]; then
