@@ -8,12 +8,13 @@
 currpath=$(pwd)
 project_home="$HOME/MILKQUA"
 #data_folder="data/220225_M04028_0144_000000000-K6CMG"
-output_dir="Analysis/prova_qiime1.9/1.extract_barcode"
+exp_folder="Analysis/mock_communities/qiime1.9"
+output_dir="${exp_folder}/1.extract_barcode"
 #sing_container="${project_home}/Qiime1.9.sif"
 sing_container="/gpfs/software/Container/qiime_docker:fischuu-qiime-1.9.1.sif"
-temp_folder="temp/temp_fastq"
+temp_folder="${exp_folder}/temp"
 
-cd $currpath
+cd $project_home
 echo "project folder is $project_home"
 
 ## make output folder if it does not exist
@@ -32,7 +33,7 @@ find . -name \*barcodes.fastq -type f -delete
 cd $currpath
 
 echo " - removing temprorary files"
-#rm -r ${temp_folder}
+#rm ${temp_folder}
 
 echo "DONE!"
 
