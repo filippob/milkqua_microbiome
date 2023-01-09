@@ -7,13 +7,13 @@
 ## setting up the environment
 currpath=$(pwd)
 project_home="$HOME/MILKQUA"
-input_folder="Analysis/prova_qiime1.9/2.join_paired_ends"
-output_dir="Analysis/prova_qiime1.9/3.quality_filtering"
+input_folder="Analysis/mock_communities/qiime1.9/2.join_paired_ends"
+output_dir="Analysis/mock_communities/qiime1.9/3.quality_filtering"
 #sing_container="${project_home}/Qiime1.9.sif"
 sing_container="/gpfs/software/Container/qiime_docker:fischuu-qiime-1.9.1.sif"
-paramfile="Config/filter.parameters"
+paramfile="Config/parameters/filter.parameters"
 
-cd $currpath
+cd $project_home
 echo "project folder is $project_home"
 
 ## make folder if it does not exist

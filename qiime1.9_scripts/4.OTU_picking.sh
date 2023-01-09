@@ -6,14 +6,22 @@
 ## setting up the environment
 currpath=$(pwd)
 project_home="$HOME/MILKQUA"
-data_folder="Analysis/prova_qiime1.9/3.quality_filtering"
-output_dir="Analysis/prova_qiime1.9/4.OTU_picking"
-dbpath="Databases/SILVA_132/SILVA_132_QIIME_release"
+data_folder="Analysis/mock_communities/qiime1.9/3.quality_filtering"
+output_dir="Analysis/mock_communities/qiime1.9/SILVA_123/4.OTU_picking"
+dbpath=$1
 #sing_container="${project_home}/Qiime1.9.sif"
 sing_container="/gpfs/software/Container/qiime_docker:fischuu-qiime-1.9.1.sif"
 
-cd $currpath
+cd $project_home
 echo "project folder is $project_home"
+echo "database is $dbpath"
+
+dbfasta="97_otus.fasta"
+if [ $dbpath == 'Databases/SILVA_132_QIIME' ]; then
+	dbfasta="silva132_97.fna"
+fi
+
+echo "database fasta file is $dbfasta"
 
 ## make folder if it does not exist
 
@@ -29,7 +37,7 @@ singularity run ${sing_container} \
         pick_closed_reference_otus.py \
 	--input_fp $project_home/${data_folder}/seqs.fna \
         --output_dir $project_home/${output_dir} \
-	--reference_fp $project_home/$dbpath/rep_set/rep_set_all/97/silva132_97.fna \
+	--reference_fp $project_home/$dbpath/rep_set/rep_set_all/97/$dbfasta \
         --taxonomy_fp $project_home/$dbpath/taxonomy/taxonomy_all/97/raw_taxonomy.txt \
         --force
 
