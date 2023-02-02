@@ -44,7 +44,7 @@ subset3 <- metadata[metadata$timepoint == "3"]
 ### PCA
 
 ```{r pressure, echo=FALSE, message=FALSE}
-matrice= fread("~/Results/STOOLS/results/weighted_unifrac_distances.csv", header = T, sep = ",")
+matrice= fread("~/Results/STOOLS/results/analysis/weighted_unifrac_distances.csv", header = T, sep = ",")
 matrice  <- matrice %>% remove_rownames %>% column_to_rownames(var="row")
 
 samples = subset2 %>% pull(sample)

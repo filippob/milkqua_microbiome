@@ -1,0 +1,84 @@
+---
+title: "Beta_diversity_MILK"
+author: "Chiara Gini"
+date: "20/09/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library("knitr")
+library("dplyr")
+library("tidyr")
+library("broom")
+library("vegan")
+library("ggplot2")
+library("reshape2")
+library("rmarkdown")
+library("tidyverse")
+library("ggfortify")
+library("data.table")
+library("ggforce")
+library("plotly")
+library("lattice")
+```
+
+## Beta diversity
+
+From 16S rRNA-gene sequencing of cow milk microbiome samples:
+- 4 timepoints for milk samples and two treatments (oil, treated/untreated)
+
+Between-sample variability from 16S rRna-gene sequencing data.
+
+```{r beta, echo=FALSE}
+metadata <- fread("/home/mycelium/Results/Milkqua_skinswab_invivopublication/mapping_milkqua_skinswabs.csv")
+names(metadata)[1] <- "sample"
+names(metadata)[11] <- "Cow_ID"
+metadata$timepoint[metadata$timepoint == "before_oil"] <- "day 0A"
+metadata$timepoint[metadata$timepoint == "after_oil"] <- "day 0B"
+metadata$timepoint[metadata$timepoint == "8"] <- "day 8"
+metadata$sample <-  gsub("sample-","sample.", as.character(metadata$sample))
+metadata$sample2 <-  gsub("sample.","sample-", as.character(metadata$sample))
+```
+
+## Clustering
+
+### PCA
+
+```{r pressure, echo=FALSE, message=FALSE}
+matrice= read.table("/home/mycelium/Results/Milkqua_skinswab_invivopublication/results/bray_curtis_distances.csv", row.names = 1, header=T, sep = ",")
+matrice$sample <- rownames(matrice)
+matrice$sample <- gsub("sample-", "sample.", as.character(matrice$sample))
+
+vec <- filter(metadata, sample_type == "skinswab") %>% select(sample) %>% pull()
+vex <- names(matrice) %in% vec
+mat_milk = matrice[vex,vex]
+# 
+mat_milk$treatment <- as.character(metadata$treatment[match(row.names(mat_milk),metadata$sample)])
+mat_milk$timepoint <- as.character(metadata$timepoint[match(row.names(mat_milk),metadata$sample)])
+
+matx= data.matrix(select(mat_milk, -c(treatment,timepoint)))
+
+## MDS
+mds <- cmdscale(as.dist(matx))
+```
+
+### MDS
+
+```{r}
+mds <- cmdscale(as.dist(matx))
+mds <- as.data.frame(mds)
+
+mds$treatment <- metadata$treatment[match(rownames(mds), metadata$sample2)]
+mds$timepoint <- metadata$timepoint[match(rownames(mds), metadata$sample2)]
+mds$sample <- metadata$sample[match(rownames(mds), metadata$sample2)]
+#mds <- mutate(mds, cow = as.factor(cow))
+
+p <- ggplot(mds, aes(V1,V2)) + geom_point(aes(colour = timepoint, shape = treatment), size = 3) #+ stat_ellipse(aes(x=V1, y=V2,color=timepoint), type="norm")
+p <- p + xlab("dim1") + ylab("dim2")
+p
+
+fname = file.path("~/Results/Milkqua_skinswab_invivopublication/results/beta/beta_SKINSWAB-2.png")
+ggsave(filename = fname, plot = p, device = "png", dpi = 300, width = 30, height = 30)
+```

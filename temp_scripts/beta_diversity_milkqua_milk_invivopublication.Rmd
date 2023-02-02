@@ -1,0 +1,83 @@
+---
+title: "Beta_diversity_MILK"
+author: "Chiara Gini"
+date: "20/09/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library("knitr")
+library("dplyr")
+library("tidyr")
+library("broom")
+library("vegan")
+library("ggplot2")
+library("reshape2")
+library("rmarkdown")
+library("tidyverse")
+library("ggfortify")
+library("data.table")
+# library("ggforce")
+library("plotly")
+library("lattice")
+```
+
+## Beta diversity
+
+From 16S rRNA-gene sequencing of cow milk microbiome samples:
+- 4 timepoints for milk samples and two treatments (oil, treated/untreated)
+
+Between-sample variability from 16S rRna-gene sequencing data.
+
+```{r beta, echo=FALSE}
+metadata <- fread("/home/mycelium/Results/Milkqua_milk_invivopublication/mapping_milkqua_milk.csv")
+names(metadata)[1] <- "sample"
+metadata$sample <- paste0("sample.", metadata$Sample_ID)
+metadata$timepoint[metadata$timepoint == "0"] <- "day 0"
+metadata$timepoint[metadata$timepoint == "8"] <- "day 7"
+metadata$timepoint[metadata$timepoint == "21"] <- "day 21"
+metadata$timepoint[metadata$timepoint == "28"] <- "day 28"
+metadata$Cow_ID <- paste(metadata$cow, metadata$ref)
+```
+
+## Clustering
+
+### PCA
+
+```{r pressure, echo=FALSE, message=FALSE}
+matrice= read.table("/home/mycelium/Results/Milkqua_milk_invivopublication/results/bray_curtis_distances.csv", row.names = 1, header=T, sep = ",")
+rownames(matrice) <- gsub("sample-","",names(matrice))
+
+vec <- filter(metadata, sample_type == "milk") %>% select(sample) %>% pull()
+vex <- names(matrice) %in% vec
+mat_milk = matrice[vex,vex]
+
+# 
+mat_milk$treatment <- as.character(metadata$treatment[match(row.names(mat_milk),metadata$sample)])
+mat_milk$timepoint <- as.character(metadata$timepoint[match(row.names(mat_milk),metadata$sample)])
+
+matx= data.matrix(select(mat_milk, -c(treatment,timepoint)))
+
+## MDS
+mds <- cmdscale(as.dist(matx))
+```
+
+### MDS
+
+```{r}
+mds <- cmdscale(as.dist(matx))
+mds <- as.data.frame(mds)
+mds$treatment <- metadata$treatment[match(rownames(mds), metadata$sample)]
+mds$timepoint <- metadata$timepoint[match(rownames(mds), metadata$sample)]
+mds$sample <- metadata$sample[match(rownames(mds), metadata$sample)]
+#mds <- mutate(mds, cow = as.factor(cow))
+
+p <- ggplot(mds, aes(V1,V2)) + geom_point(aes(colour = timepoint, shape = treatment), size = 3)
+p <- p + xlab("dim1") + ylab("dim2")
+p
+
+fname = file.path("~/Results/Milkqua_milk_invivopublication/results/beta/beta_MILK.png")
+ggsave(filename = fname, plot = p, device = "png", dpi = 300, width = 6, height = 5)
+```
