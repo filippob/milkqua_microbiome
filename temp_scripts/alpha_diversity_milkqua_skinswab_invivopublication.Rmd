@@ -37,9 +37,8 @@ Main alpha diversity indexes per group.
 metadata <- fread("/home/mycelium/Results/Milkqua_skinswab_invivopublication/mapping_milkqua_skinswabs.csv")
 names(metadata)[1] <- "sample"
 names(metadata)[11] <- "Cow_ID"
-metadata$timepoint[metadata$timepoint == "before_oil"] <- "day 0A"
-metadata$timepoint[metadata$timepoint == "after_oil"] <- "day 0B"
-metadata$timepoint[metadata$timepoint == "8"] <- "day 8"
+metadata$timepoint[metadata$timepoint == "before_oil"] <- "T0"
+metadata$timepoint[metadata$timepoint == "8"] <- "T7"
 
 alpha <- read.table("/home/mycelium/Results/Milkqua_skinswab_invivopublication/results/alpha.csv", header = TRUE, sep = ",")
 alpha$sample <-  gsub("sample.","sample-", as.character(alpha$sample.id))
@@ -53,18 +52,19 @@ mAlpha <- reshape2::melt(alpha, id.vars = "sample", variable.name = "metric", va
 mAlpha$type <- metadata$sample_type[match(mAlpha$sample,metadata$sample)]
 mAlpha$timepoint <- metadata$timepoint[match(mAlpha$sample,metadata$sample)]
 mAlpha$treatment <- metadata$treatment[match(mAlpha$sample,metadata$sample)]
+mAlpha <- subset(mAlpha, timepoint != "after_oil")
 ```
 
 ## Averages and plots
 
 ```{r pressure, echo=FALSE}
-mAlpha$timepoint <- factor(mAlpha$timepoint, levels = c("day 0A","day 0B","day 8"))
+mAlpha$timepoint <- factor(mAlpha$timepoint, levels = c("T0","T7"))
 D <- mAlpha %>%
   group_by(metric,treatment, timepoint) %>%
   summarize(N=n(),avg=round(mean(value),3)) %>%
   spread(key = metric, value = avg)
 
-D$timepoint <- factor(D$timepoint, levels = c("day 0A","day 0B","day 8"))
+D$timepoint <- factor(D$timepoint, levels = c("T0","T7"))
 
 d_alpha <- D %>%
   gather(key = "metric", value = "value", -c(treatment,timepoint,N)) %>%
@@ -112,22 +112,22 @@ p <- p + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
 p <- p + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
 p <- p + scale_y_continuous(breaks=pretty_breaks(n=20)) 
 p <- p + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
-p <- p + coord_trans(y="log2")
+p <- p + coord_trans(y="log2") + xlab("Timepoint")
 p
-#ggsave(filename = "alpha_significance_tablewithdots_MILK.png", width = 8, height = 8, plot = p, device = "png")
+#ggsave(filename = "alpha_significance_tablewithdots_SKIN.png", width = 8, height = 8, plot = p, device = "png")
 ```
 ## Correction for baseline
 
 ```{r}
 ## Correction for baseline
 bl_medie <- mAlpha %>%
-  filter(timepoint=="day 0A") %>%
+  filter(timepoint=="T0") %>%
   group_by(metric,treatment) %>%
   summarize(media_bl=mean(value))
   
 bl_counts <- mAlpha %>%
   group_by(metric,treatment) %>%
-  filter(timepoint=="day 0A") %>%
+  filter(timepoint=="T0") %>%
   arrange(metric) %>%
   rename(value.bl = value)
 
@@ -159,25 +159,26 @@ D <- M %>%
   spread(key = metric, value = avg)
 
 kable(D)
-
-write.csv(D, file="~/Results/Milkqua_skinswab_invivopublication/results/alpha/alpha_SKINSWAB.csv")
+# write.csv(D, file="~/Results/Milkqua_skinswab_invivopublication/results/alpha/alpha_SKINSWAB.csv")
 ```
 
 
 ```{r, echo=FALSE}
 mD <- melt(D, id.vars = c("timepoint","treatment"), variable.name = "metric")
-mD$timepoint <- factor(mD$timepoint, levels= c("day 0A","day 0B","day 8"))
+mD$timepoint <- factor(mD$timepoint, levels= c("T0","T7"))
 
 p <- ggplot(mD, aes(x=timepoint,y=value, group=treatment)) + geom_point(aes(colour=treatment))
 p <- p + geom_line(aes(colour=treatment))
 p <- p + facet_wrap(~metric, scales = "free_y")
 p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1))
 p  
+
+# ggsave(filename = "~/Results/Milkqua_skinswab_invivopublication/results/alpha/tablewithdots_correctedforbaseline_SKIN.png", width = 8, height = 8, plot = p, device = "png")
 ```
 
 ```{r test_alpha_bl, echo=FALSE}
 TP <- M %>%
-  filter(timepoint != "day 0A") %>%
+  filter(timepoint != "T0") %>%
   group_by(metric, timepoint) %>%
   do(tidy(lm(corrected_counts ~ treatment, data = .))) %>%
   filter(term != "(Intercept)")
@@ -190,12 +191,12 @@ datatable(TP, options = list(pageLength=100)) %>%
 p <- ggplot(data = TP, mapping= aes(x=timepoint, y=p.value))
 p <- p + geom_point(aes(color = metric, stroke = 1), position=position_jitter(h=0, w=0.27))
 p <- p + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
-p <- p + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+p <- p + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), legend.position = "none")
 # p <- p + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
-p <- p + coord_trans(y="log2")
-p <- p + scale_y_continuous(breaks=pretty_breaks(n=20)) + scale_y_continuous(breaks = c(0, 0.05, 0.10, 1))+  theme(axis.text.x = element_text(angle=90))
+p <- p + coord_trans(y="log2") + xlab("Time effect")
+p <- p + scale_y_continuous(breaks=pretty_breaks(n=20)) + scale_y_continuous(breaks = c(0, 0.05, 0.10, 1))+  theme(axis.text.x = element_text(angle=0))
 p 
-#ggsave(filename = "alpha_significance_tablewithdots_correctedforbaseline_MILK.png", width = 8, height = 8, plot = p, device = "png")
+#ggsave(filename = "alpha_significance_tablewithdots_correctedforbaseline_SKIN.png", width = 8, height = 8, plot = p, device = "png")
 ```
 
 
@@ -203,7 +204,7 @@ p
 
 ```{r test_alpha_bl, echo=FALSE}
 TR <- M %>%
-  filter(timepoint != "day 0A") %>%
+  # filter(timepoint != "T0") %>%
   group_by(metric, treatment) %>%
   do(tidy(lm(corrected_counts ~ timepoint, data = .))) %>%
   filter(term != "(Intercept)")
@@ -216,12 +217,12 @@ datatable(TR, options = list(pageLength=100)) %>%
 q <- ggplot(data = TR, mapping= aes(x=treatment, y=p.value))
 q <- q + geom_point(aes(color = metric, stroke = 1, shape = term), position=position_jitter(h=0, w=0.27))
 q <- q + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
-q <- q + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+q <- q + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), legend.position = "none", axis.title.y = element_blank())
 # p <- p + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
-q <- q + coord_trans(y="log2")
-q <- q + scale_y_continuous(breaks=pretty_breaks(n=20)) + scale_y_continuous(breaks = c(0, 0.05, 0.10, 1))+  theme(axis.text.x = element_text(angle=90))
+q <- q + coord_trans(y="log2") + xlab("Treatment effect")
+q <- q + scale_y_continuous(breaks=pretty_breaks(n=20)) + scale_y_continuous(breaks = c(0, 0.05, 0.10, 1))+  theme(axis.text.x = element_text(angle=0))
 q 
-#ggsave(filename = "alpha_significance_tablewithdots_correctedforbaseline_MILK.png", width = 8, height = 8, plot = p, device = "png")
+#ggsave(filename = "alpha_significance_tablewithdots_correctedforbaseline_SKIN.png", width = 8, height = 8, plot = p, device = "png")
 ```
 
 
@@ -229,7 +230,7 @@ q
 
 ```{r test_alpha_bl, echo=FALSE}
 MM <- M %>%
-  filter(timepoint != "day 0A") %>%
+  # filter(timepoint != "T0") %>%
   group_by(metric) %>%
   do(tidy(lm(corrected_counts ~ timepoint+treatment, data = .))) %>%
   filter(term != "(Intercept)")
@@ -242,20 +243,20 @@ datatable(MM, options = list(pageLength=100)) %>%
 r <- ggplot(data = MM, mapping= aes(x=term, y=p.value))
 r <- r + geom_point(aes(color = metric, stroke = 1, , shape = term), position=position_jitter(h=0, w=0.27))
 r <- r + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
-r <- r + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+r <- r + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.title.y = element_blank())
 # p <- p + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
-r <- r + coord_trans(y="log2")
-r <- r + scale_y_continuous(breaks=pretty_breaks(n=20)) + scale_y_continuous(breaks = c(0, 0.05, 0.10, 1))+  theme(axis.text.x = element_text(angle=90))
+r <- r + coord_trans(y="log2") + xlab("Treatment and Time effect")
+r <- r + scale_y_continuous(breaks=pretty_breaks(n=20)) + scale_y_continuous(breaks = c(0, 0.05, 0.10, 1))+  theme(axis.text.x = element_text(angle=0))
 r 
-#ggsave(filename = "alpha_significance_tablewithdots_correctedforbaseline_MILK.png", width = 8, height = 8, plot = p, device = "png")
+#ggsave(filename = "alpha_significance_tablewithdots_correctedforbaseline_SKIN.png", width = 8, height = 8, plot = p, device = "png")
 ```
 
 
 
 
 ```{r}
-figure_finalA <- ggarrange(p, q, r, widths=c(1, 1,1), heights=c(1,1,1),  labels=c("A", "B", "C"), ncol=3, nrow=1 )
+figure_finalA <- ggarrange(p, q, r, widths=c(1, 1,1), heights=c(1,1,1),  labels=c("A", "B", "C"), ncol=3, nrow=1)
 print(figure_finalA)
 
-ggsave(filename = "~/Results/Milkqua_skinswab_invivopublication/results/alpha/alpha_SKINSWAB.png", plot = figure_finalA, device = "png", width = 15, height = 5)
+# ggsave(filename = "~/Results/Milkqua_skinswab_invivopublication/results/alpha/alpha&beta_SKINSWAB.png", plot = figure_finalA, device = "png", width = 10, height = 8)
 ```

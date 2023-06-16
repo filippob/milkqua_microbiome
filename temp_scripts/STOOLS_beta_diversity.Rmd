@@ -1,7 +1,7 @@
 ---
 title: "Beta_diversity_Stools"
 author: "Chiara Gini"
-date: "14/09/2022"
+date: "08/06/2023"
 output: html_document
 editor_options: 
   chunk_output_type: inline
@@ -21,7 +21,6 @@ library("ggfortify")
 library("data.table")
 library("plotly")
 library("lattice")
-library("ggpubr")
 ```
 
 ## Beta diversity
@@ -32,6 +31,8 @@ Between-sample variability from 16S rRna-gene sequencing data.
 metadata <- fread ("~/Results/STOOLS/mapping_milkqua_stools.csv")
 names(metadata)[1] <- "sample"
 metadata$sample <- paste("sample-", metadata$MISEQ_ID, sep = "")
+metadata$timepoint[metadata$timepoint==2] <- "45 days old"
+metadata$timepoint[metadata$timepoint==3] <- "13 months old"
 
 subsetno <-metadata 
 subset2 <- metadata[metadata$timepoint == "2"]
@@ -47,7 +48,7 @@ subset3 <- metadata[metadata$timepoint == "3"]
 matrice= fread("~/Results/STOOLS/results/analysis/weighted_unifrac_distances.csv", header = T, sep = ",")
 matrice  <- matrice %>% remove_rownames %>% column_to_rownames(var="row")
 
-samples = subset2 %>% pull(sample)
+samples = subsetno %>% pull(sample)
 vec <- rownames(matrice) %in% samples
 matrice = matrice[vec,vec]
 
@@ -58,45 +59,35 @@ matx= data.matrix(select(matrice, -c(treatment, timepoint)))
 
 ## MDS
 mds <- cmdscale(as.dist(matx))
-```
+mds <- as.data.frame(mds)
+mds$treatment <- metadata$treatment[match(rownames(mds), metadata$sample)]
+mds$timepoint <- metadata$timepoint[match(rownames(mds), metadata$sample)]
+mds$sample <- metadata$sample[match(rownames(mds), metadata$sample)]
+mds$timepoint <- factor(mds$timepoint, levels=c("2", "3"))
 
-Clustering by treatment T2
-(PCA)
-```{r, echo=FALSE}
-p2 <- autoplot(prcomp(1-matx), data=matrice, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm') + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
-p2
-# ggsave("~/Results/STOOLS/results/clustering_by_treatment_PCA_stools.png")
-```
-
-```{r pressure, echo=FALSE, message=FALSE}
-matrice= fread("~/Results/STOOLS/results/weighted_unifrac_distances.csv", header = T, sep = ",")
-matrice  <- matrice %>% remove_rownames %>% column_to_rownames(var="row")
-
-samples = subset3 %>% pull(sample)
-vec <- rownames(matrice) %in% samples
-matrice = matrice[vec,vec]
-
-matrice$treatment <- as.character(metadata$treatment[match(row.names(matrice),metadata$sample)])
-matrice$timepoint <- as.character(metadata$timepoint[match(row.names(matrice),metadata$sample)])
-
-matx= data.matrix(select(matrice, -c(treatment, timepoint)))
-
-## MDS
-mds <- cmdscale(as.dist(matx))
 ```
 
 Clustering by treatment (PCA)
+
 ```{r, echo=FALSE}
-p3 <- autoplot(prcomp(1-matx), data=matrice, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm') + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
-p3
+p <- autoplot(prcomp(1-matx), data=matrice, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm') + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+p
 # ggsave("~/Results/STOOLS/results/clustering_by_treatment_PCA_stools.png")
 ```
 
+Clustering by time point (PCA)
+
+```{r, echo=FALSE}
+q <- autoplot(prcomp(1-matx), data=matrice, colour = "timepoint", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm') + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+q
+```
+
+
 ```{r}
-figure_finalB <- ggarrange(p2, p3, widths=c(1, 1), labels=c("T2", "T3"), legend = "bottom")
+figure_finalB <- ggarrange(p, q, widths=c(1, 1), labels=c("A", "B"), legend = "bottom")
 print(figure_finalB)
 
-#ggsave("~/Results/STOOLS/results/clustering_merged_PCA_skinswab300822.png", plot = figure_final, width = 14, height = 5)
+ggsave("~/Results/STOOLS/results/PCA_skinswabs.png", plot = figure_finalB, width = 20, height = 5)
 ```
 
 
@@ -106,7 +97,7 @@ Clustering by treatment (PCA): after removing samples from timepoint 0 # BECAUSE
 
 
 ```{r pressure, echo=FALSE, message=FALSE}
-matrice= fread("~/Results/STOOLS/results/weighted_unifrac_distances.csv", header = T, sep = ",")
+matrice= fread("~/Results/STOOLS/results/analysis/weighted_unifrac_distances.csv", header = T, sep = ",")
 matrice  <- matrice %>% remove_rownames %>% column_to_rownames(var="row")
 
 samples = subsetno %>% pull(sample)
@@ -186,19 +177,15 @@ pv_treatment <- replicate(100,
   simplify = "vector"
 )
 
-n = 10
-permanova <- function(mat,term,perms) {
-  
-  perm <- how(nperm = sample(perms,1))
-  obj <- adonis(mat ~ term, add = TRUE, parallel = TRUE, permutations = perm)
-  return(obj$aov.tab$`Pr(>F)`[1])
-}
-
-pv_treatment <- replicate(n,
-  permanova(matx, matrice$treatment, 999),
+pv_timepoint <- replicate(100,
+  adonis2(matx ~ matrice$timepoint, permutations = 999)$"Pr(>F)"[1],
   simplify = "vector"
 )
 
+pv_treat_time <- replicate(100,
+  adonis2(matx ~ matrice$treatment + matrice$timepoint, permutations = 999)$"Pr(>F)"[1],
+  simplify = "vector"
+)
 ```
 
 - between treatments: p-value = **`r mean(pv_treatment)`** (std = `r sd(pv_treatment)`)

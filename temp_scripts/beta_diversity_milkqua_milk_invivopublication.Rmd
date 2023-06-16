@@ -35,10 +35,10 @@ Between-sample variability from 16S rRna-gene sequencing data.
 metadata <- fread("/home/mycelium/Results/Milkqua_milk_invivopublication/mapping_milkqua_milk.csv")
 names(metadata)[1] <- "sample"
 metadata$sample <- paste0("sample.", metadata$Sample_ID)
-metadata$timepoint[metadata$timepoint == "0"] <- "day 0"
-metadata$timepoint[metadata$timepoint == "8"] <- "day 7"
-metadata$timepoint[metadata$timepoint == "21"] <- "day 21"
-metadata$timepoint[metadata$timepoint == "28"] <- "day 28"
+metadata$timepoint[metadata$timepoint == "0"] <- "T0"
+metadata$timepoint[metadata$timepoint == "8"] <- "T7"
+metadata$timepoint[metadata$timepoint == "21"] <- "T21"
+metadata$timepoint[metadata$timepoint == "28"] <- "T28"
 metadata$Cow_ID <- paste(metadata$cow, metadata$ref)
 ```
 
@@ -57,8 +57,10 @@ mat_milk = matrice[vex,vex]
 # 
 mat_milk$treatment <- as.character(metadata$treatment[match(row.names(mat_milk),metadata$sample)])
 mat_milk$timepoint <- as.character(metadata$timepoint[match(row.names(mat_milk),metadata$sample)])
+mat_milk$cow <- as.character(metadata$cow[match(row.names(mat_milk),metadata$sample)])
+mat_milk$ref <- as.character(metadata$ref[match(row.names(mat_milk),metadata$sample)])
 
-matx= data.matrix(select(mat_milk, -c(treatment,timepoint)))
+matx= data.matrix(select(mat_milk, -c(treatment,timepoint, cow, ref)))
 
 ## MDS
 mds <- cmdscale(as.dist(matx))
@@ -72,12 +74,68 @@ mds <- as.data.frame(mds)
 mds$treatment <- metadata$treatment[match(rownames(mds), metadata$sample)]
 mds$timepoint <- metadata$timepoint[match(rownames(mds), metadata$sample)]
 mds$sample <- metadata$sample[match(rownames(mds), metadata$sample)]
-#mds <- mutate(mds, cow = as.factor(cow))
+# mds <- mutate(mds, cow = as.factor(cow))
 
-p <- ggplot(mds, aes(V1,V2)) + geom_point(aes(colour = timepoint, shape = treatment), size = 3)
-p <- p + xlab("dim1") + ylab("dim2")
-p
+s <- ggplot(mds, aes(V1,V2)) + geom_point(aes(colour = timepoint, shape = treatment), size = 3) + stat_ellipse(aes(x=V1, y=V2,color=timepoint), type="t")
+s <- s + xlab("dim1") + ylab("dim2")
+s
 
 fname = file.path("~/Results/Milkqua_milk_invivopublication/results/beta/beta_MILK.png")
-ggsave(filename = fname, plot = p, device = "png", dpi = 300, width = 6, height = 5)
+ggsave(filename = fname, plot = s, device = "png", dpi = 300, width = 6, height = 5)
 ```
+
+## Significance of between-group distances
+
+Significance values based on permuted analysis of variance (999 permutations), repeated 100 times.
+
+```{r, label='permanova', echo=FALSE}
+pv_treatment <- replicate(100, adonis2(matx ~ mat_milk$treatment, permutations = 999)$"Pr(>F)"[1], simplify = "vector")
+
+pv_timepoint <- replicate(100, adonis2(matx ~ mat_milk$timepoint, permutations = 999)$"Pr(>F)"[1], simplify = "vector")
+
+pv_treat_time <- replicate(100, adonis2(matx ~ mat_milk$treatment + mat_skin$timepoint + mat_skin$timepoint:mat_skin$treatment, permutations = 999)$"Pr(>F)"[1], simplify = "vector")
+
+permanova <- function(mat,term,perms) {
+  
+  perm <- how(nperm = sample(perms,1))
+  obj <- adonis2(mat ~ term, add = TRUE, parallel = TRUE, permutations = perm)
+  return(obj$aov.tab$`Pr(>F)`[1])
+}
+
+pv_timepoint <- replicate(100,
+  permanova(matx, mat_milk$timepoint, 999),
+  simplify = "vector"
+)
+
+pv_treat_time <- replicate(100,
+  adonis2(matx ~ mat_milk$treatment + mat_milk$timepoint + mat_milk$timepoint:mat_milk$treatment, permutations = 999)$"Pr(>F)"[1],
+  simplify = "vector"
+)
+
+pv_cow <- replicate(100,
+  adonis2(matx ~ mat_milk$cow, permutations = 999)$"Pr(>F)"[1],
+  simplify = "vector"
+)
+
+pv_ref <- replicate(100,
+  permanova(matx, mat_milk$ref, 999),
+  simplify = "vector"
+)
+
+pv_timepoint2 <- replicate(100,
+  adonis2(matx ~ mat_milk$timepoint, permutations = 999)$"Pr(>F)"[1],
+  simplify = "vector"
+)
+
+```
+
+- between treatments: p-value = **`r mean(pv_treatment)`** (std = `r sd(pv_treatment)`)
+- between types: p-value = **`r mean(pv_timepoint)`** (std = `r sd(pv_timepoint)`)
+- between treatments and type =  p-value = **`r mean(pv_treat_time)`** (std = `r sd(pv_treat_time)`)
+
+
+Below the ANOVA table from the model:
+
+$$
+X = \mu + treatment + timepoint + treatment*type + e
+$$

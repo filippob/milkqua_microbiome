@@ -6,7 +6,7 @@ library("tidyverse")
 library("data.table")
 
 ## 2. PARAMETERS
-project_folder = "/home/mycelium/Results/MILK_SKINSWAB"
+project_folder = "/home/mycelium/Results/Milkqua_skinswab_bootstrapping"
 path_to_file = "results"
 fname1 = "readsPerSample.tsv" ## n. of reads after joining
 fname2 = "reads_after_filter.tsv" ## n. of reads after filtering
@@ -37,7 +37,7 @@ fwrite(x = header, file = file.path(project_folder,path_to_file,out_fname), sep 
 p <- ggplot(reads,aes(x=sample,y=n_reads)) + geom_bar(aes(fill=sample), stat = "identity")
 p <- p + guides(fill='none')
 p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1, size=3))
-ggsave(filename = file.path(project_folder,path_to_file,"1.reads_per_sample.png"), plot = p, device = "png")
+ggsave(filename = file.path(project_folder,path_to_file, "figures", "1.reads_per_sample.png"), plot = p, device = "png")
 
 ## 3. after filtering
 writeLines(" - 2) reads after filtering")
@@ -105,7 +105,8 @@ mS$sample_id <- factor(mS$sample_id, levels = seqs$sample_id)
 p <- ggplot(mS, aes(x=sample_id,y=reads,group=seq)) + geom_line(aes(colour=seq))
 p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1, size=4))
 
-ggsave(filename = file.path(project_folder,path_to_file,"2.reads_after_filtering"), plot = p, device = "png")
+ggsave(filename = file.path(project_folder,path_to_file,, "figures", 2.reads_after_filtering.png"), plot = p, device = "png")
 
 writeLines("DONE!!")
+
 

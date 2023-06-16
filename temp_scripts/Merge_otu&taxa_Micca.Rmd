@@ -1,0 +1,34 @@
+---
+title: "Merge_otu&taxa_Micca"
+author: "Chiara Gini"
+date: "2023-06-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(stringr)
+
+otu <- read.csv("~/Results/PIPELINE_COMPARISON/mockrobiota/otutable-Micca_x_16SITGDB.97-mockrobiota.txt", sep = "\t", header = T)
+taxa <- read.csv("~/Results/PIPELINE_COMPARISON/mockrobiota/taxa_Micca_x_16SITGDB2.97-mockrobiota.txt", sep = "\t", header = F)
+colnames(taxa)[1] ="OTU"
+colnames(taxa)[2] = "taxonomy"
+taxonomy <- merge(otu, taxa, by=c("OTU"),all.x=TRUE)
+taxonomy[c('kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species')] <- str_split_fixed(taxonomy$taxonomy, ';', 7)
+taxonomy$taxonomy <- NULL
+
+write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/mockrobiota/Micca/taxonomy_Micca_x_16SITGDB.97-mockrobiota.csv")
+```
+
+```{r setup, include=FALSE}
+library(stringr)
+
+otu <- read.csv("~/Results/PIPELINE_COMPARISON/mockrobiota/otutable-Micca_x_16SITGDB.99-mockrobiota.txt", sep = "\t", header = T)
+taxa <- read.csv("~/Results/PIPELINE_COMPARISON/mockrobiota/taxa_Micca_x_16SITGDB.99-mockrobiota.txt", sep = "\t", header = F)
+colnames(taxa)[1] ="OTU"
+colnames(taxa)[2] = "taxonomy"
+taxonomy <- merge(otu, taxa, by=c("OTU"),all.x=TRUE)
+taxonomy[c('kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species')] <- str_split_fixed(taxonomy$taxonomy, ';', 7)
+taxonomy$taxonomy <- NULL
+
+write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/mockrobiota/Micca/taxonomy_Micca_x_16SITGDB.99-mockrobiota.csv")
+```

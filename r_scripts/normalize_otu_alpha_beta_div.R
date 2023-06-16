@@ -17,9 +17,9 @@ library("metagenomeSeq")
 ## PARAMETERS
 HOME <- Sys.getenv("HOME")
 prj_folder = file.path(HOME, "Results")
-analysis_folder = "STOOLS"
-fname = "otu_table_filtered.biom"
-conf_file = "mapping_milkqua_stools.csv"
+analysis_folder = "Milkqua_skinswab_bootstrapping"
+fname = "otu_table_filtered10_2.biom"
+conf_file = "mapping_milkqua_skinswabs_boot.csv"
 min_tot_counts = 500 ## minimum number of total counts per sample to be included in the analysis
 outdir = file.path(analysis_folder)
 
@@ -164,7 +164,7 @@ writeLines(" - calculate Unifrac distances")
 distances = distance(otu_norm_tree, method="unifrac", type = "samples")
 iMDS  <- ordinate(otu_norm_tree, "MDS", distance=distances)
 p <- plot_ordination(biom1, iMDS, color="treatment", shape="timepoint")
-ggsave(filename = file.path(prj_folder, analysis_folder, "results", "figures", "figures","mds_plot_unifrac.png"), plot = p, device = "png")
+ggsave(filename = file.path(prj_folder, analysis_folder, "results", "figures","mds_plot_unifrac.png"), plot = p, device = "png")
 
 writeLines(" - write out Unifrac distance matrix")
 dd = dist2list(distances, tri = FALSE)

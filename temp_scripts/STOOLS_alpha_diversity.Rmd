@@ -1,7 +1,7 @@
 ---
 title: "Alpha_diversity_stool"
 author: "Chiara Gini"
-date: "14/09/2022"
+date: "08/07/2023"
 output: html_document
 editor_options: 
   chunk_output_type: inline
@@ -16,31 +16,13 @@ library("broom")
 library("vegan")
 library("scales")
 library("ggplot2")
-#library("ggpubr")
-# library("madbito")
+library("ggpubr")
 library("reshape2")
 library("gghighlight")
 library("data.table")
 library("rmarkdown")
 library("ggrepel")
-library("tibble")
 library("ggplot2")
-library("ggpubr")
-library("AlphaPart")
-library("DT")
-library("knitr")
-library("tidyr")
-library("broom")
-library("vegan")
-library("ggpubr")
-library("ggplot2")
-library("reshape2")
-library("tidyverse")
-library("data.table")
-library("ggrepel")
-library("tibble")
-library("dplyr")
-library("cowplot")
 ```
 
 ## Alpha diversity of stools samples
@@ -53,10 +35,11 @@ Main alpha diversity indexes per group.
 
 ```{r alpha, echo=FALSE}
 metadata <- fread("/home/mycelium/Results/STOOLS/mapping_milkqua_stools.csv")
+metadata$timepoint[metadata$timepoint==2] <- "45 days old"
+metadata$timepoint[metadata$timepoint==3] <- "13 months old"
 metadata <- tibble::rownames_to_column(metadata, "sample")
 
-
-alpha <- read.table("~/Results/STOOLS/results/alpha.csv", header = TRUE, sep = ",")
+alpha <- read.table("~/Results/STOOLS/results/alpha/alpha.csv", header = TRUE, sep = ",")
 alpha$sample.id <- row.names(alpha)
 alpha$observed_species <- NULL
 alpha$se.chao1 <- NULL
@@ -72,14 +55,15 @@ mAlpha$treatment <- metadata$treatment[match(mAlpha$sample,metadata$sample)]
 
 ```{r pressure, echo=FALSE}
 mAlpha$treatment <- factor(mAlpha$treatment, levels = c("control","EO"))
+mAlpha$timepoint <- factor(mAlpha$timepoint, levels = c("45 days old", "13 months old") )
 
 D <- mAlpha %>%
-  group_by(metric,treatment) %>%
+  group_by(metric,treatment, timepoint) %>%
   summarize(N=n(),avg=round(mean(value),3)) %>%
   spread(key = metric, value = avg)
 
 d_alpha <- D %>%
-  gather(key = "metric", value = "value", -c(treatment,N)) %>%
+  gather(key = "metric", value = "value", -c(treatment,N, timepoint)) %>%
   spread(key = "treatment", value = "value")
 
 kable(D)
@@ -111,37 +95,9 @@ p
 mAlpha$treatment = as.character(mAlpha$treatment)
 mAlpha$treatment = factor(mAlpha$treatment, levels = c("control", "EO"))
 
-D <- mAlpha %>%
+D1 <- mAlpha %>%
   group_by(metric, timepoint) %>%
   do(tidy(lm(value ~ treatment, data = .))) %>%
-  filter(term != "(Intercept)")
-
-datatable(D, options = list(pageLength=100)) %>% 
-  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
-```
-
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
-D$timepoint <- factor(D$timepoint, levels=c("2", "3"))
-
-p <- ggplot(data = D, mapping= aes(x=timepoint, y=p.value))
-p <- p + geom_point(aes(color = metric, stroke = 1.5), position=position_jitter(h=0, w=0.25))
-p <- p + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
-p <- p + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
-#p <- p + scale_fill_manual(values=c("green3", "orange", "blue", "red", "yellow", "gray", "rose"))
-p <- p + coord_trans(y="log2")
-p <- p + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + scale_y_continuous(breaks=pretty_breaks(n=20)) + scale_y_continuous(breaks = c(0, 0.05, 0.10, 1))
-#p <- p + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
-p <- p + theme(axis.text.x = element_text(angle = 90))
-# p3 <- p
-p2 <- p
-p
-# ggsave(filename = "~/Results/STOOLS/results/alpha_stools_T3.png", width = 4, height = 4, plot = p, device = "png")
-```
-
-```{r}
-D1 <- mAlpha %>%
-  group_by(metric, treatment) %>%
-  do(tidy(lm(value ~ timepoint, data = .))) %>%
   filter(term != "(Intercept)")
 
 datatable(D1, options = list(pageLength=100)) %>% 
@@ -149,25 +105,71 @@ datatable(D1, options = list(pageLength=100)) %>%
 ```
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-q <- ggplot(data = D1, mapping= aes(x=treatment, y=p.value))
-q <- q + geom_point(aes(color = metric, stroke = 1.5), position=position_jitter(h=0, w=0.25))
-q <- q + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
-q <- q + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
-#p <- p + scale_fill_manual(values=c("green3", "orange", "blue", "red", "yellow", "gray", "rose"))
-q <- q + coord_trans(y="log2")
-q <- q + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + scale_y_continuous(breaks=pretty_breaks(n=20)) + scale_y_continuous(breaks = c(0, 0.05, 0.10, 1))
-#p <- p + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
-q <- q + theme(axis.text.x = element_text(angle = 90))
-# p3 <- p
-q
+D1$timepoint <- factor(D1$timepoint, levels=c("45 days old", "13 months old"))
+
+p <- ggplot(data = D1, mapping= aes(x=timepoint, y=p.value))
+p <- p + geom_point(aes(color = metric, stroke = 1.5), position=position_jitter(h=0, w=0.25))
+p <- p + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
+p <- p + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
+p <- p + coord_trans(y="log2") 
+p <- p + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + scale_y_continuous(breaks=pretty_breaks(n=20)) + scale_y_continuous(breaks = c(0, 0.05, 0.10, 1))
+# p <- p + theme(axis.text.x = element_text(angle = 90))
+p
 # ggsave(filename = "~/Results/STOOLS/results/alpha_stools_T3.png", width = 4, height = 4, plot = p, device = "png")
 ```
 
 ```{r}
-figure_finalA <- ggarrange(p2, p3, q, widths=c(1, 1,1), heights=c(1,1,1),  labels=c("A", "B", "C"), ncol=3, nrow=1 )
+D2 <- mAlpha %>%
+  group_by(metric, treatment) %>%
+  do(tidy(lm(value ~ timepoint, data = .))) %>%
+  filter(term != "(Intercept)")
+
+datatable(D2, options = list(pageLength=100)) %>% 
+  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+q <- ggplot(data = D2, mapping= aes(x=treatment, y=p.value))
+q <- q + geom_point(aes(color = metric, stroke = 1.5), position=position_jitter(h=0, w=0.25))
+q <- q + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
+q <- q + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
+q <- q + coord_trans(y="log2")
+q <- q + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + scale_y_continuous(breaks=pretty_breaks(n=20)) + scale_y_continuous(breaks = c(0, 0.05, 0.10, 1))
+# q <- q + theme(axis.text.x = element_text(angle = 90))
+q
+# ggsave(filename = "~/Results/STOOLS/results/alpha_stools_T3.png", width = 4, height = 4, plot = p, device = "png")
+```
+
+```{r test_alpha, echo=FALSE}
+mAlpha$treatment = as.character(mAlpha$treatment)
+mAlpha$treatment = factor(mAlpha$treatment, levels = c("control", "EO"))
+
+D3 <- mAlpha %>%
+  group_by(metric) %>%
+  do(tidy(lm(value ~ treatment+timepoint, data = .))) %>%
+  filter(term != "(Intercept)")
+
+datatable(D3, options = list(pageLength=100)) %>% 
+  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+r <- ggplot(data = D3, mapping= aes(x=term, y=p.value))
+r <- r + geom_point(aes(color = metric, stroke = 1.5), position=position_jitter(h=0, w=0.25))
+r <- r + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
+r <- r + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
+r <- r + coord_trans(y="log2")
+r <- r + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + scale_y_continuous(breaks=pretty_breaks(n=20)) + scale_y_continuous(breaks = c(0, 0.05, 0.10, 1))
+# r <- r + theme(axis.text.x = element_text(angle = 90))
+r
+```
+
+
+```{r}
+figure_finalA <- ggarrange(p, q, r, widths=c(1, 1,1), heights=c(1,1,1),  labels=c("A", "B", "C"), ncol=3, nrow=1 )
 print(figure_finalA)
 
-ggsave(filename = "~/Results/STOOLS/results/alpha_Stools_oct22.png", plot = figure_finalA, device = "png", width = 12, height = 3)
+ggsave(filename = "~/Results/STOOLS/results/alpha_Stools_jun23.png", plot = figure_finalA, device = "png", width = 20, height = 5)
 ```
 
 

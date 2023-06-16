@@ -36,10 +36,10 @@ names(metadata)[1] <- "sample"
 names(metadata)[7] <- "type"
 
 metadata$Cow_ID <- paste(metadata$cow, metadata$ref)
-metadata$timepoint[metadata$timepoint == "0"] <- "day 0"
-metadata$timepoint[metadata$timepoint == "8"] <- "day 7"
-metadata$timepoint[metadata$timepoint == "21"] <- "day 21"
-metadata$timepoint[metadata$timepoint == "28"] <- "day 28"
+metadata$timepoint[metadata$timepoint == "0"] <- "T0"
+metadata$timepoint[metadata$timepoint == "8"] <- "T7"
+metadata$timepoint[metadata$timepoint == "21"] <- "T21"
+metadata$timepoint[metadata$timepoint == "28"] <- "T28"
 metadata$sample <- sub("^", "sample-", metadata$sample)
 metadata <- metadata [order(metadata$sample),]
 
@@ -82,7 +82,7 @@ mycolors = c(brewer.pal(name="Paired", n = 11), brewer.pal(name="Paired", n = 12
 mycolors2 = c(brewer.pal(name="Set2", n = 11), brewer.pal(name="Paired", n = 12))
 
 p <- ggboxplot(mm, "phylum", "abundance", color = "phylum", legend = "none", palette = mycolors2)
-p <- p + rotate_x_text(90) + font("xy.text", size=14)
+p <- p + rotate_x_text(90) + font("xy.text", size=13)
 p
 
 A <- otu_phylum[,-1] > 0
@@ -121,13 +121,13 @@ pphyla <- ggplot(A, aes(x=factor(1), y=pct, fill=Phyla)) + geom_bar(width=1,stat
 pphyla <- pphyla + coord_polar(theta='y') + guides(fill = guide_legend(title = "Phyla")) 
 pphyla <- pphyla + xlab("") + ylab("")
 pphyla <- pphyla + scale_fill_manual(values = c("red", "green", "khaki", "steelblue1","maroon","lightblue","salmon","turquoise","violet","yellow","gray","tomato","navy","pink","springgreen4","peru","sienna1","plum4","mediumblue","darkorange","brown4","gold","bisque4"))
-pphyla <- pphyla + theme(text = element_text(size=20),
+pphyla <- pphyla + theme(text = element_text(size=13),
                # axis.text.x = element_text(size=20),
                # strip.text = element_text(size = 20),
                axis.text = element_blank(),
                axis.ticks = element_blank(),
-               legend.text=element_text(size=20),
-               legend.title=element_text(size=20))
+               legend.text=element_text(size=13),
+               legend.title=element_text(size=13))
 pphyla <- pphyla + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
 pphyla
 # ggsave(filename = file.path(basedir, prjdir, outdir, "Figure1perc.png"), plot = p, device = "png", dpi = 250, width = 21, height = 13)
@@ -208,14 +208,15 @@ p <- p + guides(fill = guide_legend(title = "Phyla"))
 my_palette2 = get_palette(c("brown", "darkorange1","pink1","seagreen2", "darkmagenta", "burlywood1",  "burlywood3", "chartreuse4", "coral", "peachpuff","gray", "mediumorchid3", "yellow3", "turquoise4", "green3","gold","blue","magenta","cyan","yellow","red","purple", "darkorchid1",  "slategray3", "orangered", "olivedrab", "plum", "lightcyan", "gray38", "forestgreen", "firebrick1"), length(unique(D$phylum)))
 p <- p + xlab("Relative abundances") + ylab("Percentages")
 p <- p + scale_fill_manual(values = my_palette2)
-p <- p + theme(text = element_text(size=10),
-               axis.text.x = element_text(size=8),
+p <- p + theme(text = element_text(size=13),
+               axis.text.x = element_text(size=13),
                # axis.text.y = element_text(size=4),
-               strip.text = element_text(size = 8),
+               strip.text = element_text(size = 13),
                axis.text.y = element_blank(),
-               axis.ticks.y = element_blank(),
-               legend.text=element_text(size=8),
-               legend.title=element_text(size=8))
+               axis.ticks = element_blank(),
+               legend.text=element_text(size=13),
+               legend.title=element_text(size=13), legend.position = "none")
+boxplotP <- p
 print(p)
 ggsave(p, height = 5, width = 12, filename ="~/Results/Milkqua_milk_invivopublication/results/taxonomy/phylum_boxplot.png")
 ```
@@ -338,9 +339,9 @@ for (name in DX$taxa) {
   tpoint = DX[DX$taxa==name, "timepoint"]
   
   ## estimating coefficients
-  temp2 = filter(m1, taxa == name)
-  temp2$treatment <- factor(temp2$treatment, levels = c("Control","Treated"))
-  g = lm(counts ~ treatment, data = temp2)
+  temp = filter(m1, taxa == name)
+  temp$treatment <- factor(temp$treatment, levels = c("Control","Treated"))
+  g = lm(counts ~ treatment, data = temp)
   
   ## extracting coefficients
   coefs = g$coefficients
@@ -363,45 +364,44 @@ write.csv(res, "~/Results/Milkqua_milk_invivopublication/results/taxonomy/pvalue
 
 ```{r}
 Dna <- filter(temp, level %in% c("phylum"))
-## remember here to comment the taxonomic level you are using
 
-Dna$controlvstreated <- (Dna$Control-Dna$Treated)
-Dna$Control <-NULL
-Dna$Treated <-NULL
+Dna$timepoint = factor(Dna$timepoint, levels = c("T0","T7","T21","T28"))
 
-# write.csv(Dna, "~/Results/STOOLS/results/T2/results_T2.csv")
-
-Dna$timepoint = factor(Dna$timepoint, levels = c("day 0","day 7","day 21","day 28"))
-
-q <- ggplot(Dna, aes(x = factor(1), y = taxa, height=0.95))
-q <- q + geom_tile(aes(fill = p.value), colour = "white")
+q <- ggplot(res, aes(x = factor(1), y = OTU, height=0.95))
+q <- q + geom_tile(aes(fill = p_value), colour = "white")
 q <- q + scale_fill_gradient(low = "#1aff1a", high = "#4b0092", limits=c(0,0.05)) #, guide = "none"
 q <- q + xlab("pvalue") + ylab("Genera")
 q <- q + theme(axis.text.x = element_text(size = 13),
                axis.text.y = element_text(size = 13),
              axis.ticks = element_blank(), 
-             # legend.position = "bottom",
-             axis.title.x = element_blank(),
-             axis.title.y = element_text(size=14))
+             legend.position = "left",
+             axis.title.x = element_text(size=13),
+             axis.title.y = element_text(size=13))
 q
 
-fg <- ggplot(Dna, aes(x=taxa, y=controlvstreated, fill=timepoint)) + geom_bar(width=0.95,stat="identity")
+fg <- ggplot(res, aes(x=OTU, y=Treated, fill=timepoint)) + geom_bar(width=0.95,stat="identity")
 # fg <- fg + coord_flip() 
 # + scale_fill_manual(values = "#E69F00", #0072B2",) #3
 fg <- fg + coord_flip() + scale_fill_manual(values = c("#FFC20A", "#0C7BDC", "#e66100", "#40b0A6" )) #colorblind safe 
-fg <- fg + ylab("Behaviour Treated vs. Control") + xlab("Taxa") + ylim(-0.03, 0.03)
-fg <- fg + theme(axis.text.x = element_text(size = 11),
+fg <- fg + ylab("Behaviour Treated vs. Control") + xlab("Taxa") + ylim(-0.455,0.0014) 
+fg <- fg + theme(axis.text.x = element_text(size = 13),
                  axis.text.y = element_blank(),
                  axis.ticks = element_blank(),
                  # legend.position = "bottom",
-                 axis.title.x = element_text(size=14),
+                 axis.title.x = element_text(size=13),
                axis.title.y = element_blank())
 fg
 
-FF <- ggarrange(q, fg, widths=c(0.5,1), heights=c(1,1), labels = c("A","B"))
-print(FF)
+FG <- ggarrange(q, fg, widths=c(0.35,0.5), heights=c(1,1))
 
-ggsave(filename = "~/Results/Milkqua_milk_invivopublication/results/taxonomy/barplot_pval-phyla.png", plot = FF, device = "png", width = 15, height = 1.2)
+
+write.csv(Dna, "~/Results/Milkqua_milk_invivopublication/results/taxonomy/phyla-behav.csv")
+
+ggsave(filename = "~/Results/Milkqua_milk_invivopublication/results/taxonomy/acc-milk.png", plot = FG, device = "png", width = 20, height = 1.35, dpi=300)
+
+#FF <- ggarrange(p, q, fg, widths=c(0.75, 0.35,0.5), heights=c(1,1,1), labels = c("A","B", "C"), ncol = 3)
+#print(FF)
+#ggsave(filename = "~/Results/Milkqua_milk_invivopublication/results/taxonomy/tot-phyla-milk.png", plot = FF, device = "png", width = 15, height = 6)
 ```
 
 #core microbiota genus level
@@ -410,13 +410,13 @@ ggsave(filename = "~/Results/Milkqua_milk_invivopublication/results/taxonomy/bar
 otu_genus=select(otu, 2:64,70)
 otu_genus <- otu_genus %>% group_by(Genus) %>% summarise(across(everything(),sum))
 
-uncult <- slice(otu_genus, 1, 370:379)
+uncult <- slice(otu_genus, 1, 377:386)
 uncult$Genus <- "Uncultured or unknown"
 uncult <- uncult %>%
   group_by(Genus) %>%
   summarise(across(everything(), sum))
 
-otu_genus <- otu_genus[-c(1, 370:379), ]
+otu_genus <- otu_genus[-c(1, 377:386), ]
 otu_genus <- rbind(otu_genus, uncult)
 ```
 
@@ -570,16 +570,17 @@ p <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=genus)) + geom_bar(width=1,sta
 p <- p + facet_grid(treatment~timepoint)
 p <- p + guides(fill = guide_legend(title = "Genera")) 
 my_palette2 = get_palette(c("brown", "darkorange1","pink1","seagreen2", "darkmagenta", "burlywood1",  "burlywood3", "chartreuse4", "coral", "peachpuff","gray", "mediumorchid3", "yellow3", "turquoise4", "green3","gold","blue","magenta","cyan","yellow","red","purple", "darkorchid1",  "slategray3", "orangered", "olivedrab", "plum", "lightcyan", "gray38", "forestgreen", "firebrick1"), length(unique(D$genus)))
-p <- p + xlab("Relative abundances") + ylab("Percentages")
+p <- p + xlab("Relative abundances") + ylab("Percentages") 
 p <- p + scale_fill_manual(values = my_palette2)
-p <- p + theme(text = element_text(size=10),
-               axis.text.x = element_text(size=8),
+p <- p + theme(text = element_text(size=13),
+               axis.text.x = element_text(size=13),
                # axis.text.y = element_text(size=4),
-               strip.text = element_text(size = 8),
+               strip.text = element_text(size = 13),
                axis.text.y = element_blank(),
                axis.ticks.y = element_blank(),
-               legend.text=element_text(size=8),
-               legend.title=element_text(size=8))
+               legend.text=element_text(size=13),
+               legend.title=element_text(size=13), legend.position = "none")
+boxplotG <- p
 print(p)
 ggsave(p, height = 5, width = 12, filename ="~/Results/Milkqua_milk_invivopublication/results/taxonomy/genera_boxplot.png")
 ```
@@ -755,18 +756,18 @@ Dna$controlvstreated <- (Dna$Control-Dna$Treated)
 Dna$Control <-NULL
 Dna$Treated <-NULL
 
-Dna$timepoint = factor(Dna$timepoint, levels = c("day 0","day 7","day 21","day 28"))
+Dna$timepoint = factor(Dna$timepoint, levels = c("T0","T7","T21","T28"))
 
 q <- ggplot(Dna, aes(x = factor(1), y = taxa, height=0.95))
 q <- q + geom_tile(aes(fill = p.value), colour = "white")
 q <- q + scale_fill_gradient(low = "#1aff1a", high = "#4b0092", limits=c(0,0.05)) #, guide = "none"
 q <- q + xlab("") + ylab("Genera")
-q <- q + theme(axis.text.x = element_blank(),
+q <- q + theme(axis.text.x = element_text(size = 13),
                axis.text.y = element_text(size = 13),
              axis.ticks = element_blank(), 
              legend.position = "left",
-             axis.title.x = element_blank(),
-             axis.title.y = element_text(size=14))
+             axis.title.x = element_text(size=13),
+             axis.title.y = element_text(size=13))
 q
 
 fg <- ggplot(Dna, aes(x=taxa, y=controlvstreated, fill=timepoint)) + geom_bar(width=0.95,stat="identity")
@@ -774,7 +775,7 @@ fg <- ggplot(Dna, aes(x=taxa, y=controlvstreated, fill=timepoint)) + geom_bar(wi
 # + scale_fill_manual(values = "#E69F00", #0072B2",) #3
 fg <- fg + coord_flip() + scale_fill_manual(values = c("#FFC20A", "#0C7BDC", "#e66100", "#40b0A6" )) #colorblind safe 
 fg <- fg + ylab("") + xlab("Taxa") + ylim(-0.03, 0.03)
-fg <- fg + theme(axis.text.x = element_text(size = 11),
+fg <- fg + theme(axis.text.x = element_text(size = 13),
                  axis.text.y = element_blank(),
                  axis.ticks = element_blank(),
                  # legend.position = "top",
@@ -782,10 +783,16 @@ fg <- fg + theme(axis.text.x = element_text(size = 11),
                axis.title.y = element_blank())
 fg
 
-FF <- ggarrange(q, NULL, fg, widths=c(0.5,0.025,1), heights=c(1,1,1), labels = c("A","","B"), label.x = -0.015 , nrow = 1)
+write.csv(Dna, "~/Results/Milkqua_milk_invivopublication/results/taxonomy/genera-behav.csv")
+
+FF <- ggarrange(q, fg, widths=c(0.35,0.65), heights=c(1,1))
 print(FF)
 
-ggsave(filename = "~/Results/Milkqua_milk_invivopublication/results/taxonomy/taxonomy_barplot_pval-gen.png", plot = FF, device = "png", width = 15, height = 5)
+ggsave(filename = "~/Results/Milkqua_milk_invivopublication/results/taxonomy/tot-genera-milk.png", device = "png", dpi = 300, width = 20, height = 6)
+
+#FF <- ggarrange(p, q, NULL, fg, widths=c(0.5,0.025,1), heights=c(1,1,1), labels = c("A","","B"), label.x = -0.015 , nrow = 1)
+#print(FF)
+#ggsave(filename = "~/Results/Milkqua_milk_invivopublication/results/taxonomy/taxonomy_barplot_pval-gen.png", plot = FF, device = "png", width = 15, height = 5)
 ```
 
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------

@@ -35,10 +35,12 @@ metadata <- fread("/home/mycelium/Results/Milkqua_skinswab_invivopublication/map
 names(metadata)[1] <- "sample"
 names(metadata)[10] <- "type"
 
-metadata$timepoint[metadata$timepoint == "before_oil"] <- "day 0A"
-metadata$timepoint[metadata$timepoint == "after_oil"] <- "day 0B"
-metadata$timepoint[metadata$timepoint == "8"] <- "day 8"
+metadata$timepoint[metadata$timepoint == "before_oil"] <- "T0"
+metadata$timepoint[metadata$timepoint == "after_oil"] <- "T0b"
+metadata$timepoint[metadata$timepoint == "8"] <- "T7"
 metadata <- metadata [order(metadata$sample),]
+
+metadata <- subset(metadata, timepoint != "T0b")
 
 meta <- metadata [,c(1,12,13)]
 meta_cols = names(meta)
@@ -48,12 +50,32 @@ otu <- fread("/home/mycelium/Results/Milkqua_skinswab_invivopublication/results/
 otu <- filter(otu, Family !="Mitochondria")
 otu <- filter(otu, Class !="Chloroplast")
 otu <- filter(otu, Order !="Chloroplast")
+
+vec1 <- metadata$sample
+N <- otu %>% select(all_of(vec1))
+N$Phylum <- otu$Phylum
+N$Genus <- otu$Genus
 ```
+
+```{r}
+IF YOU NEED TO CHECK NUMBER OF otuS
+
+otu <- fread("/home/mycelium/Results/Milkqua_skinswab_invivopublication/results/otu_norm_CSS.csv", header = TRUE, sep = ",")
+otu <- filter(otu, Family !="Mitochondria")
+otu <- filter(otu, Class !="Chloroplast")
+otu <- filter(otu, Order !="Chloroplast")
+otu <- otu %>% select(-c(`sample-2`, `sample-5`, `sample-8`, `sample-12`, `sample-15`, `sample-17`, `sample-19`, `sample-21`, `sample-24`, `sample-25`, `sample-26`, `sample-28`, `sample-31`, `sample-30`, `sample-32`))
+otu <- select(otu, 2:33)
+otu$sum <- rowSums(otu)
+0.0 %in% otu$sum
+
+```
+
 
 #core microbiota phylum level
 
 ```{r}
-otu_phylum=select(otu, 2:48,50)
+otu_phylum=select(N, 1:33)
 otu_phylum <- otu_phylum %>% group_by(Phylum) %>% summarise(across(everything(),sum))
 otu_box <- gather(otu_phylum, key = "sample", value ="counts", -Phylum) %>% spread(key = Phylum, value = counts)
 
@@ -182,15 +204,16 @@ p <- p + guides(fill = guide_legend(title = "Phyla"))
 my_palette2 = get_palette(c("chartreuse4", "magenta","cyan","yellow","red","coral", "gray", "mediumorchid3", "turquoise4","yellow3",  "green3","gold","blue","purple", "darkorange1","pink1","seagreen2", "darkmagenta", "burlywood3", "darkorchid1",  "slategray3", "orangered", "olivedrab", "plum", "lightcyan", "gray38", "forestgreen", "firebrick1"), length(unique(D$phylum)))
 p <- p + xlab("Relative abundances") + ylab("Percentages")
 p <- p + scale_fill_manual(values = my_palette2)
-p <- p + theme(text = element_text(size=10),
-               axis.text.x = element_text(size=8),
+p <- p + theme(text = element_text(size=13),
+               axis.text.x = element_text(size=13),
                # axis.text.y = element_text(size=4),
-               strip.text = element_text(size = 8),
+               strip.text = element_text(size = 13),
                axis.text.y = element_blank(),
                axis.ticks.y = element_blank(),
-               legend.text=element_text(size=8),
-               legend.title=element_text(size=8))
-print(p)
+               legend.text=element_blank(),
+               legend.title=element_blank(), legend.position = "none")
+boxplotP <- p
+print(boxplotP)
 ggsave(p, height = 5, width = 9, filename ="~/Results/Milkqua_skinswab_invivopublication/results/taxonomy/phylum_boxplot_SKINSWAB.png")
 ```
 
@@ -335,62 +358,20 @@ for (name in DX$taxa) {
 write.csv(res, "~/Results/Milkqua_skinswab_invivopublication/results/taxonomy/pvalues-phyl_SKINSWAB.csv")
 ```
 
-```{r}
-Dna <- filter(temp, level %in% c("phylum"))
-## remember here to comment the taxonomic level you are using
-
-Dna$controlvstreated <- (Dna$Control-Dna$Treated)
-Dna$Control <-NULL
-Dna$Treated <-NULL
-
-# write.csv(Dna, "~/Results/STOOLS/results/T2/results_T2.csv")
-
-Dna$timepoint = factor(Dna$timepoint, levels = c("day 0A","day 0B","day 7"))
-
-q <- ggplot(Dna, aes(x = factor(1), y = taxa, height=0.95))
-q <- q + geom_tile(aes(fill = p.value), colour = "white")
-q <- q + scale_fill_gradient(low = "#1aff1a", high = "#4b0092", limits=c(0,0.05)) #, guide = "none"
-q <- q + xlab("pvalue") + ylab("Genera")
-q <- q + theme(axis.text.x = element_text(size = 13),
-               axis.text.y = element_text(size = 13),
-             axis.ticks = element_blank(), 
-             # legend.position = "bottom",
-             axis.title.x = element_blank(),
-             axis.title.y = element_text(size=14))
-q
-
-fg <- ggplot(Dna, aes(x=taxa, y=controlvstreated, fill=timepoint)) + geom_bar(width=0.95,stat="identity")
-# fg <- fg + coord_flip() 
-# + scale_fill_manual(values = "#E69F00", #0072B2",) #3
-fg <- fg + coord_flip() + scale_fill_manual(values = c("#FFC20A", "#0C7BDC", "#e66100", "#40b0A6" )) #colorblind safe 
-fg <- fg + ylab("Behaviour Treated vs. Control") + xlab("Taxa") + ylim(-0.03, 0.03)
-fg <- fg + theme(axis.text.x = element_text(size = 11),
-                 axis.text.y = element_blank(),
-                 axis.ticks = element_blank(),
-                 # legend.position = "bottom",
-                 axis.title.x = element_text(size=14),
-               axis.title.y = element_blank())
-fg
-
-FF <- ggarrange(q, fg, widths=c(0.5,1), heights=c(1,1), labels = c("A","B"))
-print(FF)
-
-ggsave(filename = "~/Results/Milkqua_skinswab_invivopublication/results/taxonomy/barplot_pval-phyla_SKINSWAB.png", plot = FF, device = "png", width = 15, height = 2)
-```
 
 #core microbiota genus level
 
 ```{r}
-otu_genus=select(otu, 2:48,54)
+otu_genus=select(N, 1:32,34)
 otu_genus <- otu_genus %>% group_by(Genus) %>% summarise(across(everything(),sum))
 
-uncult <- slice(otu_genus, 1, 561:578)
+uncult <- slice(otu_genus, 1, 575:592)
 uncult$Genus <- "Uncultured or unknown"
 uncult <- uncult %>%
   group_by(Genus) %>%
   summarise(across(everything(), sum))
 
-otu_genus <- otu_genus[-c(1, 561:578), ]
+otu_genus <- otu_genus[-c(1, 575:592), ]
 otu_genus <- rbind(otu_genus, uncult)
 ```
 
@@ -463,7 +444,7 @@ A$Genera <- factor(A$Genera)
 pgenera <- ggplot(A, aes(x=factor(1), y=pct, fill=Genera)) + geom_bar(width=1,stat="identity") 
 pgenera <- pgenera + coord_polar(theta='y') + guides(fill = guide_legend(title = "Genera")) 
 pgenera <- pgenera + xlab("") + ylab("")
-pgenera <- pgenera + scale_fill_manual(values = c("red", "green", "khaki", "skyblue", "lightgrey", "blue1", "red2", "lightyellow", "steelblue1","maroon","lightblue","salmon","turquoise","violet","yellow","gray","tomato","navy","pink","springgreen4","peru","sienna1","plum4","mediumblue","darkorange","brown4","gold","bisque4"))
+pgenera <- pgenera + scale_fill_manual(values = c("red", "green", "khaki", "skyblue", "lightgrey", "blue1", "red2", "lightyellow", "steelblue1","maroon","lightblue","salmon","turquoise","violet","yellow","gray","tomato","navy","pink","springgreen4","peru","sienna1","plum4","mediumblue","darkorange","brown4","gold","bisque4", "lawngreen", "pink4", "khaki", "turquoise", "tan", "greenyellow", "goldenrod1"))
 pgenera <- pgenera + theme(text = element_text(size=20),
                # axis.text.x = element_text(size=20),
                # strip.text = element_text(size = 20),
@@ -471,7 +452,7 @@ pgenera <- pgenera + theme(text = element_text(size=20),
                axis.ticks = element_blank(),
                legend.text=element_text(size=20),
                legend.title=element_text(size=20))
-pgenera <- pgenera + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
+pgenera <- pgenera + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), legend.text = element_blank()) 
 pgenera
 
 g <- ggarrange(pphyla, pgenera, ncol = 2, labels = c("A","B"), heights= c(1,1), widths = c(0.5,1)) #heights = c(0.1,4))
@@ -544,15 +525,16 @@ p <- p + guides(fill = guide_legend(title = "Genera"))
 my_palette2 = get_palette(c("brown", "darkorange1","pink1","seagreen2", "darkmagenta", "burlywood1",  "burlywood3", "chartreuse4", "coral", "peachpuff","gray", "mediumorchid3", "yellow3", "turquoise4", "green3","gold","blue","magenta","cyan","yellow","red","purple", "darkorchid1",  "slategray3", "orangered", "olivedrab", "plum", "lightcyan", "gray38", "forestgreen", "firebrick1"), length(unique(D$genus)))
 p <- p + xlab("Relative abundances") + ylab("Percentages")
 p <- p + scale_fill_manual(values = my_palette2)
-p <- p + theme(text = element_text(size=10),
-               axis.text.x = element_text(size=8),
+p <- p + theme(text = element_text(size=13),
+               axis.text.x = element_text(size=13),
                # axis.text.y = element_text(size=4),
-               strip.text = element_text(size = 8),
+               strip.text = element_text(size = 13),
                axis.text.y = element_blank(),
                axis.ticks.y = element_blank(),
-               legend.text=element_text(size=8),
-               legend.title=element_text(size=8))
-print(p)
+               legend.text=element_blank(),
+               legend.title=element_blank(), legend.position = "none")
+boxplotG <- p
+print(boxplotG)
 ggsave(p, height = 5, width = 12, filename ="~/Results/Milkqua_skinswab_invivopublication/results/taxonomy/genera_boxplot_SKINSWAB.png")
 ```
 
@@ -690,33 +672,33 @@ m1 <- m1 %>% filter(level=="genus")
 # m1$taxa <- paste(m1$taxa,", Timepoint:", m1$timepoint)
 
 
-for (name in DX$taxa) {
-  
-  print(paste("analysing OTU ", name))
-  pval = as.numeric(DX[DX$taxa==name,"p.value"])
-  level = DX[DX$taxa==name,"level"]
-  tpoint = DX[DX$taxa==name, "timepoint"]
-  
-  ## estimating coefficients
-  temp2 = filter(m1, taxa == name)
-  temp2$treatment <- factor(temp2$treatment, levels = c("Control","Treated"))
-  g = lm(counts ~ treatment, data = temp2)
-  
-  ## extracting coefficients
-  coefs = g$coefficients
-  coefs = coefs[!grepl("(Intercept)", names(coefs))]
-  names(coefs) = gsub("treatment","",names(coefs))
-  coefs = as.data.frame(t(coefs))
-  
-  ## adding metadata
-  coefs["level"] = level
-  coefs["OTU"] = name
-  coefs["p_value"] = pval
-  coefs["timepoint"] = tpoint
-
-  # saving results
-  res = rbind.data.frame(res, coefs)
-}
+# for (name in DX$taxa) {
+#   
+#   print(paste("analysing OTU ", name))
+#   pval = as.numeric(DX[DX$taxa==name,"p.value"])
+#   level = DX[DX$taxa==name,"level"]
+#   tpoint = DX[DX$taxa==name, "timepoint"]
+#   
+#   ## estimating coefficients
+#   temp2 = filter(m1, taxa == name)
+#   temp2$treatment <- factor(temp2$treatment, levels = c("Control","Treated"))
+#   g = lm(counts ~ treatment, data = temp2)
+#   
+#   ## extracting coefficients
+#   coefs = g$coefficients
+#   coefs = coefs[!grepl("(Intercept)", names(coefs))]
+#   names(coefs) = gsub("treatment","",names(coefs))
+#   coefs = as.data.frame(t(coefs))
+#   
+#   ## adding metadata
+#   coefs["level"] = level
+#   coefs["OTU"] = name
+#   coefs["p_value"] = pval
+#   coefs["timepoint"] = tpoint
+# 
+#   # saving results
+#   res = rbind.data.frame(res, coefs)
+# }
 
 write.csv(res, "~/Results/Milkqua_skinswab_invivopublication/results/taxonomy/pvalues-gen_SKINSWAB.csv")
 ```
@@ -727,7 +709,7 @@ Dna$controlvstreated <- (Dna$Control-Dna$Treated)
 Dna$Control <-NULL
 Dna$Treated <-NULL
 
-Dna$timepoint = factor(Dna$timepoint, levels = c("day 0A","day 0B","day 8"))
+Dna$timepoint = factor(Dna$timepoint, levels = c("T0","T7"))
 
 fwrite(Dna, file = "~/Results/Milkqua_skinswab_invivopublication/results/taxonomy/useful_SKINSWAB.csv", col.names = TRUE, sep = ",")
 
@@ -739,28 +721,29 @@ q <- q + xlab("pvalue") + ylab("Genera")
 q <- q + theme(axis.text.x = element_text(size = 13),
                axis.text.y = element_text(size = 13),
              axis.ticks = element_blank(), 
-             # legend.position = "bottom",
-             axis.title.x = element_blank(),
-             axis.title.y = element_text(size=14))
+             legend.position = "left",
+             # axis.title.x = element_blank(),
+             axis.title.y = element_text(size=13))
 q
 
 fg <- ggplot(Dna, aes(x=taxa, y=controlvstreated, fill=timepoint)) + geom_bar(width=0.95,stat="identity")
 # fg <- fg + coord_flip() 
 # + scale_fill_manual(values = "#E69F00", #0072B2",) #3
 fg <- fg + coord_flip() + scale_fill_manual(values = c("#FFC20A", "#0C7BDC", "#e66100", "#40b0A6" )) #colorblind safe 
-fg <- fg + ylab("Behaviour Treated vs. Control") + xlab("Taxa") + ylim(-0.003, 0.003)
-fg <- fg + theme(axis.text.x = element_text(size = 11),
-                 axis.text.y = element_blank(),
-                 axis.ticks = element_blank(),
-                 # legend.position = "bottom",
-                 axis.title.x = element_text(size=14),
-               axis.title.y = element_blank())
+fg <- fg + ylab("Behaviour Treated vs. Control") + xlab("Taxa") + ylim(-0.008, 0.0025)
+fg <- fg + theme (axis.text.x = element_text(size = 13), axis.text.y = element_blank(), axis.ticks = element_blank(), axis.title.x = element_text(size=13), axis.title.y =  element_blank())
 fg
 
-FF <- ggarrange(q, fg, widths=c(0.5,1), heights=c(1,1), labels = c("A","B"))
+write.csv(Dna, "~/Results/Milkqua_skinswab_invivopublication/results/taxonomy/skin-genera-behav.csv")
+
+FF <- ggarrange(q, fg, widths=c(0.35,0.65), heights=c(1,1))
 print(FF)
 
-ggsave(filename = "~/Results/Milkqua_skinswab_invivopublication/results/taxonomy/taxonomy_barplot_pval-gen_SKINSWAB.png", plot = FF, device = "png", width = 15, height = 9)
+ggsave(filename = "~/Results/Milkqua_skinswab_invivopublication/results/taxonomy/tot-genera-skin.png", plot = FF, device = "png", dpi = 300, width = 20, height = 6.5)
+
+#FF <- ggarrange(q, fg, widths=c(0.5,1), heights=c(1,1), labels = c("A","B"))
+#print(FF)
+#ggsave(filename = "~/Results/Milkqua_skinswab_invivopublication/results/taxonomy/taxonomy_barplot_pval-gen_SKINSWAB.png", plot = FF, device = "png", width = 15, height = 9)
 ```
 
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------

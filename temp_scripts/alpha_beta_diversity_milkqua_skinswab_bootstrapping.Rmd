@@ -77,7 +77,7 @@ p <- p + xlab("dim1") + ylab("dim2")
 p
 
 fname = file.path("~/Results/Milkqua_skinswab_bootstrapping/results/beta/beta_clustering.png")
-ggsave(filename = fname, plot = p, device = "png", dpi = 300, width = 30, height = 30)
+ggsave(filename = fname, plot = p, device = "png", dpi = 300, width = 10, height = 7)
 ```
 
 
@@ -124,9 +124,6 @@ p <- p + coord_trans(y="log2")
 p <- p + scale_y_continuous(breaks=pretty_breaks(n=20)) 
 p <- p + scale_y_continuous(breaks = c(0, 0.05, 0.10, 1)) +  theme(axis.text.x = element_text(angle=90))
 #p <- p + scale_color_manual(values = c("#f8766d", "#d39200", "#93aa00", "#00ba38", "#00c19f", "#00b9e3", "#619cff", "#db72fb", "#ff61c3"))
-#p <- p + scale_shape_manual(values = c(0, 1, 2, 23, 3,4,7, 8, 10))
-#p1 <- p1 + gghighlight(p.value < 0.10, label_key = metric, use_direct_label = FALSE)
-#p <- p +  theme(legend.key.size = unit(0.05, 'cm'))
 p
 
 ggsave(filename = "~/Results/Milkqua_skinswab_bootstrapping/results/alpha/scatterplot_alpha_base.png", width = 6, height = 4, plot = p, device = "png")
@@ -174,9 +171,9 @@ write.csv(res, "~/Results/Milkqua_skinswab_bootstrapping/results/alpha/Bootstrap
 ```{r}
 res <- fread("~/Results/Milkqua_skinswab_bootstrapping/results/alpha/Bootstrap_10000replicates_7indicesTEST.csv")
 
-p <- ggplot(data = res, mapping= aes(x=metric, y=p.value)) + geom_boxplot(aes(fill=metric))
-p <- p + facet_wrap(~term) + theme(axis.text.x = element_text(angle=90))
-p
+s <- ggplot(data = res, mapping= aes(x=metric, y=p.value)) + geom_boxplot(aes(fill=metric))
+s <- s + facet_wrap(~term) + theme(axis.text.x = element_text(angle=90))
+s
 #ggsave(filename = "~/Results/SKINSWABS/results/bootstrapping_1000replicates_7indices_boxplot.png", width = 10, height = 5, plot = p, device = "png")
 ```
 
@@ -210,10 +207,9 @@ px
 ```
 `
 ```{r}
-tot <- ggarrange(p, px, widths=c(1, 0.5), heights=c(1, 1),  labels=c("A", "B"), nrow=1, ncol=2)
-print(tot)
-
-ggsave(filename = "~/Results/Milkqua_skinswab_bootstrapping/results/alpha_Bootstrap_2_10000replicates_7indices.png", width = 15, height = 5, plot = tot, device = "png")
+part1  <- ggarrange(p, px, widths=c(1, 1), heights=c(1, 1),  labels=c("A", "B"), nrow=1, ncol=2)
+part2 <- ggarrange(part1, s, widths=c(1, 1), heights=c(1, 1),  labels=c("", "C"), nrow=2, ncol=1)
+ggsave(filename = "~/Results/Milkqua_skinswab_bootstrapping/results/alpha_Bootstrap_2_10000replicates_7indices.png", width = 12, height = 12, plot = part2, device = "png")
 ```
 
 ## grafico boostrapping

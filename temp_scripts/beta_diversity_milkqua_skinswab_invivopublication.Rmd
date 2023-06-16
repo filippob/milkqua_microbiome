@@ -35,11 +35,12 @@ Between-sample variability from 16S rRna-gene sequencing data.
 metadata <- fread("/home/mycelium/Results/Milkqua_skinswab_invivopublication/mapping_milkqua_skinswabs.csv")
 names(metadata)[1] <- "sample"
 names(metadata)[11] <- "Cow_ID"
-metadata$timepoint[metadata$timepoint == "before_oil"] <- "day 0A"
-metadata$timepoint[metadata$timepoint == "after_oil"] <- "day 0B"
-metadata$timepoint[metadata$timepoint == "8"] <- "day 8"
+metadata$timepoint[metadata$timepoint == "before_oil"] <- "T0"
+# metadata$timepoint[metadata$timepoint == "after_oil"] <- "T0b"
+metadata$timepoint[metadata$timepoint == "8"] <- "T7"
 metadata$sample <-  gsub("sample-","sample.", as.character(metadata$sample))
 metadata$sample2 <-  gsub("sample.","sample-", as.character(metadata$sample))
+metadata <- subset(metadata, timepoint != "after_oil")
 ```
 
 ## Clustering
@@ -53,12 +54,12 @@ matrice$sample <- gsub("sample-", "sample.", as.character(matrice$sample))
 
 vec <- filter(metadata, sample_type == "skinswab") %>% select(sample) %>% pull()
 vex <- names(matrice) %in% vec
-mat_milk = matrice[vex,vex]
+mat_skin = matrice[vex,vex]
 # 
-mat_milk$treatment <- as.character(metadata$treatment[match(row.names(mat_milk),metadata$sample)])
-mat_milk$timepoint <- as.character(metadata$timepoint[match(row.names(mat_milk),metadata$sample)])
+mat_skin$treatment <- as.character(metadata$treatment[match(row.names(mat_skin),metadata$sample2)])
+mat_skin$timepoint <- as.character(metadata$timepoint[match(row.names(mat_skin),metadata$sample2)])
 
-matx= data.matrix(select(mat_milk, -c(treatment,timepoint)))
+matx= data.matrix(select(mat_skin, -c(treatment,timepoint)))
 
 ## MDS
 mds <- cmdscale(as.dist(matx))
@@ -75,10 +76,47 @@ mds$timepoint <- metadata$timepoint[match(rownames(mds), metadata$sample2)]
 mds$sample <- metadata$sample[match(rownames(mds), metadata$sample2)]
 #mds <- mutate(mds, cow = as.factor(cow))
 
-p <- ggplot(mds, aes(V1,V2)) + geom_point(aes(colour = timepoint, shape = treatment), size = 3) #+ stat_ellipse(aes(x=V1, y=V2,color=timepoint), type="norm")
-p <- p + xlab("dim1") + ylab("dim2")
-p
+s <- ggplot(mds, aes(V1,V2)) + geom_point(aes(colour = timepoint, shape = treatment), size = 3) + stat_ellipse(aes(x=V1, y=V2,color=timepoint), type="norm")
+s <- s + xlab("dim1") + ylab("dim2")
+s
 
 fname = file.path("~/Results/Milkqua_skinswab_invivopublication/results/beta/beta_SKINSWAB-2.png")
-ggsave(filename = fname, plot = p, device = "png", dpi = 300, width = 30, height = 30)
+ggsave(filename = fname, plot = s, device = "png", dpi = 300, width = 30, height = 30)
 ```
+
+## Significance of between-group distances
+
+Significance values based on permuted analysis of variance (999 permutations), repeated 100 times.
+
+```{r, label='permanova', echo=FALSE}
+pv_treatment <- replicate(100, adonis2(matx ~ mat_skin$treatment, permutations = 999)$"Pr(>F)"[1], simplify = "vector")
+
+pv_timepoint <- replicate(100, adonis2(matx ~ mat_skin$timepoint, permutations = 999)$"Pr(>F)"[1], simplify = "vector")
+
+pv_treat_time <- replicate(100, adonis2(matx ~ mat_skin$treatment + mat_skin$timepoint + mat_skin$timepoint:mat_skin$treatment, permutations = 999)$"Pr(>F)"[1], simplify = "vector")
+
+
+permanova <- function(mat,term,perms) {
+  
+  perm <- how(nperm = sample(perms,1))
+  obj <- adonis2(mat ~ term, add = TRUE, parallel = TRUE, permutations = perm)
+  return(obj$aov.tab$`Pr(>F)`[1])
+}
+
+pv_treat_time2 <- replicate(100,
+  adonis2(matx ~ mat_skin$treatment + mat_skin$timepoint + mat_skin$timepoint:mat_skin$treatment, permutations = 999)$"Pr(>F)"[1],
+  simplify = "vector"
+)
+
+```
+
+- between treatments: p-value = **`r mean(pv_treatment)`** (std = `r sd(pv_treatment)`)
+- between types: p-value = **`r mean(pv_timepoint)`** (std = `r sd(pv_timepoint)`)
+- between treatments and type =  p-value = **`r mean(pv_treat_time)`** (std = `r sd(pv_treat_time)`)
+
+
+Below the ANOVA table from the model:
+
+$$
+X = \mu + treatment + timepoint + treatment*type + e
+$$
