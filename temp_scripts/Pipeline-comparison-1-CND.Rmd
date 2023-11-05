@@ -1,0 +1,172 @@
+---
+title: "pipeline-comparison-1-CND"
+author: "Chiara Gini"
+date: "2023-09-13"
+output: html_document
+---
+
+```{r packages, include=FALSE}
+library(data.table)
+library(tidyverse)
+```
+
+
+```{r setup general, include=FALSE}
+project_folder = "/home/mycelium/Results/PIPELINE_COMPARISON/RESULTS"
+analysis_folder = "99_mockrobiota-mock22/" #others will be 99_milkdataset & 99_mockrobiota
+base_dir <- file.path(project_folder, analysis_folder)
+```
+
+
+```{r setup Vsearch, include=FALSE}
+VS = data_frame()
+all_files_VS <- paste0(base_dir, list.files(base_dir, recursive = TRUE, pattern = "Vsearch"))
+for (filename in all_files_VS) {
+  show(filename)
+  tmp <- read.csv(filename)
+  tmp$file <- filename
+  tmp$X.OTU_ID <- as.character(tmp$X.OTU_ID)
+  VS = bind_rows(VS, tmp)
+}
+
+VS$V2 <- NULL 
+names(VS) <- gsub(x = names(VS), pattern = "_R1", replacement = "")
+VS <- subset(VS, select = -1)
+VS$file <- str_remove(VS$file, "/home/mycelium/Results/PIPELINE_COMPARISON/RESULTS/99_mockrobiota-mock22/otu_table_") #change here
+VS$file <- str_remove(VS$file, ".99-mockrobiota-mock22.csv") #change here
+VS <- VS %>% separate(file, c('pipeline', 'database'), sep = "_x_")
+# VS <- subset(VS, select = c(1:73)) #dedicated to the milk dataset
+VS$species <- NULL
+names(VS) <- gsub(x = names(VS), pattern = "X", replacement = "sample")
+VS$kingdom <- str_remove(VS$kingdom, "k__") #change here
+VS$phylum <- str_remove(VS$phylum, "p__") #change here
+VS$class <- str_remove(VS$class, "c__")
+VS$order <- str_remove(VS$order, "o__")
+VS$family <- str_remove(VS$family, "f__")
+VS$genus <- str_remove(VS$genus, "g__")
+```
+
+
+```{r setup Qiime2, include=FALSE}
+Q2 = data_frame()
+all_files_Q2 <- paste0(base_dir, list.files(base_dir, recursive = TRUE, pattern = "Qiime2"))
+for (filename in all_files_Q2) {
+  show(filename)
+  tmp <- fread(filename, skip = 1)
+  tmp$file <- filename
+  Q2 = bind_rows(Q2, tmp)
+}
+
+Q2$file <- str_remove(Q2$file, "/home/mycelium/Results/PIPELINE_COMPARISON/RESULTS/99_mockrobiota-mock22/feature-table-") #change here
+Q2$file <- str_remove(Q2$file, ".99-mockrobiota-mock22.tsv") #change here
+Q2 <- Q2 %>% separate(file, c('pipeline', 'database'), sep = "_x_")
+# Q2 <- Q2 %>% separate(`#OTU ID`, c("kingdom", "phylum", "class", "order", "family", "genus"), sep = ";")
+colnames(Q2)[1] <- "kingdom"
+colnames(Q2)[2] <- "phylum"
+colnames(Q2)[3] <- "class"
+colnames(Q2)[4] <- "order"
+colnames(Q2)[5] <- "family"
+colnames(Q2)[6] <- "genus" 
+colnames(Q2)[7] <- "sample1"
+# colnames(Q2)[8] <- "sample2"
+# colnames(Q2)[9] <- "sample3" 
+Q2$kingdom <- str_remove(Q2$kingdom, "k__") #change here
+Q2$phylum <- str_remove(Q2$phylum, "p__") #change here
+Q2$class <- str_remove(Q2$class, "c__")
+Q2$order <- str_remove(Q2$order, "o__")
+Q2$family <- str_remove(Q2$family, "f__")
+Q2$genus <- str_remove(Q2$genus, "g__")
+```
+
+
+```{r setup Micca, include=FALSE}
+Mi = data_frame()
+all_files_Mi <- paste0(base_dir, list.files(base_dir, recursive = TRUE, pattern = "Micca"))
+for (filename in all_files_Mi) {
+  show(filename)
+  tmp <- read.csv(filename, header = T)
+  tmp$file <- filename
+  Mi = bind_rows(Mi, tmp)
+}
+
+# names(Mi) <- gsub(x = names(Mi), pattern = "X", replacement = "sample")
+## Mi$sample <- NULL
+Mi$OTU <- NULL
+Mi$species <- NULL
+Mi$file <- str_remove(Mi$file, "/home/mycelium/Results/PIPELINE_COMPARISON/RESULTS/99_mockrobiota-mock22/taxonomy_") #change here
+Mi$file <- str_remove(Mi$file, ".99-mockrobiota-mock22.csv") #change here
+Mi <- Mi %>% separate(file, c('pipeline', 'database'), sep = "_x_")
+Mi$kingdom <- str_remove(Mi$kingdom, "k__") #change here
+Mi$phylum <- str_remove(Mi$phylum, "p__") #change here
+Mi$class <- str_remove(Mi$class, "c__")
+Mi$order <- str_remove(Mi$order, "o__")
+Mi$family <- str_remove(Mi$family, "f__")
+Mi$genus <- str_remove(Mi$genus, "g__")
+```
+
+
+```{r setup Qiime1.9, include=FALSE}
+Q1_9 = data_frame()
+all_files_Q1_9 <- paste0(base_dir, list.files(base_dir, recursive = TRUE, pattern = "Qiime1.9"))
+for (filename in all_files_Q1_9) {
+  show(filename)
+  tmp <- fread(filename) #, skip = 1)
+  tmp$file <- filename
+  tmp$`#OTU_ID` <- as.character(tmp$`#OTU_ID`)
+  Q1_9 = bind_rows(Q1_9, tmp)
+}
+
+Q1_9$`#OTU_ID` <- NULL
+# names(Q1_9) <- gsub(x = names(Q1_9), pattern = "cutadapt", replacement = "")
+Q1_9$file <- str_remove(Q1_9$file, "/home/mycelium/Results/PIPELINE_COMPARISON/RESULTS/99_mockrobiota-mock22/otu_table_") #filtered_") if milkdataset, else change 
+Q1_9$file <- str_remove(Q1_9$file, ".99-mockrobiota-mock22.tsv") #change here
+Q1_9 <- Q1_9 %>% separate(file, c('pipeline', 'database'), sep = "_x_")
+# Q1_9 <- Q1_9 %>% separate(taxonomy, c("kingdom", "phylum", "class", "order", "family", "genus"), sep = ";")
+Q1_9$kingdom <- str_remove(Q1_9$kingdom, "k__") #change here
+Q1_9$phylum <- str_remove(Q1_9$phylum, "p__") #change here
+Q1_9$class <- str_remove(Q1_9$class, "c__")
+Q1_9$order <- str_remove(Q1_9$order, "o__")
+Q1_9$family <- str_remove(Q1_9$family, "f__")
+Q1_9$genus <- str_remove(Q1_9$genus, "g__")
+Q1_9$species <- NULL
+```
+
+```{r taxonomic df, include=FALSE}
+res <- rbind(Mi, Q1_9, Q2, VS)
+
+phyla <- subset(res, select=-c(kingdom, class, order,family, genus))
+genera <- subset(res, select=-c(kingdom, phylum, class, order, family))
+```
+
+```{r phyla}
+phyla$phylum <- sub ("^$", "Undefined", phyla$phylum)
+phyla$phylum <- sub ("NA", "Undefined", phyla$phylum)
+phyla$phylum <- sub ("__", "Undefined", phyla$phylum)
+phyla$info <- paste(phyla$phylum, phyla$pipeline, phyla$database, sep = ";")
+temp <- subset(phyla, select = -c(phylum, pipeline, database))
+temp <- temp %>%
+  group_by(info) %>%
+  summarise(across(everything(), sum))
+temp2 <- subset(temp, select = -c(info))
+temp2 <- temp2/colSums(temp2)
+# temp$tot <- rowSums(temp)
+phyla <- cbind(temp2, temp$info)
+#colnames(phyla)[66] <- "info" 
+# colnames(phyla)[5] <-"info"
+colnames(phyla)[2] <-"info"
+
+phyla <- phyla %>% separate(info, c("phylum", "pipeline", "database"), sep = ";")
+phyla <- subset(phyla, select = c(pipeline, database, sample1, phylum)) #sample 1 è tot in tutte le piepline tranne mock 22
+# piepercent<- round(100*x/sum(x), 1)
+```
+
+```{r phyla}
+q <- ggplot(phyla, aes(x=factor(1), y= sample1, fill=phylum)) +
+  geom_bar(stat="identity", width=1, position = "fill") +
+  coord_polar("y", start=0) +
+  facet_grid(pipeline ~ database) +
+  theme(legend.position = "right", panel.grid = element_blank(), axis.text = element_blank()) +
+  xlab("Pipelines") + ylab("Datasets")
+  
+ggsave(filename = file.path(project_folder, analysis_folder, "test-mockrobiota-mock22.png"), plot = q, device = "png", width = 25, height = 10)
+```

@@ -1,0 +1,270 @@
+---
+title: "STOOLS_Taxonomy_OnlyControls"
+author: "Chiara Gini"
+date: "2022-11-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library("DT")
+library("knitr")
+library("tidyr")
+library("broom")
+library("vegan")
+library("ggpubr")
+library("ggplot2")
+library("reshape2")
+library("tidyverse")
+library("data.table")
+library("ggrepel")
+library("tibble")
+library("dplyr")
+library("cowplot")
+```
+ 
+#COMPARISON BETWEEN TREATMENTS
+
+```{r, echo=FALSE}
+metadata <- fread("/home/mycelium/Results/STOOLS/mapping_milkqua_stools.csv")
+metadata$sample <- paste0("sample-", metadata$MISEQ_ID)
+metadata$timepoint[metadata$timepoint==2] <- "45 days old"
+metadata$timepoint[metadata$timepoint==3] <- "13 months old"
+metadata <- metadata[,c(7,8,10)]
+metadata %>%
+  group_by(timepoint,treatment) %>%
+  dplyr::summarise(N=n())
+metadata <- metadata[metadata$treatment == "control"] #CHANGE HERE
+```
+
+```{r, echo=FALSE}
+otu <- fread("/home/mycelium/Results/STOOLS/results/otu_norm_CSS.csv", header = TRUE, sep = ",")
+otu <- filter(otu, Family !="Mitochondria")
+otu <- filter(otu, Class !="Chloroplast")
+otu_tax =select(otu, -1, -34:-40)
+otu_tax <- otu_tax/colSums(otu_tax)
+
+otu_genus <- cbind(otu_tax, otu$Genus)
+colnames(otu_genus)[33]<- "genera"
+otu_genus <- otu_genus %>% group_by(genera) %>% summarise_all(funs(sum))
+
+uncult <- slice(otu_genus, 1, 230:240)
+uncult$genera <- "Uncultured or unknown"
+uncult <- uncult %>%
+  group_by(genera) %>%
+  summarise(across(everything(), sum))
+
+otu_genus <- otu_genus[-c(1, 230:240), ]
+otu_genus <- rbind(otu_genus, uncult)
+
+otu_genus <- as.data.frame(t(otu_genus))
+colnames(otu_genus) <- otu_genus[1,]
+otu_genus <- otu_genus[-c(1),]
+otu_genus <- cbind(otu_genus, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
+
+metadata_cols = names(metadata)
+```
+
+###Relative abundances table
+
+```{r relative abundances total table}
+# otu_genus = subset(otu_genus, select = -c(timepoint, treatment, sample))
+
+otu_tot <- otu_genus
+taxa_names <- colnames(otu_tot)
+#rownames(otu_tot) <- otu_tot[,241]
+sample_names <- row.names(otu_tot)
+#otu_tot <- transpose(otu_tot)
+otu_tot <- as.data.frame(t(otu_tot))
+colnames(otu_tot) <- sample_names
+taxa_names <- as.data.frame(taxa_names)
+otu_tot$`#OTU ID` <- cbind(taxa_names$taxa_names)
+otu_tot <- otu_tot %>% dplyr::select(`#OTU ID`, everything())
+
+otu_tot <- gather(otu_tot, key = "sample", value ="counts", -`#OTU ID`) %>% spread(key = `#OTU ID`, value = counts)
+
+mO <- reshape2::melt(otu_tot,id.vars = metadata_cols, value.name = "counts", variable.name = "taxa")
+
+mO$level <- sapply(mO$taxa, function(x) length(strsplit(as.character(x),";")[[1]]) ) 
+
+get_taxa <- function(x,n) {
+  
+  z <- strsplit(x, split = ";")
+  res = lapply(z, function(x) x[n])
+  return(unlist(res))
+}
+
+new_taxa <- c(NULL)
+for (i in seq_along(mO$counts)) {
+  
+  arg1 = as.character(mO$taxa[i])
+  arg2 = ifelse(mO$level[i] <= 6, mO$level[i], 6)
+  
+  rr = get_taxa(arg1,arg2)
+  new_taxa <- c(new_taxa,rr)
+}
+
+mO$new_taxa <- new_taxa
+
+table(mO$level)
+neues <- c("genus") #,"species"
+altes <- seq(1) #2,6 if we want to include species
+mO$level <- neues[match(mO$level,altes)]
+
+## relative abundances
+mO$counts <- as.numeric(mO$counts)
+
+mO <- mO %>%
+  group_by(level,sample) %>%
+  mutate(tot = sum(counts), rel_abundance = counts/tot)
+
+D <- mO %>%
+  group_by(level,new_taxa,treatment,timepoint) %>%
+  summarise(avg_abund = round(mean(rel_abundance),4), std = round(sd(rel_abundance),3))
+```
+
+A table of relative abundances (and standard deviations) per taxa and treatment:
+
+```{r, tab2, echo=FALSE}
+D <- na.omit(D)
+D <- D %>%
+  group_by(new_taxa,timepoint,treatment) %>%
+#  filter(avg_abund > 0.01) %>% #ONE FILTER HERE
+  arrange(level,desc(avg_abund))
+
+kable(D)
+```
+
+### Significance of treatments per each timepoint
+ 
+The significance of differences between treatments (Control vs Treated with Essential Oil) was evaluated using a linear model (ANOVA) that included the effect of timepoints:
+ 
+$$
+counts_{ikj} = \mu + treatment_j + e_{ikj}
+$$
+This way, the variability due to region is removed when assessing the effect of treatments.
+ 
+```{r, echo=FALSE}
+m1 <- mO %>%
+  filter(!is.na(level)) %>%
+  arrange(level,timepoint)
+
+D <- m1 %>%
+  group_by(level, new_taxa) %>%
+  do(tidy(anova(lm(counts ~ timepoint, data = .)))) %>%
+  filter(term == "timepoint")
+
+D$level  <- factor(D$level,levels = c("genus"))
+D <- D %>%
+  arrange(level,new_taxa)
+
+datatable(D, options = list(pageLength=100)) %>%
+  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
+
+# write.csv(D, "~/Results/STOOLS/results/T2/taxonomy_T2.csv")
+```
+
+### Significance of treatments (per timepoint)
+
+The significance of differences between treatments (Control vs Treated) was evaluated using a linear model (ANOVA) that included the effect of time-points:
+
+$$
+counts_{ij} = \mu + treatment_j + e_{ij}
+$$
+
+this way, the variability due to region is removed when assessing the effect of treatments.
+
+```{r, echo=FALSE}
+m1 <- mO %>%
+  arrange(level,timepoint)
+save(m1, file = "~/Results/STOOLS/results/T2/Single_genera_signif_T2.RData")
+
+
+dd_counts <- mO %>%
+  group_by(level, new_taxa,timepoint,treatment) %>%
+  # summarise(avg = mean(counts)) %>%
+  summarise(avg = mean(rel_abundance)) %>%
+  spread(key = "timepoint", value = "avg")
+
+group_by(dd_counts, level) #%>% summarise(tot = sum(control))
+
+D <- m1 %>%
+  group_by(level, new_taxa, treatment) %>%
+  do(tidy(anova(lm(counts ~ timepoint, data = .)))) %>%
+  filter(term == "timepoint")
+
+D$level  <- factor(D$level,levels = c("genus")) #, "species"
+D <- D %>%
+  arrange(level,new_taxa)
+
+datatable(D, options = list(pageLength=100)) %>% 
+  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
+```
+
+```{r, echo=FALSE}
+DX <- D %>%
+  filter(`p.value` <= 0.05) %>% #ONE FILTER HERE
+  dplyr::select(c(level,new_taxa, `p.value`)) %>%
+  arrange(level,`p.value`)
+
+D0 <- mO %>%
+  dplyr::group_by(level,new_taxa, timepoint,treatment) %>%
+  dplyr::summarise(avg_counts = mean(counts))
+
+to_save = list(D,DX,D0)
+save(to_save, file = "~/Results/STOOLS/results/T2/taxonomy_stools_T2.RData")
+
+load("~/Results/STOOLS/results/T2/taxonomy_stools_T2.RData")
+D <- to_save[[1]]
+DX <- to_save[[2]]
+D0 <- to_save[[3]]
+
+dd <- spread(D0, key = timepoint, value = avg_counts)
+temp <- inner_join(DX,dd, by = c("level" = "level", "new_taxa" = "new_taxa"))
+fwrite(temp, file = "~/Results/STOOLS/results/T2/significant_otus_T2.csv", col.names = TRUE, sep = ",")
+print (dd)
+
+# temp$new_taxa <- paste(temp$new_taxa,", Timepoint:", temp$timepoint)
+# temp <- temp %>% filter(level == "genus")
+```
+
+
+```{r}
+Dna <- filter(temp, level %in% c("genus"))
+## remember here to comment the taxonomic level you are using
+
+Dna$T1vsT2 <- (Dna$`45 days old`-Dna$`13 months old`)
+Dna$`13 months old` <-NULL
+Dna$`45 days old` <-NULL
+
+write.csv(Dna, "~/Results/STOOLS/results/taxonomy_genera.csv")
+
+# Dna$timepoint = factor(Dna$timepoint, levels = c( "45 days old", "13 months old"))
+
+q <- ggplot(Dna, aes(x = factor(1), y = new_taxa, height=0.95))
+q <- q + geom_tile(aes(fill = p.value), colour = "white")
+q <- q + scale_fill_gradient(low = "red", high = "green", limits=c(0,0.05)) #, guide = "none"
+q <- q + xlab("pvalue") + ylab("Genera")
+q <- q + theme(axis.text.x = element_text(size = 13),
+               axis.text.y = element_text(size = 13),
+             axis.ticks = element_blank(), 
+             legend.position = "left",
+             # axis.title.x = element_blank(),
+             axis.title.y = element_text(size=14))
+q
+
+fg <- ggplot(Dna, aes(x=new_taxa, y=T1vsT2)) + geom_bar(width=0.95,stat="identity")
+# fg <- fg + coord_flip() 
+# + scale_fill_manual(values = "#E69F00", #0072B2",) #3
+fg <- fg + coord_flip() + scale_fill_manual(values = c("#0072B2", "orange")) #2
+fg <- fg + ylab("Behaviour Treated vs. Control") + xlab("Taxa") + ylim(-0.0314, 0.1094)
+fg <- fg + theme(axis.text.x = element_text(size = 11),
+                 axis.text.y = element_blank(),
+                 axis.ticks = element_blank(),
+                 axis.title.x = element_text(size=14),
+               axis.title.y = element_blank())
+fg
+
+FF <- ggarrange(q, fg, widths=c(0.5,1), heights=c(1,1), labels = c("A","B","C","D"), legend = "left")
+print(FF)
+ggsave(filename = "~/Results/STOOLS/results/taxonomy_stools_OnlyControls.png", plot = FF, device = "png", width = 20, height = 20)
+```

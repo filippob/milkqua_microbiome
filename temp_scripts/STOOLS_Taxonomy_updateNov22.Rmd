@@ -27,8 +27,8 @@ library("cowplot")
 ```{r, echo=FALSE}
 metadata <- fread("/home/mycelium/Results/STOOLS/mapping_milkqua_stools.csv")
 metadata$sample <- paste0("sample-", metadata$MISEQ_ID)
-metadata$timepoint[metadata$timepoint==2] <- "45 days old"
-metadata$timepoint[metadata$timepoint==3] <- "13 months old"
+metadata$timepoint[metadata$timepoint==2] <- "T1"
+metadata$timepoint[metadata$timepoint==3] <- "T2"
 metadata <- metadata[,c(7,8,10)]
 metadata %>%
   group_by(timepoint,treatment) %>%
@@ -43,17 +43,33 @@ otu <- filter(otu, Class !="Chloroplast")
 otu_tax =select(otu, -1, -34:-40)
 otu_tax <- otu_tax/colSums(otu_tax)
 
+otu_phyla <- cbind(otu_tax, otu$Phylum)
+colnames(otu_phyla)[33]<- "phyla"
+otu_phyla <- otu_phyla %>% group_by(phyla) %>% summarise_all(funs(sum))
+otu_phyla <- as.data.frame(t(otu_phyla))
+colnames(otu_phyla) <- otu_phyla[1,]
+otu_phyla <- otu_phyla[-c(1),]
+otu_phyla <- cbind(otu_phyla, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
+
+otu_family <- cbind(otu_tax, otu$Family)
+colnames(otu_family)[33]<- "family"
+otu_family <- otu_family %>% group_by(family) %>% summarise_all(funs(sum))
+otu_family <- as.data.frame(t(otu_family))
+colnames(otu_family) <- otu_family[1,]
+otu_family <- otu_family[-c(1),]
+otu_family <- cbind(otu_family, treatment=metadata$treatment, timepoint=metadata$timepoint, sample=metadata$sample)
+
 otu_genus <- cbind(otu_tax, otu$Genus)
 colnames(otu_genus)[33]<- "genera"
 otu_genus <- otu_genus %>% group_by(genera) %>% summarise_all(funs(sum))
 
-uncult <- slice(otu_genus, 1, 230:238)
+uncult <- slice(otu_genus, 1, 229, 230, 232:240)
 uncult$genera <- "Uncultured or unknown"
 uncult <- uncult %>%
   group_by(genera) %>%
   summarise(across(everything(), sum))
 
-otu_genus <- otu_genus[-c(1, 230:238), ]
+otu_genus <- otu_genus[-c(1, 229, 230, 232:240), ]
 otu_genus <- rbind(otu_genus, uncult)
 
 otu_genus <- as.data.frame(t(otu_genus))
@@ -64,7 +80,90 @@ otu_genus <- cbind(otu_genus, treatment=metadata$treatment, timepoint=metadata$t
 metadata_cols = names(metadata)
 ```
 
-###genera for treatment IN TIMEPOINT 2
+###core phyla
+
+```{r}
+m1 <- reshape2::melt(otu_phyla,id.vars = metadata_cols, value.name = "counts", variable.name = "phyla")
+m1 <- m1 %>%
+  arrange(treatment)
+
+ordered_samples <- metadata %>%
+  arrange(metadata$treatment) %>%
+  dplyr::select(treatment,sample)
+
+m1$sample <- factor(m1$sample, levels = ordered_samples$sample)
+m1$counts <- as.numeric(m1$counts)
+m1$treatment <- factor(m1$treatment)
+
+D <- m1 %>%
+  group_by(phyla) %>%
+  summarise(N=n(), avg_abund = round(mean(counts),6), std = round(sd(counts),3)) %>%
+  # filter(avg_abund>0.02) %>% #ONE FILTER HERE
+  arrange(phyla,avg_abund)
+
+phyla <- D %>%
+  group_by(phyla) %>%
+  summarize("s"=sum(avg_abund)) %>%
+  arrange(desc(s)) %>%
+  dplyr::select(phyla,s)
+
+D$phyla <- factor(D$phyla, levels = rev(phyla$phyla[order(phyla$s)]))
+D <- D %>%
+  arrange(phyla)
+D$rescale <- D$avg_abund/sum(D$avg_abund)*100 
+kable(D)
+
+write.csv(D, "~/Results/STOOLS/results/core_microbiota_phyla.csv", sep = ",")
+```
+
+
+###core family
+
+```{r}
+m1 <- reshape2::melt(otu_family,id.vars = metadata_cols, value.name = "counts", variable.name = "family")
+m1 <- m1 %>%
+  arrange(treatment)
+
+ordered_samples <- metadata %>%
+  arrange(metadata$treatment) %>%
+  dplyr::select(treatment,sample)
+
+m1$sample <- factor(m1$sample, levels = ordered_samples$sample)
+m1$counts <- as.numeric(m1$counts)
+m1$treatment <- factor(m1$treatment)
+
+D <- m1 %>%
+  group_by(family) %>%
+  summarise(N=n(), avg_abund = round(mean(counts),6), std = round(sd(counts),3)) %>%
+  # filter(avg_abund>0.02) %>% #ONE FILTER HERE
+  arrange(family, avg_abund)
+
+family <- D %>%
+  group_by(family) %>%
+  summarize("s"=sum(avg_abund)) %>%
+  arrange(desc(s)) %>%
+  dplyr::select(family,s)
+
+D$family <- factor(D$family, levels = rev(family$family[order(family$s)]))
+
+uncult <- slice(D, 86:93)
+uncult$family <- "Uncultured or unknown"
+uncult <- uncult %>%
+  group_by(family) %>%
+  summarise(across(everything(), sum))
+
+D <- D[-c(86:93), ]
+D <- rbind(D, uncult)
+
+D <- D %>%
+  arrange(family)
+D$rescale <- D$avg_abund/sum(D$avg_abund)*100 
+kable(D)
+
+write.csv(D, "~/Results/STOOLS/results/core_microbiota_family.csv", sep = ",")
+```
+
+###core genera
 
 ```{r}
 # otu_genus$sample = row.names(otu_genus) 
@@ -83,9 +182,9 @@ m1$counts <- as.numeric(m1$counts)
 m1$treatment <- factor(m1$treatment)
 
 D <- m1 %>%
-  group_by(genus, treatment, timepoint) %>%
-  summarise(N=n(), avg_abund = round(mean(counts),4), std = round(sd(counts),3)) %>%
- filter(avg_abund>0.05) %>% #ONE FILTER HERE
+  group_by(genus) %>%
+  summarise(N=n(), avg_abund = round(mean(counts),6), std = round(sd(counts),3)) %>%
+ # filter(avg_abund>0.02) %>% #ONE FILTER HERE
   # filter(timepoint==2) %>% #ONE FILTER HERE
   arrange(genus,avg_abund)
 
@@ -103,43 +202,45 @@ genus <- D %>%
 D$genus <- factor(D$genus, levels = rev(genus$genus[order(genus$s)]))
 D <- D %>%
   arrange(genus)
-
+D$rescale <- D$avg_abund/sum(D$avg_abund)*100 
 kable(D)
+
+write.csv(D, "~/Results/STOOLS/results/core_microbiota_genusnofilter.csv", sep = ",")
 ```
 
-```{r plot genera, echo=FALSE}
-D$timepoint <- factor(D$timepoint, levels=c( "45 days", "13 months")) #CHANGE HERE
-D$treatment = factor(D$treatment, levels = c("control", "EO"), ordered = TRUE)
-
-Pgenera <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=genus)) + geom_bar(width=1,stat="identity", position = "fill")
-Pgenera <- Pgenera + facet_grid(~timepoint)
-Pgenera <- Pgenera + coord_polar(theta='y', start=0) #activate this if you want a piechart
-#Pgenera <- Pgenera + geom_label_repel(aes(label = paste0(avg_abund*100, "%")))
-Pgenera <- Pgenera + guides(fill = guide_legend(title = "Genera")) 
-my_palette = get_palette(c("green3","yellow","blue","magenta","cyan","red","purple","brown", "darkorange1","pink1","darkorchid1", "seagreen2"), length(unique(D$genus)))
-Pgenera <- Pgenera + xlab("relative abundances") + ylab("percentages")
-Pgenera <- Pgenera + scale_fill_manual(values = my_palette) + theme( panel.background = element_blank())
-Pgenera <- Pgenera + theme(text = element_text(size=10),
-               axis.text.x = element_text(size=8),
-               # axis.text.y = element_text(size=4),
-               strip.text = element_text(size = 8),
-                legend.position="bottom",
-               axis.text.y = element_blank(),
-               axis.ticks.y = element_blank(),
-               legend.text=element_text(size=10),
-               legend.title=element_text(size=10))
-# Pgenera <- Pgenera + theme(legend.position="none")
-
-print(Pgenera)
-# ggsave(Pgenera, height = 15, width = 15, filename ="~/Results/STOOLS/results/T2/taxonomy_genus_boxplot_stools_tot_T2.png")
-
-D %>% group_by(genus) %>% summarise(treatment=n())
-D %>% group_by(treatment) %>% summarise(genus=n())
-```
+# ```{r plot genera, echo=FALSE}
+# D$timepoint <- factor(D$timepoint, levels=c( "T1", "T2")) #CHANGE HERE
+# D$treatment = factor(D$treatment, levels = c("control", "EO"), ordered = TRUE)
+# 
+# Pgenera <- ggplot(D, aes(x=factor(1), y=avg_abund, fill=genus)) + geom_bar(width=1,stat="identity", position = "fill")
+# Pgenera <- Pgenera + facet_grid(~timepoint)
+# Pgenera <- Pgenera + coord_polar(theta='y', start=0) #activate this if you want a piechart
+# #Pgenera <- Pgenera + geom_label_repel(aes(label = paste0(avg_abund*100, "%")))
+# Pgenera <- Pgenera + guides(fill = guide_legend(title = "Genera")) 
+# my_palette = get_palette(c("green3","yellow","blue","magenta","cyan","red","purple","brown", "darkorange1","pink1","darkorchid1", "seagreen2"), length(unique(D$genus)))
+# Pgenera <- Pgenera + xlab("relative abundances") + ylab("percentages")
+# Pgenera <- Pgenera + scale_fill_manual(values = my_palette) + theme( panel.background = element_blank())
+# Pgenera <- Pgenera + theme(text = element_text(size=10),
+#                axis.text.x = element_text(size=8),
+#                # axis.text.y = element_text(size=4),
+#                strip.text = element_text(size = 8),
+#                 legend.position="bottom",
+#                axis.text.y = element_blank(),
+#                axis.ticks.y = element_blank(),
+#                legend.text=element_text(size=10),
+#                legend.title=element_text(size=10))
+# # Pgenera <- Pgenera + theme(legend.position="none")
+# 
+# print(Pgenera)
+# # ggsave(Pgenera, height = 15, width = 15, filename ="~/Results/STOOLS/results/T2/taxonomy_genus_boxplot_stools_tot_T2.png")
+# 
+# D %>% group_by(genus) %>% summarise(treatment=n())
+# D %>% group_by(treatment) %>% summarise(genus=n())
+# ```
 
 ```{r}
-fit = aov(avg_abund ~ treatment, data = D) ## linear model value = mu + treatment + e (y = mu + x + e)
-TukeyHSD(fit, "treatment", ordered = TRUE)
+# fit = aov(avg_abund ~ treatment, data = D) ## linear model value = mu + treatment + e (y = mu + x + e)
+# TukeyHSD(fit, "treatment", ordered = TRUE)
 ```
 
 my_palette = get_palette(c("green3", "darksalmon", "gold","blue","magenta","cyan","yellow","red","gray","purple","brown","black", "darkorange1","pink1", "darkorchid1", "seagreen2", "blueviolet", "darkseagreen3", "gold4", "gainsboro", "cyan3", "bisque", "black", "antiquewhite3"), length(unique(D_genus$genus)))
@@ -239,7 +340,7 @@ D <- D %>%
   arrange(level,new_taxa)
 
 datatable(D, options = list(pageLength=100)) %>%
-  formatStyle('p.value', backgroundColor = styleInterval(0.05, c('yellow', 'white')))
+  formatStyle('p.value',, backgroundColor = styleInterval(0.05, c('yellow', 'white')))
 
 # write.csv(D, "~/Results/STOOLS/results/T2/taxonomy_T2.csv")
 ```
@@ -318,8 +419,8 @@ D0 <- mutate(D0, avg_counts = avg_counts+1) %>% spread(key = treatment, value = 
 
 D1 <- DX %>%
   inner_join(D0, by = c("level" = "level", "new_taxa" = "new_taxa", "timepoint"="timepoint")) %>%
-  mutate(p.value = -log10(p.value)) %>%
-  gather(key = "treatment", value = "counts", -c(level,new_taxa,timepoint, p.value))
+  mutate(`p.value` = -log10(`p.value`)) %>%
+  gather(key = "treatment", value = "counts", -c(level,new_taxa,timepoint, `p.value`))
 
 D1$level <- factor(D1$level, levels = c("genus")) #, "species"
 
@@ -341,10 +442,10 @@ p <- p + guides(fill="none") + theme(axis.title.y = element_blank(),
                                      axis.ticks.y = element_blank())
 p
 
-dd <- D1 %>% mutate(variable = "p-value")
+dd <- D1 %>% mutate(variable = "p.value")
 
 q <- ggplot(dd, aes(x = factor(1), y = new_taxa, group=level))
-q <- q + geom_tile(aes(fill = p.value), colour = "white")
+q <- q + geom_tile(aes(fill = `p.value`), colour = "white")
 q <- q + theme(legend.position="bottom")
 q <- q + facet_grid(level~variable, space="free", scales = "free_y")
 q <- q + scale_fill_gradient(low = "orange", high = "blue")
@@ -383,7 +484,7 @@ print(figure_final)
 # for (name in DX$new_taxa) {
 #   
 #   print(paste("analysing OTU ", name))
-#   pval = as.numeric(DX[DX$new_taxa==name,"p.value"])
+#   pval = as.numeric(DX[DX$new_taxa==name,"`p.value`"])
 #   level = DX[DX$new_taxa==name,"level"]
 #   tpoint = DX[DX$new_taxa==name, "timepoint"]
 #   
@@ -421,18 +522,18 @@ Dna$EO <-NULL
 
 write.csv(Dna, "~/Results/STOOLS/results/taxonomy_genera.csv")
 
-Dna$timepoint = factor(Dna$timepoint, levels = c( "45 days old", "13 months old"))
+Dna$timepoint = factor(Dna$timepoint, levels = c( "T1", "T2"))
 
 q <- ggplot(Dna, aes(x = factor(1), y = new_taxa, height=0.95))
-q <- q + geom_tile(aes(fill = p.value), colour = "white")
+q <- q + geom_tile(aes(fill = `p.value`), colour = "white")
 q <- q + scale_fill_gradient(low = "red", high = "green", limits=c(0,0.05)) #, guide = "none"
 q <- q + xlab("pvalue") + ylab("Genera")
-q <- q + theme(axis.text.x = element_text(size = 13),
-               axis.text.y = element_text(size = 13),
+q <- q + theme(axis.text.x = element_text(size = 20),
+               axis.text.y = element_text(size = 20),
              axis.ticks = element_blank(), 
-             legend.position = "bottom",
+             legend.position = "bottom", legend.spacing.x = unit(0.5, 'cm'),
              axis.title.x = element_blank(),
-             axis.title.y = element_text(size=14))
+             axis.title.y = element_text(size=22))
 q
 
 fg <- ggplot(Dna, aes(x=new_taxa, y=controlvsEO, fill=timepoint)) + geom_bar(width=0.95,stat="identity")
@@ -440,17 +541,17 @@ fg <- ggplot(Dna, aes(x=new_taxa, y=controlvsEO, fill=timepoint)) + geom_bar(wid
 # + scale_fill_manual(values = "#E69F00", #0072B2",) #3
 fg <- fg + coord_flip() + scale_fill_manual(values = c("#0072B2", "orange")) #2
 fg <- fg + ylab("Behaviour Treated vs. Control") + xlab("Taxa") + ylim(-0.108, 0.0425)
-fg <- fg + theme(axis.text.x = element_text(size = 11),
+fg <- fg + theme(axis.text.x = element_text(size = 20),
                  axis.text.y = element_blank(),
                  axis.ticks = element_blank(),
-                 legend.position = "bottom",
-                 axis.title.x = element_text(size=14),
+                 legend.position = "bottom", legend.spacing.x = unit(0.5, 'cm'),
+                axis.title.x = element_text(size=22),
                axis.title.y = element_blank())
 fg
 
-FF <- ggarrange(q, fg, widths=c(0.5,1), heights=c(1,1), labels = c("A","B","C","D"), legend = "bottom")
+FF <- ggarrange(q, fg, widths=c(0.5,1), heights=c(1,1), labels = c("F","G"), label.y = 1.025, legend = "bottom") + theme(plot.margin = margin(0.5,0.5,0.5,0.5, "cm"))
 print(FF)
-ggsave(filename = "~/Results/STOOLS/results/taxonomy_stools.png", plot = FF, device = "png", width = 20, height = 10)
+ggsave(filename = "~/Results/STOOLS/results/taxonomy_stools.png", plot = FF, device = "png", width = 25, height = 12.5)
 ```
 
 
@@ -474,7 +575,7 @@ tt = summary(fit)
 names(tt)
 
 tt = tidy(fit)
-filter(tt, term != "(Intercept)") %>% pull(p.value)
+filter(tt, term != "(Intercept)") %>% pull(`p.value`)
 ```
 
 ```{r}

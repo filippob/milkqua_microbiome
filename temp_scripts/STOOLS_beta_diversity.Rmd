@@ -31,12 +31,12 @@ Between-sample variability from 16S rRna-gene sequencing data.
 metadata <- fread ("~/Results/STOOLS/mapping_milkqua_stools.csv")
 names(metadata)[1] <- "sample"
 metadata$sample <- paste("sample-", metadata$MISEQ_ID, sep = "")
-metadata$timepoint[metadata$timepoint==2] <- "45 days old"
-metadata$timepoint[metadata$timepoint==3] <- "13 months old"
+metadata$timepoint[metadata$timepoint==2] <- "T1"
+metadata$timepoint[metadata$timepoint==3] <- "T2"
 
 subsetno <-metadata 
-subset2 <- metadata[metadata$timepoint == "2"]
-subset3 <- metadata[metadata$timepoint == "3"]
+subset2 <- metadata[metadata$timepoint == "T1"]
+subset3 <- metadata[metadata$timepoint == "T2"]
 
 ```
 
@@ -70,7 +70,7 @@ mds$timepoint <- factor(mds$timepoint, levels=c("2", "3"))
 Clustering by treatment (PCA)
 
 ```{r, echo=FALSE}
-p <- autoplot(prcomp(1-matx), data=matrice, colour = "treatment", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm') + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+p <- autoplot(prcomp(1-matx), data=matrice, colour = "treatment", label = F, label.size = 3, frame = TRUE, frame.type='norm') + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 p
 # ggsave("~/Results/STOOLS/results/clustering_by_treatment_PCA_stools.png")
 ```
@@ -78,13 +78,13 @@ p
 Clustering by time point (PCA)
 
 ```{r, echo=FALSE}
-q <- autoplot(prcomp(1-matx), data=matrice, colour = "timepoint", label = TRUE, label.size = 3, frame = TRUE, frame.type='norm') + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+q <- autoplot(prcomp(1-matx), data=matrice, colour = "timepoint", label = F, label.size = 3, frame = TRUE, frame.type='norm') + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 q
 ```
 
 
 ```{r}
-figure_finalB <- ggarrange(p, q, widths=c(1, 1), labels=c("A", "B"), legend = "bottom")
+figure_finalB <- ggarrange(p, q, widths=c(1, 1), labels=c("D", "E"), legend = "bottom")
 print(figure_finalB)
 
 ggsave("~/Results/STOOLS/results/PCA_skinswabs.png", plot = figure_finalB, width = 20, height = 5)

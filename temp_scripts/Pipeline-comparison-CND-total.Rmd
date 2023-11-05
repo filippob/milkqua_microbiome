@@ -1,0 +1,249 @@
+---
+title: "pipeline-comparison-CND-total"
+author: "Chiara Gini"
+date: "2023-09-13"
+output: html_document
+---
+
+```{r packages, include=FALSE}
+library(data.table)
+library(tidyverse)
+library(scales) #used for rescale
+library(ggh4x)
+```
+
+
+```{r setup general, include=FALSE}
+project_folder = "/home/mycelium/Results/PIPELINE_COMPARISON/RESULTS"
+analysis_folder = "Milk-dataset/" #others will be 99_milkdataset & 99_mockrobiota
+base_dir <- file.path(project_folder, analysis_folder)
+```
+
+
+```{r setup Vsearch, include=FALSE}
+VS = data_frame()
+all_files_VS <- paste0(base_dir, list.files(base_dir, recursive = TRUE, pattern = "Vsearch"))
+for (filename in all_files_VS) {
+  show(filename)
+  tmp <- fread(filename)
+  tmp$file <- filename
+  # colnames(VS)[5] <-tmp$OTU_ID <- as.character(tmp$`#OTU_ID`)
+  VS = bind_rows(VS, tmp)
+}
+
+# VS$V1 <- NULL 
+# VS$`#OTU_ID` <- NULL
+# VS$V9 <- NULL
+# VS$V8 <- NULL
+# colnames(VS)[5] <- "kingdom"
+# colnames(VS)[6] <-"phylum"
+# colnames(VS)[7] <-"class" 
+# colnames(VS)[8] <-"order"
+# colnames(VS)[9] <-"family"
+# colnames(VS)[10] <-"genus"
+
+# names(VS) <- gsub(x = names(VS), pattern = "_R1", replacement = "")
+# VS <- subset(VS, select = -1)
+VS$file <- str_remove(VS$file, "/home/mycelium/Results/PIPELINE_COMPARISON/RESULTS/Milk-dataset/otu_table-") #change here
+VS$file <- str_remove(VS$file, ".csv") #change here
+VS <- VS %>% separate(file, c('pipeline', 'database'), sep = "_x_")
+# VS <- subset(VS, select = c(1:73)) #dedicated to the milk dataset
+VS$species <- NULL
+names(VS) <- gsub(x = names(VS), pattern = "X", replacement = "sample")
+VS$kingdom <- str_remove(VS$kingdom, "k__") #change here
+VS$phylum <- str_remove(VS$phylum, "p__") #change here
+VS$class <- str_remove(VS$class, "c__")
+VS$order <- str_remove(VS$order, "o__")
+VS$family <- str_remove(VS$family, "f__")
+VS$genus <- str_remove(VS$genus, "g__")
+VS$method <- "Clustering"
+VS$`#OTU_ID` <- NULL
+```
+
+
+```{r setup Qiime2, include=FALSE}
+Q2 = data_frame()
+all_files_Q2 <- paste0(base_dir, list.files(base_dir, recursive = TRUE, pattern = "Qiime2"))
+for (filename in all_files_Q2) {
+  show(filename)
+  tmp <- fread(filename)#, skip = 1)
+  tmp$file <- filename
+  Q2 = bind_rows(Q2, tmp)
+}
+
+# names(Q2) <- Q2[1,]
+# Q2 <- Q2[-1,]
+# colnames(Q2)[11] <- "file"
+
+Q2$file <- str_remove(Q2$file, "/home/mycelium/Results/PIPELINE_COMPARISON/RESULTS/Milk-dataset/feature-table_") #change here
+Q2$file <- str_remove(Q2$file, ".tsv") #change here
+Q2 <- Q2 %>% separate(file, c('pipeline', 'database'), sep = "_x_")
+# Q2 <- Q2 %>% separate(`#OTU ID`, c("kingdom", "phylum", "class", "order", "family", "genus"), sep = ";")
+# colnames(Q2)[1] <- "kingdom"
+# colnames(Q2)[2] <- "phylum"
+# colnames(Q2)[3] <- "class"
+# colnames(Q2)[4] <- "order"
+# colnames(Q2)[5] <- "family"
+# colnames(Q2)[6] <- "genus"
+# colnames(Q2)[7] <- "sample50"
+# colnames(Q2)[8] <- "sample51"
+# colnames(Q2)[9] <- "sample52"
+# colnames(Q2)[10] <- "sample53"
+
+Q2$kingdom <- str_remove(Q2$kingdom, "k__") #change here
+Q2$phylum <- str_remove(Q2$phylum, "p__") #change here
+Q2$class <- str_remove(Q2$class, "c__")
+Q2$order <- str_remove(Q2$order, "o__")
+Q2$family <- str_remove(Q2$family, "f__")
+Q2$genus <- str_remove(Q2$genus, "g__")
+
+Q2 <- Q2 %>%
+  mutate(method = case_when(
+    endsWith(pipeline, "alternative") ~ "Clustering",
+    endsWith(pipeline, "classic") ~ "Binning"
+    ))
+```
+
+
+```{r setup Micca, include=FALSE}
+Mi = data_frame()
+all_files_Mi <- paste0(base_dir, list.files(base_dir, recursive = TRUE, pattern = "Micca"))
+for (filename in all_files_Mi) {
+  show(filename)
+  tmp <- read.csv(filename, header = T)
+  tmp$file <- filename
+  Mi = bind_rows(Mi, tmp)
+}
+
+names(Mi) <- gsub(x = names(Mi), pattern = "X", replacement = "sample")
+## Mi$sample <- NULL
+Mi$OTU <- NULL
+Mi$species <- NULL
+Mi$file <- str_remove(Mi$file, "/home/mycelium/Results/PIPELINE_COMPARISON/RESULTS/Milk-dataset/taxonomy_") #change here
+Mi$file <- str_remove(Mi$file, ".csv") #change here
+Mi <- Mi %>% separate(file, c('pipeline', 'database'), sep = "_x_")
+Mi$kingdom <- str_remove(Mi$kingdom, "k__") #change here
+Mi$phylum <- str_remove(Mi$phylum, "p__") #change here
+Mi$class <- str_remove(Mi$class, "c__")
+Mi$order <- str_remove(Mi$order, "o__")
+Mi$family <- str_remove(Mi$family, "f__")
+Mi$genus <- str_remove(Mi$genus, "g__")
+Mi$sample <- NULL
+
+Mi <- Mi %>%
+  mutate(method = case_when(
+    endsWith(pipeline, "closedref") ~ "Clustering",
+    endsWith(pipeline, "denovounoise") ~ "Binning"
+    ))
+```
+
+
+```{r setup Qiime1.9, include=FALSE}
+Q1_9 = data_frame()
+all_files_Q1_9 <- paste0(base_dir, list.files(base_dir, recursive = TRUE, pattern = "Qiime1.9"))
+for (filename in all_files_Q1_9) {
+  show(filename)
+  tmp <- fread(filename, skip = 1)
+  tmp$file <- filename
+  tmp$`#OTU ID` <- as.character(tmp$`#OTU ID`)
+  Q1_9 = bind_rows(Q1_9, tmp)
+}
+
+Q1_9$`#OTU_ID` <- NULL
+# names(Q1_9) <- gsub(x = names(Q1_9), pattern = "cutadapt", replacement = "")
+Q1_9$file <- str_remove(Q1_9$file, "/home/mycelium/Results/PIPELINE_COMPARISON/RESULTS/Milk-dataset/otu_table_") #filtered_") if milkdataset, else change 
+Q1_9$file <- str_remove(Q1_9$file, ".tsv") #change here
+Q1_9 <- Q1_9 %>% separate(file, c('pipeline', 'database'), sep = "_x_")
+Q1_9 <- Q1_9 %>% separate(taxonomy, c("kingdom", "phylum", "class", "order", "family", "genus"), sep = "; ")
+Q1_9$kingdom <- str_remove(Q1_9$kingdom, "k__") #change here
+Q1_9$phylum <- str_remove(Q1_9$phylum, "p__") #change here
+Q1_9$class <- str_remove(Q1_9$class, "c__")
+Q1_9$order <- str_remove(Q1_9$order, "o__")
+Q1_9$family <- str_remove(Q1_9$family, "f__")
+Q1_9$genus <- str_remove(Q1_9$genus, "g__")
+Q1_9$species <- NULL
+Q1_9$`#OTU ID` <- NULL
+Q1_9$method <- "Clustering"
+```
+
+```{r taxonomic df, include=FALSE}
+res = data_frame()
+res <- rbind(Mi, Q1_9, Q2, VS)
+res <- filter(res, phylum != "Plantae")
+res <- filter(res, family !="Mitochondria")
+res <- filter(res, class !="Chloroplast")
+
+phyla <- subset(res, select=-c(kingdom, class, order,family, genus))
+#genera <- subset(res, select=-c(kingdom, phylum, class, order, family))
+
+phyla$phylum <- sub ("^$", "Undefined", phyla$phylum)
+phyla$phylum <- sub ("NA", "Undefined", phyla$phylum)
+phyla$phylum <- sub ("__", "Undefined", phyla$phylum)
+phyla$tot <- rowSums(phyla[,c(1:4)],)
+phyla$info <- paste(phyla$phylum, phyla$pipeline, phyla$database, phyla$method, sep = ";")
+phyla <- subset(phyla, select = c(tot, info))
+phyla <- phyla %>%
+  group_by(info) %>%
+  summarise(across(everything(), sum))
+
+phyla <- phyla %>% separate(info, c("phylum", "pipeline", "database", "method"), sep = ";")
+```
+
+```{r testing the cleaning}
+test1 <- split(phyla, with(phyla, interaction(pipeline, database, method)), drop = TRUE)
+res = data.frame()
+
+ for (i in test1) {
+   title <- paste(i$pipeline, i$database, i$method, sep = ";")
+    D <- i %>%
+       group_by(phylum) %>%
+       summarise(N=n(), avg_abund = round(mean(tot),6), std = round(sd(tot),3)) %>%
+       # filter(avg_abund>5) %>% #Filter here
+       arrange(phylum,avg_abund)
+    G <- D %>%
+      group_by(phylum) %>%
+      summarize("s"=sum(avg_abund)) %>%
+      arrange(desc(s)) %>%
+      dplyr::select(phylum,s)
+  
+    D$phylum <- factor(D$phylum, levels = rev(G$phylum[order(G$s)]))
+    D <- D %>%
+      arrange(phylum)
+    D$rescale <- D$avg_abund/sum(D$avg_abund)*100
+    D$info <- as.character(title[1])
+    res = bind_rows(res, D)
+  }
+  
+# purrr::iwalk(
+#   .x = test1,
+#   .f = function(x, y) {
+#     x <- as.data.frame(x)
+#     y <- paste0('dataframe', y)
+#     assign(y, x, envir = globalenv())
+#   }
+# )
+```
+
+```{r phyla}
+res$phylum <- as.character(res$phylum)
+res$phylum[res$rescale < 5] <- 'Lower than 5%'
+
+phyla <- res %>% separate(info, c("pipeline", "database", "method"), sep = ";")
+phyla <- subset(phyla, select = c(pipeline, database, method, rescale, phylum))
+phyla
+
+```
+
+```{r phyla}
+q <- ggplot(phyla, aes(x=factor(1), y= rescale, fill=phylum)) +
+  geom_bar(stat="identity", width=1, position = "fill") +
+  coord_polar("y", start=0) +
+  facet_grid(method+pipeline~database) +
+  theme(strip.text = element_text(size = 14)) +
+  theme(legend.position = "bottom", panel.grid = element_blank(), axis.text = element_blank()) +
+  theme(legend.text = element_text(size=14), legend.title = element_text(size=16), axis.title.x = element_text(size = 20),
+    axis.title = element_text(size = 20)) +
+    xlab("Pipelines") + ylab("Datasets")
+  
+ggsave(filename = file.path(project_folder, analysis_folder, "Milkdataset-full.png"), plot = q, device = "png", width = 16, height = 18)
+```

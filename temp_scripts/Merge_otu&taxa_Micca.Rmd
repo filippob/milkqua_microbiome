@@ -5,30 +5,30 @@ date: "2023-06-08"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r closedref, include=FALSE}
 library(stringr)
 
-otu <- read.csv("~/Results/PIPELINE_COMPARISON/mockrobiota/otutable-Micca_x_16SITGDB.97-mockrobiota.txt", sep = "\t", header = T)
-taxa <- read.csv("~/Results/PIPELINE_COMPARISON/mockrobiota/taxa_Micca_x_16SITGDB2.97-mockrobiota.txt", sep = "\t", header = F)
+otu <- read.csv("~/Results/PIPELINE_COMPARISON/RESULTS/Milk-dataset/otutable_closedref.Micca_x_greengenes2-milk.txt", sep = "\t", header = T)
+taxa <- read.csv("~/Results/PIPELINE_COMPARISON/RESULTS/Milk-dataset/taxa_closedref.Micca_x_greengenes2-milk.txt", sep = "\t", header = F)
 colnames(taxa)[1] ="OTU"
 colnames(taxa)[2] = "taxonomy"
 taxonomy <- merge(otu, taxa, by=c("OTU"),all.x=TRUE)
 taxonomy[c('kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species')] <- str_split_fixed(taxonomy$taxonomy, ';', 7)
 taxonomy$taxonomy <- NULL
 
-write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/mockrobiota/Micca/taxonomy_Micca_x_16SITGDB.97-mockrobiota.csv")
+write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/RESULTS/Milk-dataset/taxonomy_Micca.closedref_x_greengenes2.csv")
 ```
 
-```{r setup, include=FALSE}
+```{r denovounoise, include=FALSE}
 library(stringr)
 
-otu <- read.csv("~/Results/PIPELINE_COMPARISON/mockrobiota/otutable-Micca_x_16SITGDB.99-mockrobiota.txt", sep = "\t", header = T)
-taxa <- read.csv("~/Results/PIPELINE_COMPARISON/mockrobiota/taxa_Micca_x_16SITGDB.99-mockrobiota.txt", sep = "\t", header = F)
+otu <- read.csv("~/Results/PIPELINE_COMPARISON/RESULTS/Milk-dataset/otutable_denovounoise.Micca_x_greengenes2-milk.txt", sep = "\t", header = T)
+taxa <- read.csv("~/Results/PIPELINE_COMPARISON/RESULTS/Milk-dataset/taxa_denovounoise.Micca_x_greengenes2-milk.txt", sep = "\t", header = F)
 colnames(taxa)[1] ="OTU"
 colnames(taxa)[2] = "taxonomy"
 taxonomy <- merge(otu, taxa, by=c("OTU"),all.x=TRUE)
 taxonomy[c('kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species')] <- str_split_fixed(taxonomy$taxonomy, ';', 7)
 taxonomy$taxonomy <- NULL
 
-write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/mockrobiota/Micca/taxonomy_Micca_x_16SITGDB.99-mockrobiota.csv")
+write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/RESULTS/Milk-dataset/taxonomy_Micca.denovounoise_x_greengenes2.csv")
 ```

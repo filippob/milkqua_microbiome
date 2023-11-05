@@ -158,8 +158,9 @@ r <- ggplot(data = D3, mapping= aes(x=term, y=p.value))
 r <- r + geom_point(aes(color = metric, stroke = 1.5), position=position_jitter(h=0, w=0.25))
 r <- r + geom_hline(yintercept=0.05, linetype="dashed", color = "red", size=0.5)
 r <- r + geom_hline(yintercept=0.10, linetype="dashed", color = "darkorange", size=0.5)
-r <- r + coord_trans(y="log2")
+r <- r + coord_trans(y="log2") 
 r <- r + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + scale_y_continuous(breaks=pretty_breaks(n=20)) + scale_y_continuous(breaks = c(0, 0.05, 0.10, 1))
+r <- r + labs(x="treatment+timepoint")
 # r <- r + theme(axis.text.x = element_text(angle = 90))
 r
 ```
@@ -169,7 +170,7 @@ r
 figure_finalA <- ggarrange(p, q, r, widths=c(1, 1,1), heights=c(1,1,1),  labels=c("A", "B", "C"), ncol=3, nrow=1 )
 print(figure_finalA)
 
-ggsave(filename = "~/Results/STOOLS/results/alpha_Stools_jun23.png", plot = figure_finalA, device = "png", width = 20, height = 5)
+ggsave(filename = "~/Results/STOOLS/results/alpha_Stools_jul23.png", plot = figure_finalA, device = "png", width = 20, height = 5)
 ```
 
 
