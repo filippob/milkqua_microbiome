@@ -1,0 +1,531 @@
+---
+title: "pipeline-comparison-CND-total"
+author: "Chiara Gini"
+date: "2023-09-13"
+output: html_document
+---
+
+```{r packages, include=FALSE}
+library(data.table)
+library(tidyverse)
+library(scales) #used for rescale
+library(ggh4x)
+library(ggpubr) #for ggarrange
+library(gghighlight)
+```
+
+
+```{r setup general, include=FALSE}
+project_folder = "/home/mycelium/Results/PIPELINE_COMPARISON/UofGuelph"
+analysis_folder = "Milk-dataset/" #others will be 99_milkdataset & 99_mockrobiota
+results_folder = "results/"
+base_dir <- file.path(project_folder, analysis_folder)
+```
+
+
+```{r setup Vsearch, include=FALSE}
+VS = data_frame()
+all_files_VS <- paste0(base_dir, list.files(base_dir, recursive = TRUE, pattern = "Vsearch"))
+for (filename in all_files_VS) {
+  show(filename)
+  tmp <- fread(filename)
+  tmp$file <- filename
+  tmp$`#OTU_ID` <- NULL
+  tmp$V1 <- NULL
+  tmp$V9 <- NULL
+  VS = bind_rows(VS, tmp)
+}
+
+VS[, c(1:60)] <- VS[, c(1:60)]/colSums(VS[, c(1:60)]) #normalizzazione : ricordati che per questo db dovrebbe essere da sample 33 a 96, ma per il momento ci aggiustiamo sul 92
+
+colnames(VS)[61] <- "kingdom"
+colnames(VS)[62] <-"phylum"
+colnames(VS)[63] <-"class"
+colnames(VS)[64] <-"order"
+colnames(VS)[65] <-"family"
+colnames(VS)[66] <-"genus"
+colnames(VS)[67] <-"species"
+
+VS$file <- str_remove(VS$file, "/home/mycelium/Results/PIPELINE_COMPARISON/UofGuelph/Milk-dataset/otu_table-") #change here
+VS$file <- str_remove(VS$file, "-milk.csv") #change here
+VS <- VS %>% separate(file, c('pipeline', 'database'), sep = "_x_")
+names(VS) <- gsub(x = names(VS), pattern = "X", replacement = "sample")
+
+VS <- filter(VS, kingdom != "\tArchaea")
+VS$kingdom <- str_remove(VS$kingdom, "k__") #change here
+VS$phylum <- str_remove(VS$phylum, "p__") #change here
+VS$class <- str_remove(VS$class, "c__")
+VS$order <- str_remove(VS$order, "o__")
+VS$family <- str_remove(VS$family, "f__")
+VS$genus <- str_remove(VS$genus, "g__")
+VS$species <- str_remove(VS$species, "s__")
+VS <- filter(VS, kingdom != "Archaea")
+VS <- filter(VS, kingdom != "Eukaryota")
+VS <- filter(VS, phylum != "Plantae")
+VS$phylum <- gsub('_.*\\w+', '\\1', VS$phylum)
+VS$method <- "Clustering"
+VS$V69 <- NULL
+```
+
+
+```{r setup Qiime2, include=FALSE}
+Q2 = data_frame()
+all_files_Q2 <- paste0(base_dir, list.files(base_dir, recursive = TRUE, pattern = "Qiime2"))
+for (filename in all_files_Q2) {
+  show(filename)
+  tmp <- fread(filename, skip = 1, header = T)
+  # colnames(tmp) <- paste("sample", colnames(tmp), sep = "")
+  tmp <- tmp %>% select(order(colnames(tmp)))
+  tmp$file <- filename
+  Q2 = bind_rows(Q2, tmp)
+}
+
+Q2[, c(2:65)] <- Q2[, c(2:65)]/colSums(Q2[, c(2:65)]) #normalizzazione
+Q2 <- Q2 [, -c(62:65)] #RICORDATI CHE PER COMODITÀ DI CALCOLO STIAMO CONSIDERANDO 92 CAMPIONI INVECE CHE 96, QUINDI QUI RIMUOVIAMO I 4 IN PIU'
+
+Q2$file <- str_remove(Q2$file, "/home/mycelium/Results/PIPELINE_COMPARISON/UofGuelph/Milk-dataset/feature-table_") #change here
+Q2$file <- str_remove(Q2$file, "-milk.tsv") #change here
+Q2 <- Q2 %>% separate(file, c('pipeline', 'database'), sep = "_x_")
+Q2 <- Q2 %>% separate(`#OTU ID`, c("kingdom", "phylum", "class", "order", "family", "genus", "species"), sep = ";")
+Q2$kingdom <- str_remove(Q2$kingdom, "d__") #change here
+Q2$kingdom <- str_remove(Q2$kingdom, "k__") #change here
+Q2$phylum <- str_remove(Q2$phylum, "p__") #change here
+Q2$class <- str_remove(Q2$class, "c__")
+Q2$order <- str_remove(Q2$order, "o__")
+Q2$family <- str_remove(Q2$family, "f__")
+Q2$genus <- str_remove(Q2$genus, "g__")
+Q2$species <- str_remove(Q2$species, "s__")
+# Q2$species <- "analysistobeammelioreated"
+Q2 <- filter(Q2, kingdom != "Archaea")
+Q2 <- filter(Q2, kingdom != "Eukaryota")
+Q2 <- filter(Q2, kingdom != "Unassigned")
+Q2$phylum <- gsub('_.*\\w+', '\\1', Q2$phylum)
+
+Q2 <- Q2 %>%
+  mutate(method = case_when(
+    startsWith(pipeline, "alternative") ~ "Clustering",
+    startsWith(pipeline, "classic") ~ "Binning"
+    ))
+Q2$`#OTU_ID` <- NULL
+
+Q2A <- filter(Q2, phylum != "__")
+Q2A <- filter(Q2A, phylum != "")
+```
+
+
+```{r setup Micca, include=FALSE}
+Mi = data_frame()
+all_files_Mi <- paste0(base_dir, list.files(base_dir, recursive = TRUE, pattern = "Micca"))
+for (filename in all_files_Mi) {
+  show(filename)
+  tmp <- read.csv(filename, header = T)
+  tmp$file <- filename
+  Mi = bind_rows(Mi, tmp)
+}
+
+Mi[, c(3:62)] <- Mi[, c(3:62)]/colSums(Mi[, c(3:62)]) #normalizzazione
+
+names(Mi) <- gsub(x = names(Mi), pattern = "X", replacement = "sample")
+Mi$sample93 <- NULL
+Mi$sample94 <- NULL
+Mi$sample95 <- NULL
+Mi$sample96 <- NULL
+Mi$sample <- NULL
+Mi$OTU <- NULL
+Mi$file <- str_remove(Mi$file, "/home/mycelium/Results/PIPELINE_COMPARISON/UofGuelph/Milk-dataset/taxonomy_") #change here
+Mi$file <- str_remove(Mi$file, "-milk.csv") #change here
+Mi <- Mi %>% separate(file, c('pipeline', 'database'), sep = "_x_")
+
+Mi$kingdom <- str_remove(Mi$kingdom, "k__") #change here
+Mi$phylum <- str_remove(Mi$phylum, "p__") #change here
+Mi$class <- str_remove(Mi$class, "c__")
+Mi$order <- str_remove(Mi$order, "o__")
+Mi$family <- str_remove(Mi$family, "f__")
+Mi$genus <- str_remove(Mi$genus, "g__")
+Mi <- filter(Mi, kingdom != "Archaea")
+Mi <- filter(Mi, kingdom != "Eukaryota")
+
+Mi$phylum <- gsub('_.*\\w+', '\\1', Mi$phylum)
+
+Mi <- Mi %>%
+  mutate(method = case_when(
+    endsWith(pipeline, "closedref") ~ "Clustering",
+    endsWith(pipeline, "denovounoise") ~ "Binning"
+    ))
+
+MiA <- filter(Mi, kingdom != "Unclassified")
+MiA <- filter(MiA, phylum != "")
+```
+
+
+```{r setup Qiime1.9, include=FALSE}
+Q1_9 = data_frame()
+all_files_Q1_9 <- paste0(base_dir, list.files(base_dir, recursive = TRUE, pattern = "Qiime1.9"))
+for (filename in all_files_Q1_9) {
+  show(filename)
+  tmp <- fread(filename, skip = 1, header = T)
+  colnames(tmp) <- paste("sample", colnames(tmp), sep = "")
+  tmp <- tmp %>% select(order(colnames(tmp)))
+  tmp$file <- filename
+  tmp$`#OTU ID` <- as.character(tmp$`#OTU ID`)
+  Q1_9 = bind_rows(Q1_9, tmp)
+}
+
+Q1_9[, c(2:61)] <- Q1_9[, c(2:61)]/colSums(Q1_9[, c(2:61)]) #normalizzazione
+
+Q1_9$file <- str_remove(Q1_9$file, "/home/mycelium/Results/PIPELINE_COMPARISON/UofGuelph/Milk-dataset/otu_table_") 
+Q1_9$file <- str_remove(Q1_9$file, "-milk.tsv") #change here
+Q1_9 <- Q1_9 %>% separate(file, c('pipeline', 'database'), sep = "_x_")
+Q1_9 <- Q1_9 %>% separate(sampletaxonomy, c("kingdom", "phylum", "class", "order", "family", "genus", "species"), sep = "; ")
+Q1_9$kingdom <- str_remove(Q1_9$kingdom, "d__") #change here
+Q1_9$kingdom <- str_remove(Q1_9$kingdom, "k__") #change here
+Q1_9$phylum <- str_remove(Q1_9$phylum, "p__") #change here
+Q1_9$class <- str_remove(Q1_9$class, "c__")
+Q1_9$order <- str_remove(Q1_9$order, "o__")
+Q1_9$family <- str_remove(Q1_9$family, "f__")
+Q1_9$genus <- str_remove(Q1_9$genus, "g__")
+Q1_9$species <- str_remove(Q1_9$species, "s__")
+Q1_9 <- filter(Q1_9, kingdom != "Archaea")
+Q1_9 <- filter(Q1_9, kingdom != "Eukaryota")
+
+Q1_9$phylum <- gsub('_.*\\w+', '\\1', Q1_9$phylum)
+Q1_9$`sample#OTU ID` <- NULL
+Q1_9$`#OTU ID` <- NULL
+Q1_9$method <- "Clustering"
+
+Q1_9A <- filter(Q1_9, kingdom != "None")
+Q1_9A <- filter(Q1_9A, phylum != "")
+```
+
+
+```{r taxonomic phyla lvl and unfiltered, include=FALSE}
+res = data_frame()
+res <- rbind(Mi, Q1_9, Q2, VS)
+res$tot <- rowSums(res[,c(1:60)],)
+res <- res[, -c(1:60)]
+res$info <- paste(res$kingdom, res$phylum, res$class, res$order, res$family, res$genus, res$species, res$pipeline, res$database, res$method, sep = ";")
+res <- subset(res, select = c(tot, info))
+res <- res  %>%
+  group_by(info) %>%
+  summarise(across(everything(), sum))
+res <- res %>% separate(info, c("kingdom", "phylum", "class", "order", "family", "genus", "species", "pipeline", "database", "method"), sep = ";")
+res <- filter(res, family !="Mitochondria")
+res <- filter(res, class !="Chloroplast")
+res[res==""] <- "Unknown"
+res <- data.frame(lapply(res, function(x) {gsub("None", "Uncultured or unknown", x)}))
+res <- data.frame(lapply(res, function(x) {gsub("__", "Uncultured or unknown", x)}))
+res <- data.frame(lapply(res, function(x) {gsub("NA", "Uncultured or unknown", x)}))
+res <- data.frame(lapply(res, function(x) {gsub("Unclassified", "Uncultured or unknown", x)}))	
+res <- data.frame(lapply(res, function(x) {gsub("Unassigned", "Uncultured or unknown", x)}))
+res <- data.frame(lapply(res, function(x) {gsub("Unknown", "Uncultured or unknown", x)}))
+
+write.csv(res, file.path(base_dir, results_folder, "Milk-dataset-fulltaxonomy.csv"))
+
+taxa <- subset(res, select = genus)
+taxa <- taxa  %>%
+  group_by(genus) %>%
+  summarise(across(everything(), sum))
+
+res$info <- paste(res$kingdom, res$phylum, res$class, res$order, res$family, res$genus, res$species, res$pipeline, res$database, res$method, sep = ";")
+res <- subset(res, select = c(tot, info))
+res$tot <- as.numeric(res$tot)
+res <- res  %>%
+  group_by(info) %>%
+  summarise(across(everything(), sum))
+res <- res %>% separate(info, c("kingdom", "phylum", "class", "order", "family", "genus", "species", "pipeline", "database", "method"), sep = ";")
+
+phyla <- subset(res, select=-c(kingdom, class, order,family, genus, species))
+phyla$tot <- as.numeric(phyla$tot)
+
+test1 <- split(phyla, with(phyla, interaction(pipeline, database, method)), drop = TRUE)
+
+res = data.frame()
+
+ for (i in test1) {
+   title <- paste(i$pipeline, i$database, i$method, sep = ";")
+    D <- i %>%
+       group_by(phylum) %>%
+       summarise(N=n(), avg_abund = round(mean(tot),6)) %>% #, std = round(sd(tot),2)) %>%
+       # filter(avg_abund>5) %>% #Filter here
+       arrange(phylum,avg_abund)
+    G = D %>% group_by(phylum) %>% summarize("s"=sum(avg_abund)) %>% arrange(desc(s)) %>% dplyr::select(phylum,s)
+      D$phylum <- factor(D$phylum, levels = rev(G$phylum[order(G$s)]))
+    D <- D %>%
+      arrange(phylum)
+    D$rescale <- round(D$avg_abund/sum(D$avg_abund)*100,2)
+    D$info <- as.character(title[1])
+    res = bind_rows(res, D)
+ }
+
+res$phylum <- as.character(res$phylum)
+res$phylum[res$rescale < 5] <- 'Lower than 5%'
+#res$phylum[res$rescale < 2] <- 'Lower than 2%'
+
+temp <- subset(res, select=-c(N, avg_abund))#, std))
+temp$dat <- paste(temp$info, temp$phylum, sep = "@")
+temp <- subset(temp, select = c(dat, rescale))
+temp <- temp  %>%
+  group_by(dat) %>%
+  summarise(across(everything(), sum))
+temp <- temp %>% separate(dat, c("info", "phylum"), sep = "@")
+A <- pivot_wider(temp, names_from = "info", values_from = "rescale")
+
+write.csv(A, file.path(base_dir, results_folder,"Milk-dataset-comparepercent-5perc-phyla.csv"))
+
+phyla <- res %>% separate(info, c("pipeline", "database", "method"), sep = ";")
+phyla <- subset(phyla, select = c(pipeline, database, method, rescale, phylum))
+
+q <- ggplot(phyla, aes(x=factor(1), y= rescale, fill=phylum)) +
+  geom_bar(stat="identity", width=1, position = "fill") +
+  coord_polar("y", start=0) +
+  facet_grid(method+pipeline~database) +
+  theme(strip.text = element_text(size = 20)) +
+  theme(legend.position = "bottom", panel.grid = element_blank(), axis.text = element_blank()) +
+  theme(legend.text = element_text(size=14), legend.title = element_text(size=16), axis.title.x = element_text(size = 20),
+    axis.title = element_text(size = 20)) +
+    xlab("Pipelines") + ylab("Datasets")
+
+ggsave(filename = file.path(base_dir, results_folder, "Milkdataset-5perc-norm-unfilt-phyla.png"), plot = q, width = 20, height = 20)
+```
+
+```{r taxonomic phyla lvl and filtered, include=FALSE}
+res = data_frame()
+res <- rbind(MiA, Q1_9A, Q2A, VS)
+res$tot <- rowSums(res[,c(1:60)],)
+res <- res[, -c(1:60)]
+res$info <- paste(res$kingdom, res$phylum, res$class, res$order, res$family, res$genus, res$species, res$pipeline, res$database, res$method, sep = ";")
+res <- subset(res, select = c(tot, info))
+res <- res  %>%
+  group_by(info) %>%
+  summarise(across(everything(), sum))
+res <- res %>% separate(info, c("kingdom", "phylum", "class", "order", "family", "genus", "species", "pipeline", "database", "method"), sep = ";")
+res <- filter(res, family !="Mitochondria")
+res <- filter(res, class !="Chloroplast")
+res[res==""] <- "Unknown"
+res <- data.frame(lapply(res, function(x) {gsub("None", "Uncultured or unknown", x)}))
+res <- data.frame(lapply(res, function(x) {gsub("__", "Uncultured or unknown", x)}))
+res <- data.frame(lapply(res, function(x) {gsub("NA", "Uncultured or unknown", x)}))
+res <- data.frame(lapply(res, function(x) {gsub("Unclassified", "Uncultured or unknown", x)}))	
+res <- data.frame(lapply(res, function(x) {gsub("Unassigned", "Uncultured or unknown", x)}))
+res <- data.frame(lapply(res, function(x) {gsub("Unknown", "Uncultured or unknown", x)}))
+
+write.csv(res, file.path(base_dir, results_folder, "Milk-dataset-fulltaxonomy.csv"))
+```
+
+```{r taxa count}
+taxa <- subset(res, select = phylum)
+taxa <- taxa  %>%
+  group_by(phylum) %>%
+  summarise(across(everything(), sum))
+
+res$info <- paste(res$kingdom, res$phylum, res$class, res$order, res$family, res$genus, res$species, res$pipeline, res$database, res$method, sep = ";")
+res <- subset(res, select = c(tot, info))
+res$tot <- as.numeric(res$tot)
+res <- res  %>%
+  group_by(info) %>%
+  summarise(across(everything(), sum))
+res <- res %>% separate(info, c("kingdom", "phylum", "class", "order", "family", "genus", "species", "pipeline", "database", "method"), sep = ";")
+```
+
+```{r phyla percent, include=FALSE}
+phyla <- subset(res, select=-c(kingdom, class, order,family, genus, species))
+phyla$tot <- as.numeric(phyla$tot)
+
+test1 <- split(phyla, with(phyla, interaction(pipeline, database, method)), drop = TRUE)
+res = data.frame()
+
+ for (i in test1) {
+   title <- paste( i$method, i$pipeline, i$database, sep = ";")
+    D <- i %>%
+       group_by(phylum) %>%
+       summarise(N=n(), avg_abund = round(mean(tot),6)) %>% #, std = round(sd(tot),2)) %>%
+       # filter(avg_abund>5) %>% #Filter here
+       arrange(phylum,avg_abund)
+    G = D %>% group_by(phylum) %>% summarize("s"=sum(avg_abund)) %>% arrange(desc(s)) %>% dplyr::select(phylum,s)
+      D$phylum <- factor(D$phylum, levels = rev(G$phylum[order(G$s)]))
+    D <- D %>%
+      arrange(phylum)
+    D$rescale <- round(D$avg_abund/sum(D$avg_abund)*100,2)
+    D$info <- as.character(title[1])
+    res = bind_rows(res, D)
+ }
+
+res$phylum <- as.character(res$phylum)
+res$phylum[res$rescale < 5] <- 'Lower than 5%'
+#res$phylum[res$rescale < 2] <- 'Lower than 2%'
+
+temp <- subset(res, select=-c(N, avg_abund))#, std))
+temp$dat <- paste(temp$info, temp$phylum, sep = "@")
+temp <- subset(temp, select = c(dat, rescale))
+temp <- temp  %>%
+  group_by(dat) %>%
+  summarise(across(everything(), sum))
+temp <- temp %>% separate(dat, c("info", "phylum"), sep = "@")
+A <- pivot_wider(temp, names_from = "info", values_from = "rescale")
+
+write.csv(A, file.path(base_dir, results_folder, "Milk-dataset-comparepercent-5perc-filtered-phyla.csv"))
+```
+
+```{r correlation option1}
+B <- A
+B <- data.frame(B, row.names = 1)
+B[is.na(B)] <- 0
+
+library("Hmisc")
+resT <- rcorr(as.matrix(B, type = "spearman")) #rcorr() function returns a list including the following elements: r is the correlation matrix, P is the p-values corresponding to the significance levels of the correlations. 
+L <- signif(resT$r,2) # Printing the correlation matrix
+K <- signif(resT$P,2) # Printing the p-values of the correlations
+
+# flattenCorrMatrix: cormat : matrix of the correlation coefficients, pmat : matrix of the correlation p-values
+flattenCorrMatrix <- function(cormat, pmat) {
+  ut <- upper.tri(cormat)
+  data.frame(
+    row = rownames(cormat)[row(cormat)[ut]],
+    column = rownames(cormat)[col(cormat)[ut]],
+    cor  =(cormat)[ut],
+    p = pmat[ut]
+    )
+}
+
+U <- flattenCorrMatrix(resT$r, resT$P)
+write.csv(U, file.path(base_dir, results_folder, "Milk-dataset-correlation_wpval-phyla.csv"))
+
+# U[nrow(U) +1,] = c("A","A", 0,0)
+U$row <- factor(U$row, levels = unique(U$row))
+U$column <- factor(U$column, levels = unique(U$column))
+high <- subset(U, rowSums(U[3] > 0.9) > 0)
+
+corr <- ggplot(U, aes(x= row, y=column, fill=cor)) + 
+  geom_tile(color = "white", lwd = 0.5, linetype = 1) + 
+  geom_tile(data=high, color="red", linetype = 1, size = 0.5) +
+  # gghighlight(max(cor) > 0.9, unhighlighted_params = list(colour = NULL, alpha = 0.3)) +
+  theme(panel.spacing = unit(0, "lines"), strip.background = element_blank(), strip.placement = "outside") +
+  geom_text(aes(label = round(cor, 2)), color = "black", size = 1.5) +
+  scale_x_discrete(guide = guide_axis(angle = 90)) +
+  theme(legend.position = "bottom") +
+  scale_fill_gradientn(colours = c("#440154", "#3b528b", "#21918c", "#5ec962", "#fde725"), limits=c(-1,1))
+
+pval <- ggplot(U, aes(x= row, y=column, fill=p)) + 
+  geom_tile(color = "white", lwd = 0.5, linetype = 1) + 
+  theme(panel.spacing = unit(0, "lines"), strip.background = element_blank(), strip.placement = "outside") +
+  geom_text(aes(label = round(p, 2)), color = "black", size = 1.5) + 
+  scale_x_discrete(guide = guide_axis(angle = 90)) +
+  theme(legend.position = "bottom") +
+  scale_fill_gradientn(colours = c( "red2", "orange", "white"), values = c(0,0.05,1), limits=c(0,1))
+
+HM <- ggarrange(corr, pval, legend = "bottom", labels = c("A", "B"))
+
+# ggsave(filename = file.path(base_dir, results_folder, "Milkdataset-heatmap-spearman-phyla-HIGH.png"), plot = HM, width = 20, height = 10)
+
+ggsave(filename = file.path(base_dir, results_folder, "Milkdataset-heatmap-spearman-phyla.png"), plot = HM, width = 20, height = 10)
+```
+
+
+```{r phyla piechart}
+phyla <- res %>% separate(info, c("method","pipeline", "database"), sep = ";")
+phyla <- subset(phyla, select = c(method, pipeline, database, rescale, phylum))
+
+p <- ggplot(phyla, aes(x=factor(1), y= rescale, fill=phylum)) +
+  geom_bar(stat="identity", width=1, position = "fill") +
+  coord_polar("y", start=0) +
+  facet_grid(method+pipeline~database) +
+  theme(strip.text = element_text(size = 20)) +
+  theme(legend.position = "bottom", panel.grid = element_blank(), axis.text = element_blank()) +
+  theme(legend.text = element_text(size=14), legend.title = element_text(size=16), axis.title.x = element_text(size = 20),
+    axis.title = element_text(size = 20)) +
+    xlab("Pipelines") + ylab("Datasets")
+
+PQ <- ggarrange(q, p, common.legend = T, legend = "bottom", labels = c("A", "B"),  font.label = list(size = 40) )
+
+ggsave(filename = file.path(base_dir, results_folder, "Milkdataset-full5perc-norm-compare-unfilt-filt-phyla.png"), plot = PQ, width = 40, height = 20)
+```
+
+
+*SPECIES*
+
+```{r taxonomic species lvl and filtered, include=FALSE}
+res = data_frame()
+res <- rbind(Mi, Q1_9, Q2, VS)
+res$tot <- rowSums(res[,c(1:60)],)
+res <- res[, -c(1:60)]
+res$info <- paste(res$kingdom, res$phylum, res$class, res$order, res$family, res$genus, res$species, res$pipeline, res$database, res$method, sep = ";")
+res <- subset(res, select = c(tot, info))
+res <- res  %>%
+  group_by(info) %>%
+  summarise(across(everything(), sum))
+res <- res %>% separate(info, c("kingdom", "phylum", "class", "order", "family", "genus", "species", "pipeline", "database", "method"), sep = ";")
+res <- filter(res, family !="Mitochondria")
+res <- filter(res, class !="Chloroplast")
+res[res==""] <- "Unknown"
+res <- data.frame(lapply(res, function(x) {gsub("None", "Uncultured or unknown", x)}))
+res <- data.frame(lapply(res, function(x) {gsub("__", "Uncultured or unknown", x)}))
+res <- data.frame(lapply(res, function(x) {gsub("NA", "Uncultured or unknown", x)}))
+res <- data.frame(lapply(res, function(x) {gsub("Unclassified", "Uncultured or unknown", x)}))	
+res <- data.frame(lapply(res, function(x) {gsub("Unassigned", "Uncultured or unknown", x)}))
+res <- data.frame(lapply(res, function(x) {gsub("Unknown", "Uncultured or unknown", x)}))
+res <- data.frame(lapply(res, function(x) {gsub("NANA", "Uncultured or unknown", x)}))
+
+res$info <- paste(res$kingdom, res$phylum, res$class, res$order, res$family, res$genus, res$species, res$pipeline, res$database, res$method, sep = ";")
+res <- subset(res, select = c(tot, info))
+res$tot <- as.numeric(res$tot)
+res <- res  %>%
+  group_by(info) %>%
+  summarise(across(everything(), sum))
+res <- res %>% separate(info, c("kingdom", "phylum", "class", "order", "family", "genus", "species", "pipeline", "database", "method"), sep = ";")
+
+species <- subset(res, select=-c(kingdom, phylum, class, order, family, genus))
+species$tot <- as.numeric(species$tot)
+
+test1 <- split(species, with(species, interaction(pipeline, database, method)), drop = TRUE)
+
+res = data.frame()
+
+for (i in test1) {
+   title <- paste(i$pipeline, i$database, i$method, sep = ";")
+    D <- i %>%
+       group_by(species) %>%
+       summarise(N=n(), avg_abund = round(mean(tot),6)) %>% #, std = round(sd(tot),2)) %>%
+       # filter(avg_abund>5) %>% #Filter here
+       arrange(species, avg_abund)
+    G = D %>% group_by(species) %>% summarise(s = sum(avg_abund)) %>% arrange(desc(s)) %>% dplyr::select(species,s)
+    D$species <- factor(D$species, levels = rev(G$species[order(G$s)]))
+    D <- D %>%
+    arrange(species)
+    D$rescale <- round(D$avg_abund/sum(D$avg_abund)*100,2)
+    D$info <- as.character(title[1])
+    res = bind_rows(res, D)
+ }
+
+res$species <- as.character(res$species)
+res$species[res$rescale < 5] <- 'Lower than 5%'
+#res$species[res$rescale < 2] <- 'Lower than 2%'
+
+temp <- subset(res, select=-c(N, avg_abund))#, std))
+temp$dat <- paste(temp$info, temp$species, sep = "@")
+temp <- subset(temp, select = c(dat, rescale))
+temp <- temp  %>%
+  group_by(dat) %>%
+  summarise(across(everything(), sum))
+temp <- temp %>% separate(dat, c("info", "species"), sep = "@")
+A <- pivot_wider(temp, names_from = "info", values_from = "rescale")
+
+write.csv(A, file.path(base_dir, results_folder,"Milk-dataset-comparepercent-5perc-species.csv"))
+```
+
+```{r species piechart}
+species <- res %>% separate(info, c("pipeline", "database", "method"), sep = ";")
+species <- subset(species, select = c(method, pipeline, database, rescale, species))
+
+p <- ggplot(species, aes(x=factor(1), y= rescale, fill=species)) +
+  geom_bar(stat="identity", width=1, position = "fill") +
+  coord_polar("y", start=0) +
+  facet_grid(method+pipeline~database) +
+  theme(strip.text = element_text(size = 20)) +
+  theme(legend.position = "bottom", panel.grid = element_blank(), axis.text = element_blank()) +
+  theme(legend.text = element_text(size=14), legend.title = element_text(size=16), axis.title.x = element_text(size = 20),
+    axis.title = element_text(size = 20)) +
+    xlab("Pipelines") + ylab("Datasets")
+
+ggsave(filename = file.path(base_dir, results_folder, "Milkdataset-full5perc-norm-compare-species.png"), plot = p, width = 30, height = 30)
+```
+

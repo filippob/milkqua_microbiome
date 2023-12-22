@@ -8,27 +8,167 @@ output: html_document
 ```{r closedref, include=FALSE}
 library(stringr)
 
-otu <- read.csv("~/Results/PIPELINE_COMPARISON/RESULTS/Milk-dataset/otutable_closedref.Micca_x_greengenes2-milk.txt", sep = "\t", header = T)
-taxa <- read.csv("~/Results/PIPELINE_COMPARISON/RESULTS/Milk-dataset/taxa_closedref.Micca_x_greengenes2-milk.txt", sep = "\t", header = F)
+otu <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/otutable_closedref.Micca_x_16SITGDB-mock12.txt", sep = "\t", header = T)
+taxa <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxa_closedref.Micca_x_16SITGDB-mock12.txt", sep = "\t", header = F)
 colnames(taxa)[1] ="OTU"
 colnames(taxa)[2] = "taxonomy"
 taxonomy <- merge(otu, taxa, by=c("OTU"),all.x=TRUE)
 taxonomy[c('kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species')] <- str_split_fixed(taxonomy$taxonomy, ';', 7)
 taxonomy$taxonomy <- NULL
 
-write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/RESULTS/Milk-dataset/taxonomy_Micca.closedref_x_greengenes2.csv")
+write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxonomy_Micca.closedref_x_16SITGDB-mock12.csv")
 ```
 
 ```{r denovounoise, include=FALSE}
 library(stringr)
 
-otu <- read.csv("~/Results/PIPELINE_COMPARISON/RESULTS/Milk-dataset/otutable_denovounoise.Micca_x_greengenes2-milk.txt", sep = "\t", header = T)
-taxa <- read.csv("~/Results/PIPELINE_COMPARISON/RESULTS/Milk-dataset/taxa_denovounoise.Micca_x_greengenes2-milk.txt", sep = "\t", header = F)
+otu <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/otutable_denovounoise.Micca_x_16SITGDB-mock12.txt", sep = "\t", header = T)
+taxa <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxa_denovounoise.Micca_x_16SITGDB-mock12.txt", sep = "\t", header = F)
 colnames(taxa)[1] ="OTU"
 colnames(taxa)[2] = "taxonomy"
 taxonomy <- merge(otu, taxa, by=c("OTU"),all.x=TRUE)
 taxonomy[c('kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species')] <- str_split_fixed(taxonomy$taxonomy, ';', 7)
 taxonomy$taxonomy <- NULL
 
-write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/RESULTS/Milk-dataset/taxonomy_Micca.denovounoise_x_greengenes2.csv")
+write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxonomy_Micca.denovounoise_x_16SITGDB-mock12.csv")
+```
+
+```{r closedref, include=FALSE}
+library(stringr)
+
+otu <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/otutable_closedref.Micca_x_gg_13_8-mock12.txt", sep = "\t", header = T)
+taxa <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxa_closedref.Micca_x_gg_13_8-mock12.txt", sep = "\t", header = F)
+colnames(taxa)[1] ="OTU"
+colnames(taxa)[2] = "taxonomy"
+taxonomy <- merge(otu, taxa, by=c("OTU"),all.x=TRUE)
+taxonomy[c('kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species')] <- str_split_fixed(taxonomy$taxonomy, ';', 7)
+taxonomy$taxonomy <- NULL
+
+write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxonomy_Micca.closedref_x_gg_13_8-mock12.csv")
+```
+
+```{r denovounoise, include=FALSE}
+library(stringr)
+
+otu <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/otutable_denovounoise.Micca_x_gg_13_8-mock12.txt", sep = "\t", header = T)
+taxa <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxa_denovounoise.Micca_x_gg_13_8-mock12.txt", sep = "\t", header = F)
+colnames(taxa)[1] ="OTU"
+colnames(taxa)[2] = "taxonomy"
+taxonomy <- merge(otu, taxa, by=c("OTU"),all.x=TRUE)
+taxonomy[c('kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species')] <- str_split_fixed(taxonomy$taxonomy, ';', 7)
+taxonomy$taxonomy <- NULL
+
+write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxonomy_Micca.denovounoise_x_gg_13_8-mock12.csv")
+```
+
+```{r closedref, include=FALSE}
+library(stringr)
+
+otu <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/otutable_closedref.Micca_x_greengenes2-mock12.txt", sep = "\t", header = T)
+taxa <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxa_closedref.Micca_x_greengenes2-mock12.txt", sep = "\t", header = F)
+colnames(taxa)[1] ="OTU"
+colnames(taxa)[2] = "taxonomy"
+taxonomy <- merge(otu, taxa, by=c("OTU"),all.x=TRUE)
+taxonomy[c('kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species')] <- str_split_fixed(taxonomy$taxonomy, ';', 7)
+taxonomy$taxonomy <- NULL
+
+write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxonomy_Micca.closedref_x_greengenes2-mock12.csv")
+```
+
+```{r denovounoise, include=FALSE}
+library(stringr)
+
+otu <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/otutable_denovounoise.Micca_x_greengenes2-mock12.txt", sep = "\t", header = T)
+taxa <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxa_denovounoise.Micca_x_greengenes2-mock12.txt", sep = "\t", header = F)
+colnames(taxa)[1] ="OTU"
+colnames(taxa)[2] = "taxonomy"
+taxonomy <- merge(otu, taxa, by=c("OTU"),all.x=TRUE)
+taxonomy[c('kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species')] <- str_split_fixed(taxonomy$taxonomy, ';', 7)
+taxonomy$taxonomy <- NULL
+
+write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxonomy_Micca.denovounoise_x_greengenes2-mock12.csv")
+```
+
+```{r closedref, include=FALSE}
+library(stringr)
+
+otu <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/otutable_closedref.Micca_x_RDP-mock12.txt", sep = "\t", header = T)
+taxa <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxa_closedref.Micca_x_RDP-mock12.txt", sep = "\t", header = F)
+colnames(taxa)[1] ="OTU"
+colnames(taxa)[2] = "taxonomy"
+taxonomy <- merge(otu, taxa, by=c("OTU"),all.x=TRUE)
+taxonomy[c('kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species')] <- str_split_fixed(taxonomy$taxonomy, ';', 7)
+taxonomy$taxonomy <- NULL
+
+write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxonomy_Micca.closedref_x_RDP-mock12.csv")
+```
+
+```{r denovounoise, include=FALSE}
+library(stringr)
+
+otu <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/otutable_denovounoise.Micca_x_RDP-mock12.txt", sep = "\t", header = T)
+taxa <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxa_denovounoise.Micca_x_RDP-mock12.txt", sep = "\t", header = F)
+colnames(taxa)[1] ="OTU"
+colnames(taxa)[2] = "taxonomy"
+taxonomy <- merge(otu, taxa, by=c("OTU"),all.x=TRUE)
+taxonomy[c('kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species')] <- str_split_fixed(taxonomy$taxonomy, ';', 7)
+taxonomy$taxonomy <- NULL
+
+write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxonomy_Micca.denovounoise_x_RDP-mock12.csv")
+```
+
+```{r closedref, include=FALSE}
+library(stringr)
+
+otu <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/otutable_closedref.Micca_x_Silva_132-mock12.txt", sep = "\t", header = T)
+taxa <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxa_closedref.Micca_x_Silva_132-mock12.txt", sep = "\t", header = F)
+colnames(taxa)[1] ="OTU"
+colnames(taxa)[2] = "taxonomy"
+taxonomy <- merge(otu, taxa, by=c("OTU"),all.x=TRUE)
+taxonomy[c('kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species')] <- str_split_fixed(taxonomy$taxonomy, ';', 7)
+taxonomy$taxonomy <- NULL
+
+write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxonomy_Micca.closedref_x_Silva_132-mock12.csv")
+```
+
+```{r denovounoise, include=FALSE}
+library(stringr)
+
+otu <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/otutable_denovounoise.Micca_x_Silva_132-mock12.txt", sep = "\t", header = T)
+taxa <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxa_denovounoise.Micca_x_Silva_132-mock12.txt", sep = "\t", header = F)
+colnames(taxa)[1] ="OTU"
+colnames(taxa)[2] = "taxonomy"
+taxonomy <- merge(otu, taxa, by=c("OTU"),all.x=TRUE)
+taxonomy[c('kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species')] <- str_split_fixed(taxonomy$taxonomy, ';', 7)
+taxonomy$taxonomy <- NULL
+
+write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxonomy_Micca.denovounoise_x_Silva_132-mock12.csv")
+```
+
+```{r closedref, include=FALSE}
+library(stringr)
+
+otu <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/otutable_closedref.Micca_x_Silva_138-mock12.txt", sep = "\t", header = T)
+taxa <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxa_closedref.Micca_x_Silva_138-mock12.txt", sep = "\t", header = F)
+colnames(taxa)[1] ="OTU"
+colnames(taxa)[2] = "taxonomy"
+taxonomy <- merge(otu, taxa, by=c("OTU"),all.x=TRUE)
+taxonomy[c('kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species')] <- str_split_fixed(taxonomy$taxonomy, ';', 7)
+taxonomy$taxonomy <- NULL
+
+write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxonomy_Micca.closedref_x_Silva_138-mock12.csv")
+```
+
+```{r denovounoise, include=FALSE}
+library(stringr)
+
+otu <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/otutable_denovounoise.Micca_x_Silva_138-mock12.txt", sep = "\t", header = T)
+taxa <- read.csv("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxa_denovounoise.Micca_x_Silva_138-mock12.txt", sep = "\t", header = F)
+colnames(taxa)[1] ="OTU"
+colnames(taxa)[2] = "taxonomy"
+taxonomy <- merge(otu, taxa, by=c("OTU"),all.x=TRUE)
+taxonomy[c('kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species')] <- str_split_fixed(taxonomy$taxonomy, ';', 7)
+taxonomy$taxonomy <- NULL
+
+write.csv(taxonomy, file="~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/taxonomy_Micca.denovounoise_x_Silva_138-mock12.csv")
 ```

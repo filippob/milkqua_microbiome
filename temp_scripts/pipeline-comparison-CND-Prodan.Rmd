@@ -1,0 +1,400 @@
+---
+title: "pipeline-comparison-CND-Prodan"
+author: "Chiara Gini"
+date: "2023-09-13"
+output: html_document
+---
+
+```{r packages, include=FALSE}
+library(data.table)
+library(tidyverse)
+library(scales) #used for rescale
+library(ggh4x)
+library(ggpubr) #for ggarrange
+```
+
+
+```{r setup general, include=FALSE}
+project_folder = "/home/mycelium/Results/PIPELINE_COMPARISON/UofGuelph"
+analysis_folder = "Mockprodan/" #others will be 99_prodandataset & 99_mockrobiota
+results_folder = "results/"
+base_dir <- file.path(project_folder, analysis_folder)
+```
+
+
+```{r setup Vsearch, include=FALSE}
+VS = data_frame()
+all_files_VS <- paste0(base_dir, list.files(base_dir, recursive = TRUE, pattern = "Vsearch"))
+for (filename in all_files_VS) {
+  show(filename)
+  tmp <- fread(filename)
+  tmp$file <- filename
+  tmp$`#OTU_ID` <- NULL
+  VS = bind_rows(VS, tmp)
+}
+
+VS[, c(1:3)] <- VS[, c(1:3)]/colSums(VS[, c(1:3)]) #normalizzazione
+
+colnames(VS)[4] <- "kingdom"
+colnames(VS)[5] <-"phylum"
+colnames(VS)[6] <-"class"
+colnames(VS)[7] <-"order"
+colnames(VS)[8] <-"family"
+colnames(VS)[9] <-"genus"
+colnames(VS)[10] <-"species"
+VS$file <- str_remove(VS$file, "/home/mycelium/Results/PIPELINE_COMPARISON/UofGuelph/Mockprodan/otu_table-") #change here
+VS$file <- str_remove(VS$file, "-prodan.csv") #change here
+VS <- VS %>% separate(file, c('pipeline', 'database'), sep = "_x_")
+VS <- filter(VS, kingdom != "\tArchaea")
+VS$kingdom <- str_remove(VS$kingdom, "\tk__") #change here
+VS <- filter(VS, kingdom != "Archaea", kingdom != "Eukaryota", family !="Mitochondria", class !="Chloroplast")
+VS$genus <- str_remove(VS$genus, "g__")
+VS$species <- str_remove(VS$species, "s__")
+VS$method <- "Clustering"
+VS <- VS[,-4:-8]
+VS <- VS %>% select(order(colnames(VS)))
+VS$V13 <- NULL
+```
+
+
+```{r setup Qiime2, include=FALSE}
+Q2 = data_frame()
+all_files_Q2 <- paste0(base_dir, list.files(base_dir, recursive = TRUE, pattern = "Qiime2"))
+for (filename in all_files_Q2) {
+  show(filename)
+  tmp <- fread(filename, skip = 1, header = T)
+  # tmp$`#OTU_ID` <- as.character(tmp$`#OTU_ID`)
+  # colnames(tmp) <- paste("sample", colnames(tmp), sep = "")
+  tmp <- tmp %>% select(order(colnames(tmp)))
+  tmp$file <- filename
+  Q2 = bind_rows(Q2, tmp)
+}
+
+Q2[, c(2:4)] <- Q2[, c(2:4)]/colSums(Q2[, c(2:4)]) #normalizzazione
+
+Q2$file <- str_remove(Q2$file, "/home/mycelium/Results/PIPELINE_COMPARISON/UofGuelph/Mockprodan/feature-table_") #change here
+Q2$file <- str_remove(Q2$file, "-prodan.tsv") #change here
+Q2 <- Q2 %>% separate(file, c('pipeline', 'database'), sep = "_x_")
+Q2 <- Q2 %>% separate(`#OTU ID`, c("kingdom", "phylum", "class", "order", "family", "genus", "species"), sep = ";")
+Q2$kingdom <- str_remove(Q2$kingdom, "d__") #change here
+Q2$kingdom <- str_remove(Q2$kingdom, "k__") #change here
+Q2$phylum <- str_remove(Q2$phylum, "p__") #change here
+Q2$class <- str_remove(Q2$class, "c__")
+Q2$order <- str_remove(Q2$order, "o__")
+Q2$family <- str_remove(Q2$family, "f__")
+Q2$genus <- str_remove(Q2$genus, "g__")
+Q2$species <- str_remove(Q2$species, "s__")
+Q2 <- filter(Q2, kingdom != "Archaea", kingdom != "Eukaryota", family !="Mitochondria", class !="Chloroplast")
+Q2 <- Q2 %>%
+  mutate(method = case_when(
+    startsWith(pipeline, "alternative") ~ "Clustering",
+    startsWith(pipeline, "classic") ~ "Binning"
+    ))
+Q2 <- Q2[,-1:-5]
+Q2 <- Q2 %>% select(order(colnames(Q2)))
+Q2$genus <- gsub('_.*\\w+', '\\1', Q2$genus)
+
+Q2 <- filter(Q2, species != "__")
+Q2 <- filter(Q2, species != "")
+```
+
+
+```{r setup Micca, include=FALSE}
+Mi = data_frame()
+all_files_Mi <- paste0(base_dir, list.files(base_dir, recursive = TRUE, pattern = "Micca"))
+for (filename in all_files_Mi) {
+  show(filename)
+  tmp <- read.csv(filename, header = T)
+  # tmp <- tmp %>% select(order(colnames(tmp)))
+  tmp$file <- filename
+  Mi = bind_rows(Mi, tmp)
+}
+
+Mi[, c(3:5)] <- Mi[, c(3:5)]/colSums(Mi[, c(3:5)]) #normalizzazione
+
+names(Mi) <- gsub(x = names(Mi), pattern = "X", replacement = "sample")
+Mi$sample <- NULL
+Mi$OTU <- NULL
+Mi$file <- str_remove(Mi$file, "/home/mycelium/Results/PIPELINE_COMPARISON/UofGuelph/Mockprodan/taxonomy_") #change here
+Mi$file <- str_remove(Mi$file, "-prodan.csv") #change here
+Mi <- Mi %>% separate(file, c('pipeline', 'database'), sep = "_x_")
+Mi$kingdom <- str_remove(Mi$kingdom, "k__") #change here
+Mi$phylum <- str_remove(Mi$phylum, "p__") #change here
+Mi$class <- str_remove(Mi$class, "c__")
+Mi$order <- str_remove(Mi$order, "o__")
+Mi$family <- str_remove(Mi$family, "f__")
+Mi$genus <- str_remove(Mi$genus, "g__")
+Mi <- filter(Mi, kingdom != "Archaea", kingdom != "Eukaryota", family !="Mitochondria", class !="Chloroplast")
+Mi <- Mi %>%
+  mutate(method = case_when(
+    endsWith(pipeline, "closedref") ~ "Clustering",
+    endsWith(pipeline, "denovounoise") ~ "Binning"))
+Mi <- Mi[, -4:-8]
+Mi <- Mi %>% select(order(colnames(Mi)))
+Mi$genus <- gsub('_.*\\w+', '\\1', Mi$genus)
+
+Mi <- filter(Mi, species != "")
+Mi <- filter(Mi, species != "_")
+```
+
+
+```{r setup Qiime1.9, include=FALSE}
+Q1_9 = data_frame()
+all_files_Q1_9 <- paste0(base_dir, list.files(base_dir, recursive = TRUE, pattern = "Qiime1.9"))
+for (filename in all_files_Q1_9) {
+  show(filename)
+  tmp <- fread(filename, skip = 1, header = T)
+  tmp <- tmp %>% select(order(colnames(tmp)))
+  tmp$file <- filename
+  tmp$`#OTU ID` <- as.character(tmp$`#OTU ID`)
+  Q1_9 = bind_rows(Q1_9, tmp)
+}
+
+Q1_9[, c(2:4)] <- Q1_9[, c(2:4)]/colSums(Q1_9[, c(2:4)]) #normalizzazione
+
+Q1_9$file <- str_remove(Q1_9$file, "/home/mycelium/Results/PIPELINE_COMPARISON/UofGuelph/Mockprodan/otu_table_") 
+Q1_9$file <- str_remove(Q1_9$file, "-prodan.tsv") #change here
+Q1_9 <- Q1_9 %>% separate(file, c('pipeline', 'database'), sep = "_x_")
+
+colnames(Q1_9)[5] <- "kingdom"
+colnames(Q1_9)[6] <-"genus"
+colnames(Q1_9)[7] <-"species"
+colnames(Q1_9)[8] <-"phylum"
+colnames(Q1_9)[9] <-"class"
+colnames(Q1_9)[10] <-"order"
+colnames(Q1_9)[11] <-"family"
+
+# Q1_9 <- Q1_9 %>% separate(taxonomy, c("kingdom", "phylum", "class", "order", "family", "genus", "species"), sep = "; ")
+Q1_9$kingdom <- str_remove(Q1_9$kingdom, "d__") #change here
+Q1_9$kingdom <- str_remove(Q1_9$kingdom, "k__") #change here
+Q1_9$phylum <- str_remove(Q1_9$phylum, "p__") #change here
+Q1_9$class <- str_remove(Q1_9$class, "c__")
+Q1_9$order <- str_remove(Q1_9$order, "o__")
+Q1_9$family <- str_remove(Q1_9$family, "f__")
+Q1_9$genus <- str_remove(Q1_9$genus, "g__")
+Q1_9$species <- str_remove(Q1_9$species, "s__")
+Q1_9 <- filter(Q1_9, kingdom != "Archaea", kingdom != "Eukaryota", family !="Mitochondria", class !="Chloroplast")
+Q1_9$kingdom <- NULL
+Q1_9$`#OTU ID` <- NULL
+Q1_9$V12 <- NULL
+Q1_9$method <- "Clustering"
+
+Q1_9 <- Q1_9[, -6:-9]
+Q1_9 <- Q1_9 %>% select(order(colnames(Q1_9)))
+Q1_9 <- filter(Q1_9, species != "")
+```
+
+```{r taxonomic df, include=FALSE}
+res = data_frame()
+res <- rbind(Mi, Q1_9, Q2, VS)
+res$tot <- rowSums(res[,c(5:7)],)
+res <- res[, -c(5:7)]
+```
+
+```{r genera 1}
+genera <- subset(res, select = -c(species))
+genera$info <- paste(genera$pipeline, genera$database, genera$method, genera$genus, sep = ";")
+genera <- subset(genera, select = c(tot, info))
+genera <- genera  %>%
+  group_by(info) %>%
+  summarise(across(everything(), sum))
+genera <- genera %>% separate(info, c("pipeline", "database", "method", "genus"), sep = ";")
+
+expgen <- fread("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockprodan/expected_genera", sep="", header=F)
+exogen <- as.vector(expgen)
+exugen <- transform(genera,expected=grepl(paste0(exogen$V1,collapse="|"),genera$genus)+0)
+exugen[exugen$expected == 0, "genus"] <- "NotExpected"
+exugen$tot <- as.numeric(exugen$tot)
+exugen$info <- paste(exugen$pipeline, exugen$database, exugen$method, exugen$genus, sep = ";")
+exugen <- subset(exugen, select = c(tot, info))
+exugen <- exugen  %>%
+  group_by(info) %>%
+  summarise(across(everything(), sum))
+exugen <- exugen %>% separate(info, c("pipeline", "database", "method", "genus"), sep = ";")
+exugen$genus <- gsub('_.*\\w+', '\\1', exugen$genus)
+exugen$genus <- gsub('_.*\\w+', '\\1', exugen$genus)
+exugen$genus <- sub(" .*", "", exugen$genus)
+```
+
+
+```{r genera 2 heatmap}
+tax <- exugen
+tax$tot <- as.numeric(tax$tot)
+
+test1 <- split(tax, with(tax, interaction(pipeline, database, method)), drop = TRUE)
+res2 = data.frame()
+
+ for (i in test1) {
+   title <- paste(i$pipeline, i$database, i$method, sep = ";")
+    D <- i %>%
+       group_by(genus) %>%
+       summarise(N=n(), avg_abund = round(mean(tot),6), std = round(sd(tot),6)) %>%
+       # filter(avg_abund>5) %>% #Filter here
+       arrange(genus,avg_abund)
+    G <- D %>%
+      group_by(genus) %>%
+      summarize("s"=sum(avg_abund)) %>%
+      arrange(desc(s)) %>%
+      dplyr::select(genus,s)
+  
+    D$genus <- factor(D$genus, levels = rev(G$genus[order(G$s)]))
+    D <- D %>%
+      arrange(genus)
+    D$rescale <- round(D$avg_abund/sum(D$avg_abund)*100,2)
+    D$info <- as.character(title[1])
+    res2 = bind_rows(res2, D)
+ }
+
+temp <- subset(res2, select=-c(N, avg_abund, std))
+temp$dat <- paste(temp$info, temp$genus, sep = "@")
+temp <- subset(temp, select = c(dat, rescale))
+temp <- temp  %>%
+  group_by(dat) %>%
+  summarise(across(everything(), sum))
+temp <- temp %>% separate(dat, c("info", "genus"), sep = "@")
+
+A <- pivot_wider(temp, names_from = "info", values_from = "rescale")
+B <- A %>% pivot_longer(!genus, names_to = "info", values_to = "percentage")
+B$percentage[is.na(B$percentage)] <- 0
+# 
+# B <- B %>% separate(info, c("pipeline", "database", "method"), sep = ";")
+# B$info <- paste(B$pipeline, B$database, sep = ";")
+
+level_order <- c("Acinetobacter", "Actinomyces", "Bacillus", "Bacteroides", "Clostridium", "Deinococcus", "Enterococcus", "Escherichia", "Helicobacter", "Lactobacillus", "Listeria", "Neisseria", "Propionibacterium", "Pseudomonas", "Rhodobacter", "Staphylococcus", "Streptococcus", "NotExpected")
+
+hm <- ggplot(B, aes(x= genus, y=info, fill=percentage)) + 
+  geom_tile(color = "white", lwd = 0.5, linetype = 1) + #, x = factor(genus, levels = level_order)) +
+  # facet_wrap(~method, strip.position = "right") +
+  theme(panel.spacing = unit(0, "lines"), strip.background = element_blank(), strip.placement = "outside") +
+  geom_text(aes(label = percentage), color = "black", size = 2) + 
+  # theme(legend.text = element_text(size=14), legend.title = element_text(size=16), axis.title.x = element_text(size = 20)) +
+  scale_x_discrete(limits = level_order, guide = guide_axis(angle = 90)) +
+  theme(legend.position = "bottom") +
+  scale_fill_gradientn(colours = c("white", "orange", "blue"), values = c(0,0.1,1))
+hm
+
+ggsave(filename = file.path(base_dir, results_folder, "prodandataset-genera-heatmap.png"), plot = hm, device = "png", width = 10, height = 10)
+write.csv(A, file.path(base_dir, results_folder,"MockProdan-comparepercent-genera.csv"))
+```
+
+```{r genera piecharts}
+res3 <- res2 %>% separate(info, c("pipeline", "database", "method"), sep = ";")
+res3$genus <-gsub("_"," ",as.character(res3$genus))
+
+my_palette2 = get_palette(c("green3","purple", "pink1", "seagreen2", "#ffb6db", "#490092","#006ddb", "#920000","gold","blue","magenta","darkorange1","#b66dff","#6db6ff","red","#b6dbff","cyan","yellow","#24ff24","#ffff6d"), length(unique(res3$genus)))
+
+p <- ggplot(res3, aes(x=factor(1), y= rescale, fill=genus)) +
+  geom_bar(stat="identity", width=1, position = "fill") +
+  coord_polar("y", start=0) +
+  facet_grid(method+pipeline~database) +
+  theme(strip.text = element_text(size = 20)) +
+  theme(legend.position = "bottom", panel.grid = element_blank(), axis.text = element_blank()) +
+  theme(legend.text = element_text(size=14), legend.title = element_text(size=16), axis.title.x = element_text(size = 20),
+  axis.title = element_text(size = 20)) + scale_fill_manual(values = my_palette2) +
+  xlab("Pipelines") + ylab("Datasets")
+
+# ggsave(filename = file.path(base_dir, results_folder, "prodandataset-genera.png"), plot = p, device = "png", width = 20, height = 20)
+```
+
+
+```{r species 1}
+expspc <- fread("~/Results/PIPELINE_COMPARISON/UofGuelph/Mockprodan/expected_species", sep="", header=F)
+exospc <- as.vector(expspc)
+exuspc <- transform(res,expected=grepl(paste0(exospc$V1,collapse="|"),res$species)+0)
+exuspc[exuspc$expected == 0, "species"] <- "Not_expected"
+exuspc$tot <- as.numeric(exuspc$tot)
+exuspc$info <- paste(exuspc$pipeline, exuspc$database, exuspc$method, exuspc$species, sep = ";")
+exuspc <- subset(exuspc, select = c(tot, info))
+exuspc <- exuspc  %>%
+  group_by(info) %>%
+  summarise(across(everything(), sum))
+exuspc <- exuspc %>% separate(info, c("pipeline", "database", "method", "species"), sep = ";")
+exuspc$species <- stringr::str_extract(exuspc$species, "[^_]*_[^_]*")
+```
+
+
+```{r species 2}
+tax <- exuspc
+tax$tot <- as.numeric(tax$tot)
+
+test1 <- split(tax, with(tax, interaction(pipeline, database, method)), drop = TRUE)
+res2 = data.frame()
+
+ for (i in test1) {
+   title <- paste(i$pipeline, i$database, i$method, sep = ";")
+    D <- i %>%
+       group_by(species) %>%
+       summarise(N=n(), avg_abund = round(mean(tot),3), std = round(sd(tot),3)) %>%
+       arrange(species,avg_abund)
+    G <- D %>%
+      group_by(species) %>%
+      summarize("s"=sum(avg_abund)) %>%
+      arrange(desc(s)) %>%
+      dplyr::select(species,s)
+  
+    D$species <- factor(D$species, levels = rev(G$species[order(G$s)]))
+    D <- D %>%
+      arrange(species)
+    D$rescale <- round(D$avg_abund/sum(D$avg_abund)*100,2)
+    D$info <- as.character(title[1])
+    res2 = bind_rows(res2, D)
+ }
+
+temp <- subset(res2, select=-c(N, avg_abund, std))
+temp$dat <- paste(temp$info, temp$species, sep = "@")
+temp <- subset(temp, select = c(dat, rescale))
+temp <- temp  %>%
+  group_by(dat) %>%
+  summarise(across(everything(), sum))
+temp <- temp %>% separate(dat, c("info", "species"), sep = "@")
+A <- pivot_wider(temp, names_from = "info", values_from = "rescale")
+B <- A %>% pivot_longer(!species, names_to = "info", values_to = "percentage")
+B$percentage[is.na(B$percentage)] <- 0
+# 
+# B <- B %>% separate(info, c("pipeline", "database", "method"), sep = ";")
+# B$info <- paste(B$pipeline, B$database, sep = ";")
+
+level_order <- c("Acinetobacter_baumannii","Actinomyces_odontolytica", "Bacillus_cereus", "Bacteroides_vulgatus", "Clostridium_beijerinckii", "Deinococcus_radiodurans",  "Enterococcus_faecalis", "Escherichia_coli", "Helicobacter_pylori", "Lactobacillus_gasseri", "Listeria_monocytogenes", "Neisseria_meningitidis", "Propionibacterium_acnes", "Pseudomonas_aeruginosa", "Rhodobacter_sphaeroides", "Staphylococcus_aureus", "Staphylococcus_epidermidis", "Streptococcus_agalactiae", "Streptococcus_mutans", "Streptococcus_pneumoniae", "Not_expected")
+
+hn <- ggplot(B, aes(x= species, y=info, fill=percentage)) + 
+  geom_tile(color = "white", lwd = 0.5, linetype = 1) + #, x = factor(genus, levels = level_order)) +
+  # facet_wrap(~method, strip.position = "right") +
+  theme(panel.spacing = unit(0, "lines"), strip.background = element_blank(), strip.placement = "outside") +
+  geom_text(aes(label = percentage), color = "black", size = 2) + 
+  # theme(legend.text = element_text(size=14), legend.title = element_text(size=16), axis.title.x = element_text(size = 20)) +
+  scale_x_discrete(limits = level_order, guide = guide_axis(angle = 90)) +
+  theme(legend.position = "bottom") +
+  scale_fill_gradientn(colours = c("white", "orange", "blue"), values = c(0,0.1,1))
+hm
+
+ggsave(filename = file.path(base_dir, results_folder, "prodandataset-species-heatmap.png"), plot = hn, device = "png", width = 10, height = 10)
+
+write.csv(A, file.path(base_dir, results_folder, "MockProdan-comparepercent-species.csv"))
+```
+
+```{r species 3}
+res3 <- res2 %>% separate(info, c("pipeline", "database", "method"), sep = ";")
+res3$species <-gsub("_"," ",as.character(res3$species))
+
+my_palette2 = get_palette(c("green3","purple","#b6dbff", "pink1", "seagreen2", "#ffb6db", "#490092","#006ddb", "#920000","gold","blue","magenta","darkorange1","#b66dff","#6db6ff","yellow","red","cyan","#24ff24","#ffff6d"), length(unique(res3$species)))
+
+q <- ggplot(res3, aes(x=factor(1), y= rescale, fill=species)) +
+  geom_bar(stat="identity", width=1, position = "fill") +
+  coord_polar("y", start=0) +
+  facet_grid(method+pipeline~database) +
+  theme(strip.text = element_text(size = 20)) +
+  theme(legend.position = "bottom", panel.grid = element_blank(), axis.text = element_blank()) +
+  theme(legend.text = element_text(size=14), legend.title = element_text(size=16), axis.title.x = element_text(size = 20),
+  axis.title = element_text(size = 20)) + scale_fill_manual(values = my_palette2) +
+  xlab("Pipelines") + ylab("Datasets")
+
+# ggsave(filename = file.path(base_dir, results_folder, "prodandataset-species.png"), plot = q, device = "png", width = 20, height = 20)
+```
+
+
+```{r}
+H <- ggarrange(hm, hn, common.legend = T, legend = "left", labels = c("A", "B"))
+               
+ggsave(filename = file.path(base_dir, results_folder, "prodandataset-heatmap-genera-species.png"), plot = H, device = "png", width = 20, height = 10)
+```
+

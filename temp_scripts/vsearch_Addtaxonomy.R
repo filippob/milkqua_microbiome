@@ -1,5 +1,5 @@
 homedir="~/Results/PIPELINE_COMPARISON/"
-outputfile="~/Results/PIPELINE_COMPARISON/RESULTS/Milk-dataset/otutab-Vsearch_x_Silva_138-milk.txt"
+outputfile="~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/otutab-Vsearch_x_Silva_138-mock12.txt"
 taxfile="~/Downloads/taxa_itgdb_taxa_mothur.txt"
 output_dir=homedir
 
@@ -50,6 +50,6 @@ colnames(df2)[1] <- "#OTU_ID"
 df2$`#OTU_ID` <- as.character(df2$`#OTU_ID`)
 df1$`#OTU_ID` <- as.character(df1$`#OTU_ID`)
 data <- left_join(df1,df2, by="#OTU_ID")
-write.table(data, file = "~/Results/PIPELINE_COMPARISON/RESULTS/Milk-dataset/otu_table-Vsearch_x_Silva_138.csv")
+write.table(data, file = "~/Results/PIPELINE_COMPARISON/UofGuelph/Mockrobiota/otu_table-Vsearch_x_Silva_138-mock12.csv")
 print("R finished")
 
